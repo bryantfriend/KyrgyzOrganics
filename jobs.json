@@ -27,4 +27,19 @@
       "Willingness to learn"
     ]
   }
+  {
+  "id": "robot-human-assistant",
+  "title": "Robot Human Assistant",
+  "department": "Automation",
+  "image": "images/robot_assistant.jpg",
+  "shortDescription": "Oversee and control up to 10 robots to keep operations running smoothly.",
+  "fullDescription": "As a Robot Human Assistant, you’ll be responsible for remotely managing up to 10 robots to carry out various tasks in our eco-factories or organic farms. This role requires fast reflexes, problem-solving ability, and independent decision-making. You’ll also report technical or operational issues to the supervisor team.",
+  "location": "Bishkek or Remote",
+  "qualifications": [
+    "Ability to react quickly",
+    "Work independently",
+    "Communicate issues clearly to supervisors"
+  ]
+}
+
 ]
