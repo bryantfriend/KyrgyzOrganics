@@ -1,0 +1,30 @@
+[
+  {
+    "id": "delivery-driver",
+    "title": "Delivery Driver",
+    "department": "Logistics",
+    "image": "images/delivery_driver.jpg",
+    "shortDescription": "Deliver organic products to our customers around Bishkek.",
+    "fullDescription": "As a Delivery Driver, you'll be responsible for transporting our organic goods safely and on time to local customers. This role requires excellent time management and customer service skills.",
+    "location": "Bishkek",
+    "qualifications": [
+      "Valid driver’s license",
+      "Reliable vehicle",
+      "Good communication skills"
+    ]
+  },
+  {
+    "id": "bakery-assistant",
+    "title": "Bakery Assistant",
+    "department": "Production",
+    "image": "images/bakery_assistant.jpg",
+    "shortDescription": "Assist in baking our signature sourdough bread.",
+    "fullDescription": "Work directly with our bakers to prepare, shape, and bake organic sourdough breads. This is a hands-on role for someone who loves food and teamwork.",
+    "location": "Bishkek",
+    "qualifications": [
+      "Experience in food prep",
+      "Team player",
+      "Willingness to learn"
+    ]
+  }
+]
