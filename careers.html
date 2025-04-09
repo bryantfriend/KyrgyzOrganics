@@ -1,35 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Careers – OA Kyrgyz Organic</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Careers – OA Kyrgyz Organic</title>
+  <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
-    <header>
-        <h1>OA Kyrgyz Organic</h1>
-        <p>Natural Eco Products Delivered to Your Home</p>
-    </header>
-    <nav>
-        <ul>
-            <li><a href="index.html#about">About Us</a></li>
-            <li><a href="index.html#products">Our Products</a></li>
-            <li><a href="index.html#contact">Contact</a></li>
-            <li><a href="careers.html">Careers</a></li>
-        </ul>
-    </nav>
+  <header>
+    <h1>OA Kyrgyz Organic</h1>
+    <p>Natural Eco Products Delivered to Your Home</p>
+  </header>
+  <nav>
+    <ul>
+      <li><a href="index.html#about">About Us</a></li>
+      <li><a href="index.html#products">Our Products</a></li>
+      <li><a href="index.html#contact">Contact</a></li>
+      <li><a href="careers.html">Careers</a></li>
+    </ul>
+  </nav>
 
-    <section id="careers">
-        <h2>Join Our Team</h2>
-        <div id="jobs-container"></div>
-    </section>
+  <section id="careers">
+    <h2>Join Our Team</h2>
+    <label for="filter">Filter by Department:</label>
+    <select id="filter">
+      <option value="All">All</option>
+      <option value="Logistics">Logistics</option>
+      <option value="Production">Production</option>
+    </select>
+    <div id="jobs-container"></div>
+  </section>
 
-    <footer>
-        <p>&copy; 2025 OA Kyrgyz Organic. All rights reserved.</p>
-    </footer>
+  <!-- Modal -->
+  <div id="jobModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2 id="modalTitle"></h2>
+      <img id="modalImage" src="" alt="" />
+      <p id="modalDescription"></p>
+      <ul id="modalQualifications"></ul>
+      <p><strong>Location:</strong> <span id="modalLocation"></span></p>
+    </div>
+  </div>
 
-    <script src="jobs.js"></script>
+  <footer>
+    <p>&copy; 2025 OA Kyrgyz Organic. All rights reserved.</p>
+  </footer>
+
+  <script src="jobs.js"></script>
 </body>
 </html>
-
