@@ -1,101 +1,156 @@
+/* General Layout */
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Segoe UI', sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #f4f4f4;
+    background-color: #f9f9f9;
 }
 
 header {
-    background-color: #4CAF50;
+    background-color: #2e7d32;
     color: white;
     text-align: center;
-    padding: 1em 0;
+    padding: 2.5em 0; /* Increased padding */
+}
+
+/* Navigation Menu */
+nav {
+    background-color: #1c1f26;
 }
 
 nav ul {
-    background-color: #333;
-    overflow: hidden;
-    color: white;
-    padding: 0;
-    text-align: center;
     margin: 0;
-}
-
-nav ul li {
-    display: inline;
-    padding: 20px;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 nav ul li a {
+    display: inline-block;
+    padding: 6px 14px;
+    margin: 8px 4px;
     color: white;
     text-decoration: none;
+    font-weight: 600;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
+nav ul li a:hover {
+    background-color: #3a3f4b; /* light gray-black hover */
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+nav ul li a.active {
+    background-color: #2e7d32; /* green for active */
+    color: white;
+}
+
+
+/* Sections */
 section {
-    padding: 20px;
-    margin: 20px;
-    background-color: white;
-    border-radius: 5px;
+    padding: 40px 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+h2 {
+    font-size: 2em;
+    margin-bottom: 20px;
+    color: #222;
+}
+
+/* Product Cards */
+.products-container {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
 }
 
 .product {
-    text-align: center;
-    margin: 20px 0;
+    width: 300px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    text-align: left;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.product img {
-    width: 100%;
-    max-width: 300px;
-    height: auto;
-    border-radius: 5px;
+.product:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
 }
 
-footer {
-    text-align: center;
-    padding: 10px;
-    background-color: #333;
+.product-header {
     color: white;
+    padding: 20px;
+    font-size: 1.5em;
+    text-align: center;
 }
 
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 100;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0,0,0,0.6);
+.sourdough .product-header {
+    background-color: #8e44ad;
 }
 
-.modal-content {
-  background-color: white;
-  margin: 10% auto;
-  padding: 20px;
-  border-radius: 5px;
-  width: 90%;
-  max-width: 600px;
-  position: relative;
+.granola .product-header {
+    background-color: #e91e63;
 }
 
-.modal-content img {
-  width: 100%;
-  max-height: 200px;
-  object-fit: cover;
-  border-radius: 5px;
+.kombucha .product-header {
+    background-color: #00b894;
 }
 
-.close {
-  color: #aaa;
-  position: absolute;
-  top: 10px;
-  right: 20px;
-  font-size: 28px;
-  cursor: pointer;
+.product-body {
+    padding: 20px;
 }
 
-.close:hover {
-  color: black;
+.product-body h3 {
+    margin-top: 0;
+    color: #222;
 }
 
+/* Contact Box */
+.contact-box {
+    background-color: white;
+    border-radius: 10px;
+    display: inline-block;
+    padding: 20px 30px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    text-align: left;
+}
+
+/* Footer */
+footer {
+    background-color: #111;
+    color: white;
+    text-align: center;
+    padding: 15px;
+    font-size: 0.9em;
+}
+
+/* Smooth Transitions (Global) */
+a, button {
+    transition: all 0.3s ease;
+}
+.learn-more-btn {
+    background-color: #2e7d32;
+    color: white;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.learn-more-btn:hover {
+    background-color: #3a3f4b;
+}
