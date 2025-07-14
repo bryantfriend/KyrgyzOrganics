@@ -30,12 +30,16 @@ document.addEventListener("DOMContentLoaded", () => {
     jobs.forEach(job => {
       const jobCard = document.createElement("div");
       jobCard.className = "product";
+
       jobCard.innerHTML = `
-        <img src="${job.image}" alt="${job.title}" />
-        <h3>${job.title}</h3>
-        <p>${job.shortDescription}</p>
-        <button data-id="${job.id}">Learn More</button>
+        <div class="product-header" style="background:#2e7d32;">${job.title}</div>
+        <div class="product-body">
+          <img src="${job.image}" alt="${job.title}" style="width:100%; max-height:150px; object-fit:cover; border-radius:5px; margin-bottom:10px;" onerror="this.onerror=null;this.src='images/placeholder.jpg';">
+          <p>${job.shortDescription}</p>
+          <button class="learn-more-btn" data-id="${job.id}">Learn More</button>
+        </div>
       `;
+
       jobCard.querySelector("button").addEventListener("click", () => showModal(job));
       jobsContainer.appendChild(jobCard);
     });
