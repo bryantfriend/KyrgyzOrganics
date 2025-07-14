@@ -1,0 +1,109 @@
+/* ==============================================
+style.css for eONIS Landing Page
+==============================================
+*/
+
+/* --- Base and Font Styles --- */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #F8F9FA;
+}
+
+.font-readex {
+    font-family: 'Readex Pro', sans-serif;
+}
+
+/* --- Reusable Component Styles --- */
+
+/* Glass effect for technology section cards */
+.glass-effect {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Gradient Backgrounds */
+.hero-gradient {
+    background: radial-gradient(circle at 50% 50%, rgba(22, 44, 78, 0.9), rgba(10, 20, 35, 1) 80%);
+}
+
+.section-gradient {
+    background: linear-gradient(180deg, #F8F9FA 0%, #FFFFFF 100%);
+}
+
+.cta-gradient {
+    background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
+}
+
+/* Buttons */
+.btn-primary {
+    padding: 0.75rem 1.5rem; /* px-6 py-3 */
+    background-color: #2563EB; /* bg-blue-600 */
+    color: white;
+    font-weight: 600;
+    border-radius: 0.5rem; /* rounded-lg */
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); /* shadow-md */
+    transition: all 300ms;
+    transform: scale(1);
+}
+
+.btn-primary:hover {
+    background-color: #1D4ED8; /* hover:bg-blue-700 */
+    transform: scale(1.05);
+}
+
+.btn-secondary {
+    padding: 0.75rem 1.5rem; /* px-6 py-3 */
+    background-color: #374151; /* bg-gray-700 */
+    color: white;
+    font-weight: 600;
+    border-radius: 0.5rem; /* rounded-lg */
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); /* shadow-md */
+    transition: all 300ms;
+}
+
+.btn-secondary:hover {
+    background-color: #1F2937; /* hover:bg-gray-800 */
+}
+
+/* Cards */
+.card {
+    background-color: white;
+    border-radius: 0.75rem; /* rounded-xl */
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); /* shadow-lg */
+    overflow: hidden;
+    transition: transform 300ms;
+}
+
+.card:hover {
+    transform: translateY(-0.5rem); /* hover:-translate-y-2 */
+}
+
+/* Icon Containers */
+.icon-box {
+    width: 4rem; /* w-16 */
+    height: 4rem; /* h-16 */
+    background-color: #DBEAFE; /* bg-blue-100 */
+    border-radius: 9999px; /* rounded-full */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0; /* Prevents shrinking in flex container */
+}
+
+/* ----------------------------------------------
+   Interactive Diagram Styles
+   ---------------------------------------------- */
+.connector {
+  position: absolute;
+  background-color: #CBD5E1; /* slate-300 */
+  z-index: 0;
+}
+
+.modal-hidden { display: none; opacity: 0; }
+.modal-visible { display: flex; opacity: 1; }
+.modal-content { transition: transform 0.3s ease-out; transform: scale(0.95); }
+.modal-visible .modal-content { transform: scale(1); }
+
+
