@@ -201,7 +201,7 @@ if (leadForm) {
         }
 
         // 4. Ilja's WhatsApp number
-        const iljaWhatsAppNumber = '+996556099158';
+        const iljaWhatsAppNumber = '+996555099158';
 
         // 5. Create the new, formatted message
         // Note: The asterisks (*) will make the text bold in WhatsApp
@@ -232,3 +232,4 @@ Thank you!`;
         alert('Thank you! We are redirecting you to WhatsApp to send your request.');
     });
 }
+
