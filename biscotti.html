@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Biscotti_Miste - Invest in Artisan Biscotti</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+
+  <!-- AOS Animations -->
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="biscottiStyles.css">
+</head>
+<body class="antialiased">
+
+  <!-- Sticky Navigation -->
+  <header id="header" class="bg-white/80 backdrop-blur-md fixed top-0 left-0 right-0 z-50 shadow-md transition-all duration-300">
+    <div class="container mx-auto px-6 py-3 flex justify-between items-center">
+      <!-- Language Switcher -->
+      <div class="flex items-center space-x-2 lang-switcher">
+        <button data-set-lang="ky" class="p-1 rounded-full active">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Flag_of_Kyrgyzstan.svg" alt="Kyrgyzstan Flag" class="w-6 h-6 rounded-full object-cover">
+        </button>
+        <button data-set-lang="ru" class="p-1 rounded-full">
+          <img src="https://upload.wikimedia.org/wikipedia/en/f/f3/Flag_of_Russia.svg" alt="Russia Flag" class="w-6 h-6 rounded-full object-cover">
+        </button>
+        <button data-set-lang="en" class="p-1 rounded-full">
+          <img src="https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg" alt="USA Flag" class="w-6 h-6 rounded-full object-cover">
+        </button>
+      </div>
+
+      <a href="#" class="hidden sm:block text-2xl font-bold text-green-800">Biscotti_Miste</a>
+      
+      <nav class="hidden md:flex space-x-8 items-center">
+        <a href="#calculator" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_calculator">Calculator</a>
+        <a href="#how-it-works" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_how">How It Works</a>
+        <a href="#why-invest" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_why">Why Invest</a>
+        <a href="#contact" class="nav-link bg-green-700 text-white font-semibold py-2 px-6 rounded-full shadow-md hover:bg-green-800 transition-all duration-300" data-lang="nav_get_started">Get Started</a>
+      </nav>
+      <button id="mobile-menu-button" class="md:hidden text-2xl">
+        <i class="fas fa-bars"></i>
+      </button>
+    </div>
+    <!-- Mobile Menu -->
+    <div id="mobile-menu" class="hidden md:hidden bg-white px-6 pb-4">
+      <a href="#calculator" class="block py-2 text-gray-600 hover:text-green-700" data-lang="nav_calculator_mobile">Calculator</a>
+      <a href="#how-it-works" class="block py-2 text-gray-600 hover:text-green-700" data-lang="nav_how_mobile">How It Works</a>
+      <a href="#why-invest" class="block py-2 text-gray-600 hover:text-green-700" data-lang="nav_why_mobile">Why Invest</a>
+      <a href="#contact" class="block mt-4 text-center bg-green-700 text-white font-semibold py-2 px-6 rounded-full shadow-md hover:bg-green-800 transition-all duration-300" data-lang="nav_get_started_mobile">Get Started</a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section id="hero" class="hero-bg min-h-screen flex items-center justify-center text-white text-center px-4">
+    <div class="relative z-10 max-w-3xl" data-aos="fade-up">
+      <h1 class="text-4xl md:text-6xl font-bold leading-tight mb-4" data-lang="hero_title">
+        Turn 5,000 som into 1,800 som a year — Invest in Biscotti Production
+      </h1>
+      <p class="text-lg md:text-2xl mb-8 text-gray-200" data-lang="hero_subtitle">
+        Earn up to 36% annual returns with real, small-batch artisan biscotti
+      </p>
+      <div class="flex flex-col sm:flex-row justify-center gap-4">
+        <a href="#calculator" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300" data-lang="hero_cta1">Calculate My ROI</a>
+        <a href="#how-it-works" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300" data-lang="hero_cta2">Learn How It Works</a>
+      </div>
+    </div>
+  </section>
+
+  <main>
+    <!-- ROI Calculator Section -->
+    <section id="calculator" class="py-20 bg-white">
+      <div class="container mx-auto px-6 text-center">
+        <h2 class="text-3xl md:text-4xl font-bold mb-4" data-aos="fade-up" data-lang="calculator_title">
+          Interactive ROI Calculator
+        </h2>
+        <p class="max-w-2xl mx-auto text-gray-600 mb-12" data-aos="fade-up" data-aos-delay="100" data-lang="calculator_subtitle">
+          See your potential earnings in real-time. Adjust the slider to see how your investment grows.
+        </p>
+        
+        <div class="max-w-2xl mx-auto bg-gray-50 p-8 rounded-2xl shadow-lg" data-aos="fade-up" data-aos-delay="200">
+          <div class="mb-6">
+            <label for="investment" class="block text-lg font-medium mb-2" data-lang="calculator_label">Enter your investment (in som)</label>
+            <input type="number" id="investment" value="5000" min="5000" max="50000" step="1000" class="w-full p-4 text-center text-2xl font-bold border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition">
+          </div>
+          <div class="mb-8">
+            <input type="range" id="investment-slider" min="5000" max="50000" value="5000" step="1000" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-green-700">
+            <div class="flex justify-between text-sm text-gray-500 mt-2">
+              <span data-lang="som_currency">5,000 som</span>
+              <span data-lang="som_currency_high">50,000 som</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+              <p class="text-sm text-gray-500" data-lang="calculator_packs_produced">Packs Produced Per Year</p>
+              <p id="packs-produced" class="text-3xl font-bold text-green-800">39</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+              <p class="text-sm text-gray-500" data-lang="calculator_monthly_packs">Monthly Packs for ROI</p>
+              <p id="monthly-packs" class="text-3xl font-bold text-green-800">~1</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+              <p class="text-sm text-gray-500" data-lang="calculator_annual_profit">Annual Profit (som)</p>
+              <p id="annual-profit" class="text-3xl font-bold text-green-800">1,800</p>
+            </div>
+          </div>
+          <button id="show-summary-btn" class="mt-8 w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300" data-lang="calculator_cta">View Investment Summary</button>
+        </div>
+      </div>
+    </section>
+
+<section id="how-it-works" class="py-20">
+    <div class="container mx-auto px-6 text-center">
+        <h2 class="text-3xl md:text-4xl font-bold mb-12" data-aos="fade-up" data-lang="how_title">From Investment to Profit</h2>
+
+        <div data-aos="fade-up" data-aos-delay="100">
+            <img src="./images/Investment_to_profit.png" alt="Infographic showing the 5 steps from investment to profit" class="max-w-4xl w-full mx-auto rounded-lg shadow-xl">
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-6 text-left mt-12" data-aos="fade-up" data-aos-delay="200">
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="font-bold text-yellow-600" data-lang="how_step1_title">Investment Made</h3>
+                <p class="text-sm text-gray-600" data-lang="how_step1_desc">Initial capital investment</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="font-bold text-orange-600" data-lang="how_step2_title">Production Begins</h3>
+                <p class="text-sm text-gray-600" data-lang="how_step2_desc">Manufacturing and creation</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="font-bold text-red-600" data-lang="how_step3_title">Distribution Setup</h3>
+                <p class="text-sm text-gray-600" data-lang="how_step3_desc">Establishing sales channels</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="font-bold text-pink-600" data-lang="how_step4_title">Sales Begin</h3>
+                <p class="text-sm text-gray-600" data-lang="how_step4_desc">Products available to customers</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow">
+                <h3 class="font-bold text-purple-600" data-lang="how_step5_title">36% Return Paid</h3>
+                <p class="text-sm text-gray-600" data-lang="how_step5_desc">Profit distributed to investors</p>
+            </div>
+        </div>
+        </div>
+</section>
+        
+        <!-- Why Invest Section -->
+        <section id="why-invest" class="py-20 bg-white">
+            <div class="container mx-auto px-6">
+                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12" data-aos="fade-up" data-lang="why_title">A Safe and Smart Investment</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div class="bg-gray-50 p-6 rounded-lg flex items-start space-x-4" data-aos="fade-up">
+                        <i class="fas fa-check-circle text-green-500 text-2xl mt-1"></i>
+                        <div>
+                            <h3 class="font-bold" data-lang="why1_title">Real Product</h3>
+                            <p class="text-gray-600" data-lang="why1_desc">Not crypto or stocks. Your money funds a tangible, in-demand product.</p>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 p-6 rounded-lg flex items-start space-x-4" data-aos="fade-up" data-aos-delay="100">
+                        <i class="fas fa-check-circle text-green-500 text-2xl mt-1"></i>
+                        <div>
+                            <h3 class="font-bold" data-lang="why2_title">Transparent Costs</h3>
+                            <p class="text-gray-600" data-lang="why2_desc">Clear profit margins and full visibility into production costs.</p>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 p-6 rounded-lg flex items-start space-x-4" data-aos="fade-up" data-aos-delay="200">
+                        <i class="fas fa-check-circle text-green-500 text-2xl mt-1"></i>
+                        <div>
+                            <h3 class="font-bold" data-lang="why3_title">No MLM Schemes</h3>
+                            <p class="text-gray-600" data-lang="why3_desc">Your returns are from product sales, not referral chains.</p>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 p-6 rounded-lg flex items-start space-x-4" data-aos="fade-up" data-aos-delay="300">
+                        <i class="fas fa-check-circle text-green-500 text-2xl mt-1"></i>
+                        <div>
+                            <h3 class="font-bold" data-lang="why4_title">Based on Real Sales</h3>
+                            <p class="text-gray-600" data-lang="why4_desc">Profits are tied to actual market performance, not speculation.</p>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 p-6 rounded-lg flex items-start space-x-4" data-aos="fade-up" data-aos-delay="400">
+                        <i class="fas fa-check-circle text-green-500 text-2xl mt-1"></i>
+                        <div>
+                            <h3 class="font-bold" data-lang="why5_title">Supports Local Economy</h3>
+                            <p class="text-gray-600" data-lang="why5_desc">Your investment creates jobs for local artisans and producers.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+<section id="contact" class="py-20 bg-white">
+    <div class="container mx-auto px-6">
+        <div class="max-w-2xl mx-auto text-center p-8 rounded-2xl shadow-2xl gold-gradient" data-aos="fade-up">
+            <div class="bg-white/95 p-8 rounded-lg">
+                
+                <h2 class="text-3xl font-bold mb-2 text-gray-800" data-lang="form_title">Start Your Investment Journey Today</h2>
+                <p class="text-gray-600 mb-6" data-lang="form_subtitle">Get a free, no-obligation consultation with a certified investment advisor.</p>
+                
+                <form id="lead-capture-form">
+                    <div class="mb-4">
+                        <label for="name" class="sr-only">Your Name</label>
+                        <input type="text" id="name" name="name" required data-lang-placeholder="form_name" placeholder="Your Name" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                    </div>
+                    <div class="mb-4">
+                        <label for="email" class="sr-only">Your Email</label>
+                        <input type="email" id="email" name="email" required data-lang-placeholder="form_email" placeholder="Your Email" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                    </div>
+                    <div class="mb-6"> <label for="whatsapp" class="sr-only">Your WhatsApp Number</label>
+                        <input type="tel" id="whatsapp" name="whatsapp" required data-lang-placeholder="form_whatsapp" placeholder="Your WhatsApp Number" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                    </div>
+
+                   <button type="submit" class="w-full animate-pulse-grow bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition-all duration-300" data-lang="form_cta">Request My Free Consultation</button>
+
+                    <p class="text-xs text-gray-500 mt-4" data-lang="form_privacy">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block mr-1" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5.002c-.14.283-.264.571-.376.864.013.04.025.081.037.122v.001l.002.002.002.002a.097.097 0 01.034.043l.003.004.004.004.004.004a.1.1 0 00.044.032l.003.002.003.002.002.002.002.001h.001a.116.116 0 01.044.02l.003.002.002.002.003.002.003.002.002.001h.001l.002.001h.001l.002.001c.014.003.028.005.043.007l.002.001h.001a.092.092 0 01.043.014l.003.002.003.002.002.002h.001l.002.001.002.001h.001l.002.001c.014.003.028.005.043.006l.002.001.002.001.003.001h.001a.04.04 0 00.014.004l.003.001.002.001.003.001.003.001h.001a.06.06 0 01.02.004l.003.001.002.001h.001a.032.032 0 00.014.003l.002.001h.001c.015.002.029.004.044.005l.002.001h.001l.002.001c.11.01.22.016.33.02a11.95 11.95 0 01-2.66-4.44c-.056-.135-.102-.272-.138-.41a.5.5 0 01.44-.643h.001l.002.001.002.001.002.001a.5.5 0 01.44.643 11.013 11.013 0 001.623 3.492.5.5 0 01-.22.84l-.002.001-.002.001a.5.5 0 01-.643-.44 10.013 10.013 0 01-1.47-3.16.5.5 0 01.88-.32l.002.001.002.002.002.002a.5.5 0 01.32.88 9.013 9.013 0 00-1.282-2.76.5.5 0 01.76-.6l.002.001.002.002a.5.5 0 01.6.76 8.013 8.013 0 01-1.077-2.316.5.5 0 01.68-.72l.002.002a.5.5 0 01.72.68 7.013 7.013 0 00-.85-1.84.5.5 0 01.88-.48l.002.002a.5.5 0 01.48.88 6.013 6.013 0 01-.59-1.345.5.5 0 01.96-.28l.002.001a.5.5 0 01.28.96 5.013 5.013 0 00-.308-.83.5.5 0 01.99-.16l.002.001a.5.5 0 01.16.99 4.013 4.013 0 01-.008-.31.5.5 0 011 0c0 .052-.002.104-.006.155a.5.5 0 11-.998.09A3.012 3.012 0 0010 4.944a3.012 3.012 0 00-2.02 5.046.5.5 0 11-.707-.707A2.012 2.012 0 0110 5.944a2.012 2.012 0 011.414 3.436.5.5 0 11-.707.707A1.012 1.012 0 0010 6.944a1.012 1.012 0 00-.707 1.718.5.5 0 11-.707.707A.012.012 0 0110 7.944a.012.012 0 010 .028.5.5 0 010 .988.012.012 0 010 .028c-.167 0-.333.002-.5.004a11.95 11.95 0 01-7.166-2.536.5.5 0 01.32-.88l.002.001h.001a.5.5 0 01.44.643 10.952 10.952 0 006.28 4.44.5.5 0 01.22.84l-.002.001a.5.5 0 01-.643-.44 9.952 9.952 0 01-5.69-3.992.5.5 0 01.88-.32l.002.001a.5.5 0 01.32.88 8.952 8.952 0 005.022 3.544.5.5 0 01.44.643l-.002.001a.5.5 0 01-.643-.44 7.952 7.952 0 01-4.28-3.092.5.5 0 01.76-.6l.002.001a.5.5 0 01.6.76 6.952 6.952 0 003.46 2.64.5.5 0 01.52.76l-.002.001a.5.5 0 01-.76-.52 5.952 5.952 0 01-2.56-2.184.5.5 0 01.88-.48l.002.001a.5.5 0 01.48.88 4.952 4.952 0 001.58 1.728.5.5 0 01.6.76l-.002.001a.5.5 0 01-.76-.6 3.952 3.952 0 01-1.38-2.26.5.5 0 01.96-.28l.002.001a.5.5 0 01.28.96 2.952 2.952 0 00.3-2.736.5.5 0 01.99-.16l.002.001a.5.5 0 01.16.99 1.952 1.952 0 01-1.12 1.708.5.5 0 01-.44-.88l.002-.001a.952.952 0 00.56-.832.5.5 0 011 0c0 .276-.224.5-.5.5h-1a.5.5 0 01-.5-.5c0-.276.224-.5.5-.5a.5.5 0 010-1z" clip-rule="evenodd" />
+                        </svg>
+                        We respect your privacy. No spam.
+                    </p>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+        <!-- FAQs Section -->
+        <section id="faq" class="py-20">
+            <div class="container mx-auto px-6 max-w-3xl">
+                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12" data-aos="fade-up" data-lang="faq_title">Frequently Asked Questions</h2>
+                <div class="space-y-4" data-aos="fade-up">
+                    <div class="bg-white rounded-lg shadow-md faq-item">
+                        <button class="w-full text-left p-6 flex justify-between items-center faq-question">
+                            <span class="font-semibold text-lg" data-lang="faq1_q">How do I receive profits?</span><i class="fas fa-chevron-down transform transition-transform"></i>
+                        </button>
+                        <div class="faq-answer max-h-0 overflow-hidden transition-all duration-500 ease-in-out"><p class="p-6 pt-0 text-gray-600" data-lang="faq1_a">Profits are distributed quarterly. You can choose to receive them via bank transfer or automatically reinvest them to compound your returns.</p></div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-md faq-item">
+                        <button class="w-full text-left p-6 flex justify-between items-center faq-question">
+                            <span class="font-semibold text-lg" data-lang="faq2_q">What if the packs don’t sell?</span><i class="fas fa-chevron-down transform transition-transform"></i>
+                        </button>
+                        <div class="faq-answer max-h-0 overflow-hidden transition-all duration-500 ease-in-out"><p class="p-6 pt-0 text-gray-600" data-lang="faq2_a">We have a diversified sales strategy including cafes, retail markets, and online sales to minimize risk. While all investments carry risk, our model is built on a product with consistent demand. Unsold inventory is rare and often used for promotional purposes.</p></div>
+                    </div>
+                </div>
+                <div class="mt-12 bg-white p-8 rounded-lg shadow-lg" data-aos="fade-up">
+                    <h3 class="text-2xl font-bold text-center mb-4" data-lang="ai_faq_title">Have another question?</h3>
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <input type="text" id="ai-faq-question" data-lang-placeholder="ai_faq_placeholder" placeholder="Ask anything about this investment..." class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        <button id="ai-faq-btn" class="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-full shadow-lg transform hover:scale-105 transition-all duration-300" data-lang="ai_faq_cta">✨ Ask AI Advisor</button>
+                    </div>
+                    <div id="ai-faq-response-container" class="mt-4 text-center hidden">
+                        <div id="ai-faq-loader" class="loader mx-auto"></div>
+                        <div id="ai-faq-answer" class="bg-green-50 p-4 rounded-lg text-gray-700"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-800 text-white py-12">
+    <div class="container mx-auto px-6 text-center">
+      <h3 class="text-2xl font-bold mb-2">Biscotti_Miste</h3>
+      <p class="max-w-md mx-auto mb-6" data-lang="footer_desc">Investing in local artisans, one delicious biscotti at a time.</p>
+      <div class="flex justify-center space-x-6 mb-8">
+        <a href="#" class="text-2xl hover:text-green-400 transition-colors"><i class="fab fa-facebook"></i></a>
+        <a href="#" class="text-2xl hover:text-green-400 transition-colors"><i class="fab fa-instagram"></i></a>
+        <a href="#" class="text-2xl hover:text-green-400 transition-colors"><i class="fab fa-whatsapp"></i></a>
+      </div>
+      <div class="text-sm text-gray-400">
+        <p>&copy; 2025 Biscotti_Miste. All Rights Reserved.</p>
+        <a href="#" class="underline hover:text-white" data-lang="footer_terms">Terms of Service</a> | 
+        <a href="#" class="underline hover:text-white" data-lang="footer_privacy">Privacy Policy</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Investment Summary Modal -->
+  <div id="summary-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4" data-aos="fade-up">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold" data-lang="modal_title">Your Investment Summary</h2>
+        <button id="close-modal-btn" class="text-2xl text-gray-500 hover:text-gray-800">&times;</button>
+      </div>
+      <div id="summary-content" class="space-y-3"></div>
+      <div id="pitch-container" class="mt-6">
+        <button id="generate-pitch-btn" class="w-full bg-yellow-500 text-yellow-900 font-bold py-2 px-4 rounded-lg hover:bg-yellow-600 transition" data-lang="modal_generate_pitch">✨ Generate Discussion Message</button>
+        <div id="pitch-loader" class="loader mx-auto my-4 hidden"></div>
+        <div id="pitch-result-container" class="hidden mt-4">
+          <p class="text-sm font-semibold mb-2" data-lang="modal_pitch_header">Here's a message you can share:</p>
+          <textarea id="pitch-text" readonly class="w-full h-32 p-2 border rounded-md bg-gray-50 text-sm"></textarea>
+          <button id="copy-pitch-btn" class="w-full mt-2 bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-700 transition" data-lang="modal_copy">Copy Message</button>
+          <p id="copy-feedback" class="text-xs text-center mt-1 text-green-600 hidden" data-lang="modal_copied">Copied!</p>
+        </div>
+      </div>
+      <div class="mt-4 flex gap-4">
+        <button id="print-summary-btn" class="flex-1 bg-green-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-800 transition" data-lang="modal_print">Print Summary</button>
+        <button id="close-modal-btn-2" class="flex-1 bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition" data-lang="modal_close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AOS + Custom Script -->
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="biscotti_script.js"></script>
+</body>
+</html>
