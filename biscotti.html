@@ -26,39 +26,41 @@
 
   <!-- Sticky Navigation -->
   <header id="header" class="bg-white/80 backdrop-blur-md fixed top-0 left-0 right-0 z-50 shadow-md transition-all duration-300">
-    <div class="container mx-auto px-6 py-3 flex justify-between items-center">
-      <!-- Language Switcher -->
-      <div class="flex items-center space-x-2 lang-switcher">
-        <button data-set-lang="ky" class="p-1 rounded-full active">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Flag_of_Kyrgyzstan.svg" alt="Kyrgyzstan Flag" class="w-6 h-6 rounded-full object-cover">
-        </button>
-        <button data-set-lang="ru" class="p-1 rounded-full">
-          <img src="https://upload.wikimedia.org/wikipedia/en/f/f3/Flag_of_Russia.svg" alt="Russia Flag" class="w-6 h-6 rounded-full object-cover">
-        </button>
-        <button data-set-lang="en" class="p-1 rounded-full">
-          <img src="https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg" alt="USA Flag" class="w-6 h-6 rounded-full object-cover">
-        </button>
+      <div class="container mx-auto px-6 py-3 flex justify-between items-center">
+          <div class="flex items-center space-x-2 lang-switcher">
+              <button data-set-lang="ky" class="p-1 rounded-full active">
+                  <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Flag_of_Kyrgyzstan.svg" alt="Kyrgyzstan Flag" class="w-6 h-6 rounded-full object-cover">
+              </button>
+              <button data-set-lang="ru" class="p-1 rounded-full">
+                  <img src="https://upload.wikimedia.org/wikipedia/en/f/f3/Flag_of_Russia.svg" alt="Russia Flag" class="w-6 h-6 rounded-full object-cover">
+              </button>
+              <button data-set-lang="en" class="p-1 rounded-full">
+                  <img src="https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg" alt="USA Flag" class="w-6 h-6 rounded-full object-cover">
+              </button>
+          </div>
+
+          <a href="#" class="hidden sm:block text-2xl font-bold text-green-800">Biscotti_Miste</a>
+
+          <nav class="hidden md:flex space-x-8 items-center">
+              <a href="#calculator" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_calculator">Calculator</a>
+              <a href="#how-it-works" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_how">How It Works</a>
+              <a href="#why-invest" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_why">Why Invest</a>
+              <a href="#contact" class="nav-link bg-green-700 text-white font-semibold py-2 px-6 rounded-full shadow-md hover:bg-green-800 transition-all duration-300" data-lang="nav_get_started">Get Started</a>
+          </nav>
+
+          <div class="md:hidden flex items-center space-x-4">
+              <a href="#contact" class="bg-green-700 text-white font-semibold py-2 px-4 text-sm rounded-full shadow-md hover:bg-green-800 transition-all duration-300" data-lang="nav_get_started_mobile">Get Started</a>
+              <button id="mobile-menu-button" class="text-2xl">
+                  <i class="fas fa-bars"></i>
+              </button>
+          </div>
       </div>
 
-      <a href="#" class="hidden sm:block text-2xl font-bold text-green-800">Biscotti_Miste</a>
-      
-      <nav class="hidden md:flex space-x-8 items-center">
-        <a href="#calculator" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_calculator">Calculator</a>
-        <a href="#how-it-works" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_how">How It Works</a>
-        <a href="#why-invest" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_why">Why Invest</a>
-        <a href="#contact" class="nav-link bg-green-700 text-white font-semibold py-2 px-6 rounded-full shadow-md hover:bg-green-800 transition-all duration-300" data-lang="nav_get_started">Get Started</a>
-      </nav>
-      <button id="mobile-menu-button" class="md:hidden text-2xl">
-        <i class="fas fa-bars"></i>
-      </button>
-    </div>
-    <!-- Mobile Menu -->
-    <div id="mobile-menu" class="hidden md:hidden bg-white px-6 pb-4">
-      <a href="#calculator" class="block py-2 text-gray-600 hover:text-green-700" data-lang="nav_calculator_mobile">Calculator</a>
-      <a href="#how-it-works" class="block py-2 text-gray-600 hover:text-green-700" data-lang="nav_how_mobile">How It Works</a>
-      <a href="#why-invest" class="block py-2 text-gray-600 hover:text-green-700" data-lang="nav_why_mobile">Why Invest</a>
-      <a href="#contact" class="block mt-4 text-center bg-green-700 text-white font-semibold py-2 px-6 rounded-full shadow-md hover:bg-green-800 transition-all duration-300" data-lang="nav_get_started_mobile">Get Started</a>
-    </div>
+      <div id="mobile-menu" class="hidden md:hidden bg-white px-6 pb-4">
+          <a href="#calculator" class="block py-2 text-gray-600 hover:text-green-700" data-lang="nav_calculator_mobile">Calculator</a>
+          <a href="#how-it-works" class="block py-2 text-gray-600 hover:text-green-700" data-lang="nav_how_mobile">How It Works</a>
+          <a href="#why-invest" class="block py-2 text-gray-600 hover:text-green-700" data-lang="nav_why_mobile">Why Invest</a>
+          </div>
   </header>
 
   <!-- Hero Section -->
