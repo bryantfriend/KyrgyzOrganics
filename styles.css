@@ -154,3 +154,26 @@ a, button {
 .learn-more-btn:hover {
     background-color: #3a3f4b;
 }
+
+/* Pulsing star button */
+.star-btn {
+  display: inline-block;
+  padding: 12px 24px;
+  background: linear-gradient(45deg, #f7d774, #f5b642);
+  color: #222;
+  font-weight: bold;
+  font-size: 1.1rem;
+  border-radius: 50px;
+  text-decoration: none;
+  animation: pulse 1.8s infinite ease-in-out;
+  box-shadow: 0 0 12px rgba(247, 215, 116, 0.8);
+  transition: transform 0.2s;
+}
+.star-btn:hover {
+  transform: scale(1.08);
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
