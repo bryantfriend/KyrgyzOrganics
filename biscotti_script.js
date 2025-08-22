@@ -1,5 +1,32 @@
 document.addEventListener('DOMContentLoaded', async function() {
     AOS.init({ duration: 800, once: true, offset: 50 });
+    
+     // --- Mobile Menu Toggle ---
+    const mobileMenuButton = document.getElementById('mobile-menu-button');
+    const mobileMenu = document.getElementById('mobile-menu');
+    // NEW: Get all the links inside the mobile menu
+    const mobileMenuLinks = document.querySelectorAll('#mobile-menu a');
+
+    // Handle hamburger button click to open/close menu
+    if (mobileMenuButton && mobileMenu) {
+        mobileMenuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+    }
+
+    // NEW: Handle link clicks to close the menu after selection
+    if (mobileMenu && mobileMenuLinks.length > 0) {
+        mobileMenuLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                // We add the 'hidden' class back to close the menu
+                // A tiny delay ensures the browser scrolls smoothly before the menu disappears
+                setTimeout(() => {
+                    mobileMenu.classList.add('hidden');
+                }, 100);
+            });
+        });
+    }
+
 
     let translations = {};
     let currentLang = localStorage.getItem('biscottiLang') || 'ky';
@@ -201,7 +228,7 @@ if (leadForm) {
         }
 
         // 4. Ilja's WhatsApp number
-        const iljaWhatsAppNumber = '+996555099158';
+        const iljaWhatsAppNumber = '996555099158';
 
         // 5. Create the new, formatted message
         // Note: The asterisks (*) will make the text bold in WhatsApp
@@ -232,4 +259,3 @@ Thank you!`;
         alert('Thank you! We are redirecting you to WhatsApp to send your request.');
     });
 }
-
