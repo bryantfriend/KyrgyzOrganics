@@ -2,6 +2,7 @@ body {
   font-family: 'Poppins', sans-serif;
   background-color: #FDFBF8;
   color: #4F4646;
+  overflow-x: hidden; /* FIXED: Prevents horizontal scrolling on mobile */
 }
 
 .hero-bg {
@@ -49,7 +50,56 @@ body {
   }
 }
 
-/* New class to apply the animation */
+/* Class to apply the animation */
 .animate-pulse-grow {
   animation: pulse-grow 2s infinite;
+}
+
+/* Style for the active investment level card */
+.level-active {
+    border-color: #f97316; /* orange-500 */
+    transform: scale(1.03);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+/* --- OPTIMIZED FOR MOBILE: Touch-friendly Slider --- */
+.investment-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb; /* gray-200 */
+  border-radius: 5px;
+  outline: none;
+  opacity: 0.9;
+  -webkit-transition: .2s;
+  transition: opacity .2s;
+}
+
+.investment-slider:hover {
+  opacity: 1;
+}
+
+/* Slider Thumb for Webkit browsers (Chrome, Safari) */
+.investment-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px; /* Larger size for touch */
+  height: 24px; /* Larger size for touch */
+  background: #15803d; /* green-800 */
+  cursor: pointer;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 5px rgba(0,0,0,0.2);
+}
+
+/* Slider Thumb for Firefox */
+.investment-slider::-moz-range-thumb {
+  width: 24px; /* Larger size for touch */
+  height: 24px; /* Larger size for touch */
+  background: #15803d; /* green-800 */
+  cursor: pointer;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 0 5px rgba(0,0,0,0.2);
 }

@@ -1,32 +1,37 @@
 document.addEventListener('DOMContentLoaded', async function() {
     AOS.init({ duration: 800, once: true, offset: 50 });
     
-     // --- Mobile Menu Toggle ---
+    // --- Investment Level Data ---
+    const investmentLevels = [
+        { level: 1, min: 5000, max: 18000, rate: 0.09, cashOut: '18 months', slots: 288, topUp: '1 week', color: 'bg-green-50' },
+        { level: 2, min: 18001, max: 36000, rate: 0.11, cashOut: '12 months', slots: 144, topUp: '2 weeks', color: 'bg-green-50' },
+        { level: 3, min: 36001, max: 72000, rate: 0.14, cashOut: '10 months', slots: 72, topUp: '4 weeks', color: 'bg-green-50' },
+        { level: 4, min: 72001, max: 144000, rate: 0.18, cashOut: '6 months', slots: 36, topUp: '6 weeks', color: 'bg-green-50' },
+        { level: 5, min: 144001, max: 288000, rate: 0.22, cashOut: '6 months', slots: 18, topUp: '8 weeks', color: 'bg-blue-50' },
+        { level: 6, min: 288001, max: 576000, rate: 0.28, cashOut: '3 months', slots: 9, topUp: '10 weeks', color: 'bg-blue-50' },
+        { level: 7, min: 576001, max: 1152000, rate: 0.34, cashOut: '2 months', slots: 5, topUp: '12 weeks', color: 'bg-purple-50' }
+    ];
+
+    // --- Mobile Menu Toggle ---
     const mobileMenuButton = document.getElementById('mobile-menu-button');
     const mobileMenu = document.getElementById('mobile-menu');
-    // NEW: Get all the links inside the mobile menu
     const mobileMenuLinks = document.querySelectorAll('#mobile-menu a');
 
-    // Handle hamburger button click to open/close menu
     if (mobileMenuButton && mobileMenu) {
         mobileMenuButton.addEventListener('click', () => {
             mobileMenu.classList.toggle('hidden');
         });
     }
 
-    // NEW: Handle link clicks to close the menu after selection
     if (mobileMenu && mobileMenuLinks.length > 0) {
         mobileMenuLinks.forEach(link => {
             link.addEventListener('click', () => {
-                // We add the 'hidden' class back to close the menu
-                // A tiny delay ensures the browser scrolls smoothly before the menu disappears
                 setTimeout(() => {
                     mobileMenu.classList.add('hidden');
                 }, 100);
             });
         });
     }
-
 
     let translations = {};
     let currentLang = localStorage.getItem('biscottiLang') || 'ky';
@@ -62,6 +67,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         document.querySelectorAll('.lang-switcher button').forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-set-lang') === lang);
         });
+        
+        renderLevelCards();
+        calculateROI(parseInt(investmentInput.value, 10));
     };
 
     document.querySelectorAll('[data-set-lang]').forEach(button => {
@@ -73,28 +81,37 @@ document.addEventListener('DOMContentLoaded', async function() {
     // --- ROI Calculator Logic ---
     const investmentInput = document.getElementById('investment');
     const investmentSlider = document.getElementById('investment-slider');
-    const packsProducedEl = document.getElementById('packs-produced');
-    const monthlyPacksEl = document.getElementById('monthly-packs');
+    const investmentLevelEl = document.getElementById('investment-level');
+    const returnRateEl = document.getElementById('return-rate');
     const annualProfitEl = document.getElementById('annual-profit');
-    const costPerPack = 127;
+
+    function getLevelForInvestment(investment) {
+        return investmentLevels.find(l => investment >= l.min && investment <= l.max) || investmentLevels[0];
+    }
 
     function calculateROI(investment) {
-        const packsProduced = Math.floor(investment / costPerPack);
-        const baseInvestment = 5000;
-        const baseAnnualProfit = 1800;
-        const calculatedAnnualProfit = (investment / baseInvestment) * baseAnnualProfit;
-        const netProfitPerPack = 295 - costPerPack;
-        const packsSoldPerYear = Math.ceil(calculatedAnnualProfit / netProfitPerPack);
-        const monthlyPacksForROI = (packsSoldPerYear / 12).toFixed(1);
+        const currentLevel = getLevelForInvestment(investment);
+        const annualProfit = investment * currentLevel.rate;
 
-        packsProducedEl.textContent = packsProduced.toLocaleString();
-        monthlyPacksEl.textContent = `~${monthlyPacksForROI}`;
-        annualProfitEl.textContent = Math.round(calculatedAnnualProfit).toLocaleString();
+        investmentLevelEl.textContent = currentLevel.level;
+        // FIXED: Round the percentage to a whole number
+        returnRateEl.textContent = `${Math.round(currentLevel.rate * 100)}%`;
+        annualProfitEl.textContent = Math.round(annualProfit).toLocaleString();
+        
+        document.querySelectorAll('.level-card').forEach(card => {
+            card.classList.remove('level-active');
+            if (parseInt(card.dataset.level) === currentLevel.level) {
+                card.classList.add('level-active');
+            }
+        });
+
         localStorage.setItem('biscottiInvestmentAmount', investment);
     }
 
     investmentInput.addEventListener('input', (e) => {
-        const value = parseInt(e.target.value, 10) || 0;
+        let value = parseInt(e.target.value, 10) || 0;
+        if (value < 5000) value = 5000;
+        if (value > 1152000) value = 1152000;
         investmentSlider.value = value;
         calculateROI(value);
     });
@@ -103,6 +120,31 @@ document.addEventListener('DOMContentLoaded', async function() {
         investmentInput.value = value;
         calculateROI(value);
     });
+
+    // --- Level Cards Rendering ---
+    const levelsContainer = document.getElementById('levels-container');
+    function renderLevelCards() {
+        levelsContainer.innerHTML = '';
+        investmentLevels.forEach(level => {
+            const card = document.createElement('div');
+            card.className = `level-card p-6 rounded-lg shadow-md transition-all duration-300 border-2 border-transparent ${level.color}`;
+            card.dataset.level = level.level;
+
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-xl font-bold text-gray-800" data-lang="level_card_title">Level ${level.level}</h3>
+                    <span class="text-2xl font-bold text-green-700">${Math.round(level.rate * 100)}%</span>
+                </div>
+                <p class="text-gray-600 font-semibold">${level.min.toLocaleString()} - ${level.max.toLocaleString()} som</p>
+                <div class="text-sm text-gray-500 mt-4 space-y-1">
+                    <p><strong><span data-lang="level_card_slots">Slots</span>:</strong> ${level.slots}</p>
+                    <p><strong><span data-lang="level_card_cashout">Cash-out</span>:</strong> <span data-lang="level_card_after">after</span> ${level.cashOut}</p>
+                    <p><strong><span data-lang="level_card_topup">Top-up</span>:</strong> <span data-lang="level_card_after">after</span> ${level.topUp}</p>
+                </div>
+            `;
+            levelsContainer.appendChild(card);
+        });
+    }
 
     // --- Modal & Pitch Generator ---
     const modal = document.getElementById('summary-modal');
@@ -116,15 +158,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     document.getElementById('show-summary-btn').addEventListener('click', () => {
         const investment = investmentInput.value;
-        const packs = packsProducedEl.textContent;
-        const profit = annualProfitEl.textContent;
+        const currentLevelData = getLevelForInvestment(parseInt(investment));
+        const profit = Math.round(investment * currentLevelData.rate).toLocaleString();
         const lang = currentLang;
 
         summaryContent.innerHTML = `
             <p><strong>${translations[lang].modal_summary_investment}</strong> 
             <span class="text-green-700 font-semibold">${parseInt(investment).toLocaleString()} som</span></p>
-            <p><strong>${translations[lang].modal_summary_packs}</strong> 
-            <span class="text-green-700 font-semibold">${packs}</span></p>
+            <p><strong>${translations[lang].modal_summary_level}</strong> 
+            <span class="text-green-700 font-semibold">${currentLevelData.level} (${Math.round(currentLevelData.rate * 100)}%)</span></p>
             <p><strong>${translations[lang].modal_summary_profit}</strong> 
             <span class="text-green-700 font-semibold">${profit} som</span></p>
             <p class="text-sm text-gray-500 mt-4">${translations[lang].modal_summary_disclaimer}</p>
@@ -140,12 +182,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const investment = investmentInput.value;
         const profit = annualProfitEl.textContent;
-        let prompt = translations[currentLang].gemini_pitch_prompt;
-        prompt = prompt.replace('{investment}', investment).replace('{profit}', profit);
-
-        // Optional: hook to Gemini API
-        // const pitch = await callGemini(prompt);
-        const pitch = `Hey, I came across an interesting local investment: ${investment} som into Biscotti_Miste with a projected return of ${profit} som. What do you think?`;
+        const currentLevelData = getLevelForInvestment(parseInt(investment));
+        const rate = `${Math.round(currentLevelData.rate * 100)}%`;
+        
+        const pitch = `Hey, I came across an interesting local investment: ${parseInt(investment).toLocaleString()} som into Biscotti_Miste for a guaranteed ${rate} annual return, which projects to ${profit} som per year. What do you think?`;
 
         pitchText.value = pitch;
         pitchLoader.classList.add('hidden');
@@ -180,7 +220,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     });
 
-    // --- Scroll Spy ---
+    // --- Scroll Spy & Header Hide/Show ---
     const sections = document.querySelectorAll('section[id]');
     const navLinks = document.querySelectorAll('.nav-link');
     const header = document.getElementById('header');
@@ -190,10 +230,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         sections.forEach(section => { if (pageYOffset >= section.offsetTop - 100) current = section.getAttribute('id'); });
         navLinks.forEach(link => {
             link.classList.remove('active');
-            if (link.getAttribute('href').includes(current)) link.classList.add('active');
+            if (link.href && link.href.includes(current)) link.classList.add('active');
         });
         let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        header.style.top = (scrollTop > lastScrollTop) ? '-100px' : '0';
+        if (scrollTop > lastScrollTop) {
+            header.style.top = '-100px';
+        } else {
+            header.style.top = '0';
+        }
         lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
     });
 
@@ -204,34 +248,25 @@ document.addEventListener('DOMContentLoaded', async function() {
         investmentInput.value = initialInvestment;
         investmentSlider.value = initialInvestment;
     }
-    calculateROI(investmentInput.value);
     setLanguage(currentLang);
+    calculateROI(parseInt(investmentInput.value, 10));
 });
 
-// --- WhatsApp Form Submission Logic (Vibrant & Friendly Style) ---
+// --- WhatsApp Form Submission Logic ---
 const leadForm = document.getElementById('lead-capture-form');
-
 if (leadForm) {
     leadForm.addEventListener('submit', function(event) {
-        // 1. Prevent the form from submitting the traditional way
         event.preventDefault();
-
-        // 2. Get the user's input from the form fields
         const name = document.getElementById('name').value.trim();
         const email = document.getElementById('email').value.trim();
         const userWhatsApp = document.getElementById('whatsapp').value.trim();
 
-        // 3. Basic validation to ensure fields are not empty
         if (!name || !email || !userWhatsApp) {
             alert('Please fill out all fields before submitting.');
-            return; // Stop the function if validation fails
+            return;
         }
 
-        // 4. Ilja's WhatsApp number
         const iljaWhatsAppNumber = '996555099158';
-
-        // 5. Create the new, formatted message
-        // Note: The asterisks (*) will make the text bold in WhatsApp
         const message = `👋 Hello Ilja!
 
 ✨ *New Consultation Request from Biscotti_Miste* ✨
@@ -247,14 +282,8 @@ Here are my contact details:
 I'm looking forward to my free consultation. Please let me know the next steps.
 
 Thank you!`;
-
-        // 6. Create the WhatsApp click-to-chat URL
         const whatsappUrl = `https://wa.me/${iljaWhatsAppNumber}?text=${encodeURIComponent(message)}`;
-
-        // 7. Open the URL in a new tab
         window.open(whatsappUrl, '_blank');
-
-        // 8. Optional: Clear the form and show a success message
         leadForm.reset();
         alert('Thank you! We are redirecting you to WhatsApp to send your request.');
     });
