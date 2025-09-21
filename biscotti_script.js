@@ -2,15 +2,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     AOS.init({ duration: 800, once: true, offset: 50 });
     
     // --- Investment Level Data ---
-    const investmentLevels = [
-        { level: 1, min: 5000, max: 18000, rate: 0.09, cashOut: '18 months', slots: 288, topUp: '1 week', color: 'bg-green-50' },
-        { level: 2, min: 18001, max: 36000, rate: 0.11, cashOut: '12 months', slots: 144, topUp: '2 weeks', color: 'bg-green-50' },
-        { level: 3, min: 36001, max: 72000, rate: 0.14, cashOut: '10 months', slots: 72, topUp: '4 weeks', color: 'bg-green-50' },
-        { level: 4, min: 72001, max: 144000, rate: 0.18, cashOut: '6 months', slots: 36, topUp: '6 weeks', color: 'bg-green-50' },
-        { level: 5, min: 144001, max: 288000, rate: 0.22, cashOut: '6 months', slots: 18, topUp: '8 weeks', color: 'bg-blue-50' },
-        { level: 6, min: 288001, max: 576000, rate: 0.28, cashOut: '3 months', slots: 9, topUp: '10 weeks', color: 'bg-blue-50' },
-        { level: 7, min: 576001, max: 1152000, rate: 0.34, cashOut: '2 months', slots: 5, topUp: '12 weeks', color: 'bg-purple-50' }
-    ];
+const investmentLevels = [
+    { level: 1, min: 5000, max: 18000, rate: 0.09, cashOut: '6 weeks', slots: 288, topUp: '1 week', color: 'bg-green-50' },
+    { level: 2, min: 18001, max: 36000, rate: 0.11, cashOut: '3 months', slots: 144, topUp: '2 weeks', color: 'bg-green-50' },
+    { level: 3, min: 36001, max: 72000, rate: 0.14, cashOut: '6 months', slots: 72, topUp: '4 weeks', color: 'bg-green-50' },
+    { level: 4, min: 72001, max: 144000, rate: 0.18, cashOut: '9 months', slots: 36, topUp: '6 weeks', color: 'bg-green-50' },
+    { level: 5, min: 144001, max: 288000, rate: 0.22, cashOut: '12 months', slots: 18, topUp: '8 weeks', color: 'bg-blue-50' },
+    { level: 6, min: 288001, max: 576000, rate: 0.28, cashOut: '14 months', slots: 9, topUp: '10 weeks', color: 'bg-blue-50' },
+    { level: 7, min: 576001, max: 1152000, rate: 0.34, cashOut: '16 months', slots: 5, topUp: '12 weeks', color: 'bg-purple-50' }
+];
+
 
     // --- Mobile Menu Toggle ---
     const mobileMenuButton = document.getElementById('mobile-menu-button');
