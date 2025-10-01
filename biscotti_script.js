@@ -1,5 +1,5 @@
 // UPDATE REAL SALES NUMBERS HERE
-let currentSales = 250000; 
+let currentSales = 5000; 
 
 document.addEventListener('DOMContentLoaded', async function() {
     AOS.init({ duration: 800, once: true, offset: 50 });
@@ -365,3 +365,4 @@ Thank you!`;
         alert('Thank you! We are redirecting you to WhatsApp to send your request.');
     });
 }
+
