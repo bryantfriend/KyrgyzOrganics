@@ -38,6 +38,7 @@
           <nav class="hidden md:flex space-x-8 items-center">
               <a href="#calculator" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_calculator">Calculator</a>
               <a href="#levels" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_levels">Levels</a>
+              <a href="#roadmap" class="nav-link text-gray-600 hover:text-green-700 transition-colors">Roadmap</a>
               <a href="#how-it-works" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_how">How It Works</a>
               <a href="#why-invest" class="nav-link text-gray-600 hover:text-green-700 transition-colors" data-lang="nav_why">Why Invest</a>
               <a href="#contact" class="nav-link bg-green-700 text-white font-semibold py-2 px-6 rounded-full shadow-md hover:bg-green-800 transition-all duration-300" data-lang="nav_get_started">Get Started</a>
@@ -97,20 +98,25 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-            <div class="bg-white p-6 rounded-lg shadow-sm">
-              <p class="text-sm text-gray-500" data-lang="calculator_level">Investment Level</p>
-              <p id="investment-level" class="text-3xl font-bold text-green-800">1</p>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
+              <div class="bg-white p-6 rounded-lg shadow-sm">
+                <p class="text-sm text-gray-500">Investment Level</p>
+                <p id="investment-level" class="text-3xl font-bold text-green-800">1</p>
+              </div>
+              <div class="bg-white p-6 rounded-lg shadow-sm">
+                <p class="text-sm text-gray-500">Cash Profit (Annual)</p>
+                <p id="cash-profit" class="text-2xl font-bold text-green-800">450</p>
+              </div>
+              <div class="bg-white p-6 rounded-lg shadow-sm">
+                <p class="text-sm text-gray-500">Product Profit (Annual)</p>
+                <p id="product-profit" class="text-2xl font-bold text-green-800">800</p>
+              </div>
+              <div class="bg-white p-6 rounded-lg shadow-sm">
+                <p class="text-sm text-gray-500">Total Return (Annual)</p>
+                <p id="total-profit" class="text-2xl font-bold text-green-800">1,250</p>
+              </div>
             </div>
-            <div class="bg-white p-6 rounded-lg shadow-sm">
-              <p class="text-sm text-gray-500" data-lang="calculator_return_rate">Annual Return</p>
-              <p id="return-rate" class="text-3xl font-bold text-green-800">9%</p>
-            </div>
-            <div class="bg-white p-6 rounded-lg shadow-sm">
-              <p class="text-sm text-gray-500" data-lang="calculator_annual_profit">Annual Profit (som)</p>
-              <p id="annual-profit" class="text-3xl font-bold text-green-800">450</p>
-            </div>
-          </div>
+
           <button id="show-summary-btn" class="mt-8 w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 active:scale-95 transition-all duration-300" data-lang="calculator_cta">View Investment Summary</button>
         </div>
       </div>
@@ -123,6 +129,63 @@
               </div>
       </div>
     </section>
+      
+    <section id="roadmap" class="py-20 bg-gradient-to-r from-green-50 via-white to-green-50">
+      <div class="container mx-auto px-4 sm:px-6">
+        <h2 class="text-3xl md:text-4xl font-bold text-center mb-12" data-aos="fade-up">
+          Growth Roadmap: Unlocking New Levels
+        </h2>
+
+        <!-- Progress Bar -->
+        <div class="w-full bg-gray-200 rounded-full h-6 mb-10 relative">
+          <div id="sales-progress" class="bg-green-600 h-6 rounded-full text-white text-xs flex items-center justify-center transition-all duration-500" style="width: 10%">
+            10%
+          </div>
+        </div>
+
+        <!-- Levels -->
+        <div class="flex flex-wrap justify-between max-w-5xl mx-auto gap-6">
+          <div class="roadmap-step" data-level="1" data-unlock="0">
+            <div class="roadmap-circle bg-green-600 text-white"><i class="fas fa-unlock"></i></div>
+            <p class="font-bold mt-4">Level 1</p>
+            <span class="text-sm text-green-700">Open</span>
+          </div>
+          <div class="roadmap-step" data-level="2" data-unlock="100000">
+            <div class="roadmap-circle bg-gray-300 text-gray-600"><i class="fas fa-lock"></i></div>
+            <p class="font-bold mt-4">Level 2</p>
+            <span class="text-sm text-gray-500">Unlocks at 100,000 som</span>
+          </div>
+          <div class="roadmap-step" data-level="3" data-unlock="250000">
+            <div class="roadmap-circle bg-gray-300 text-gray-600"><i class="fas fa-lock"></i></div>
+            <p class="font-bold mt-4">Level 3</p>
+            <span class="text-sm text-gray-500">Unlocks at 250,000 som</span>
+          </div>
+          <div class="roadmap-step" data-level="4" data-unlock="500000">
+            <div class="roadmap-circle bg-gray-300 text-gray-600"><i class="fas fa-lock"></i></div>
+            <p class="font-bold mt-4">Level 4</p>
+            <span class="text-sm text-gray-500">Unlocks at 500,000 som</span>
+          </div>
+          <div class="roadmap-step" data-level="5" data-unlock="750000">
+            <div class="roadmap-circle bg-gray-300 text-gray-600"><i class="fas fa-lock"></i></div>
+            <p class="font-bold mt-4">Level 5</p>
+            <span class="text-sm text-gray-500">Unlocks at 750,000 som</span>
+          </div>
+          <div class="roadmap-step" data-level="6" data-unlock="1000000">
+            <div class="roadmap-circle bg-gray-300 text-gray-600"><i class="fas fa-lock"></i></div>
+            <p class="font-bold mt-4">Level 6</p>
+            <span class="text-sm text-gray-500">Unlocks at 1,000,000 som</span>
+          </div>
+          <div class="roadmap-step" data-level="7" data-unlock="2000000">
+            <div class="roadmap-circle bg-gray-300 text-gray-600"><i class="fas fa-lock"></i></div>
+            <p class="font-bold mt-4">Level 7</p>
+            <span class="text-sm text-gray-500">Unlocks at 2,000,000 som</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+
 
     <section id="how-it-works" class="py-20 bg-white">
       <div class="container mx-auto px-4 sm:px-6 text-center">
