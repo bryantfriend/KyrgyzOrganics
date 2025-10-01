@@ -79,7 +79,18 @@
     "modal_close": "Close",
     "footer_desc": "Investing in local artisans, one delicious biscotti at a time.",
     "footer_terms": "Terms of Service",
-    "footer_privacy": "Privacy Policy"
+    "footer_privacy": "Privacy Policy",
+    "modal_summary_cash": "Cash Profit:",
+    "modal_summary_product": "Product Value:",
+    "modal_summary_total": "Total Return:",
+    "level_locked": "Locked",
+    "level_unlocks_at": "Unlocks at",
+    "sales_progress_title": "Sales Progress",
+    "sales_progress_label": "Current Sales",
+    "roadmap_unlocked": "Unlocked!",
+    "roadmap_locked": "Locked",
+    "roadmap_next_unlock": "Next unlock coming soon"
+    
   },
   "ru": {
     "nav_calculator": "Калькулятор",
@@ -161,7 +172,17 @@
     "modal_close": "Закрыть",
     "footer_desc": "Инвестируем в местных ремесленников, по одному вкусному бискотти за раз.",
     "footer_terms": "Условия использования",
-    "footer_privacy": "Политика конфиденциальности"
+    "footer_privacy": "Политика конфиденциальности",
+    "modal_summary_cash": "Доход наличными:",
+    "modal_summary_product": "Стоимость продукта:",
+    "modal_summary_total": "Общая доходность:",
+    "level_locked": "Заблокировано",
+    "level_unlocks_at": "Откроется при",
+    "sales_progress_title": "Прогресс продаж",
+    "sales_progress_label": "Текущие продажи",
+    "roadmap_unlocked": "Разблокировано!",
+    "roadmap_locked": "Заблокировано",
+    "roadmap_next_unlock": "Следующее открытие скоро"
   },
   "ky": {
     "nav_calculator": "Эсептегич",
@@ -243,6 +264,16 @@
     "modal_close": "Жабуу",
     "footer_desc": "Жергиликтүү усталарга инвестиция салуу, бирден даамдуу бискотти.",
     "footer_terms": "Тейлөө шарттары",
-    "footer_privacy": "Купуялык саясаты"
+    "footer_privacy": "Купуялык саясаты",
+    "modal_summary_cash": "Накталай пайда:",
+    "modal_summary_product": "Продукт наркы:",
+    "modal_summary_total": "Жалпы кайтарым:",
+    "level_locked": "Бекитилген",
+    "level_unlocks_at": "Ачылат",
+    "sales_progress_title": "Сатуу прогресси",
+    "sales_progress_label": "Учурдагы сатуулар",
+    "roadmap_unlocked": "Ачылды!",
+    "roadmap_locked": "Бекитилген",
+    "roadmap_next_unlock": "Кийинки ачылуу жакында"
   }
 }
