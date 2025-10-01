@@ -1,15 +1,18 @@
+// UPDATE REAL SALES NUMBERS HERE
+let currentSales = 250000; 
+
 document.addEventListener('DOMContentLoaded', async function() {
     AOS.init({ duration: 800, once: true, offset: 50 });
     
     // --- Investment Level Data ---
 const investmentLevels = [
-    { level: 1, min: 5000, max: 18000, rate: 0.09, cashOut: '6 weeks', slots: 288, topUp: '1 week', color: 'bg-green-50' },
-    { level: 2, min: 18001, max: 36000, rate: 0.11, cashOut: '3 months', slots: 144, topUp: '2 weeks', color: 'bg-green-50' },
-    { level: 3, min: 36001, max: 72000, rate: 0.14, cashOut: '6 months', slots: 72, topUp: '4 weeks', color: 'bg-green-50' },
-    { level: 4, min: 72001, max: 144000, rate: 0.18, cashOut: '9 months', slots: 36, topUp: '6 weeks', color: 'bg-green-50' },
-    { level: 5, min: 144001, max: 288000, rate: 0.22, cashOut: '12 months', slots: 18, topUp: '8 weeks', color: 'bg-blue-50' },
-    { level: 6, min: 288001, max: 576000, rate: 0.28, cashOut: '14 months', slots: 9, topUp: '10 weeks', color: 'bg-blue-50' },
-    { level: 7, min: 576001, max: 1152000, rate: 0.34, cashOut: '16 months', slots: 5, topUp: '12 weeks', color: 'bg-purple-50' }
+  { level: 1, min: 5000, max: 18000, productReturn: 0.16, cashReturn: 0.09, slots: 288, cashOut: 'monthly', topUp: '1 week', color: 'bg-green-50', locked: false, unlockAt: 0 },
+  { level: 2, min: 18001, max: 36000, productReturn: 0.19, cashReturn: 0.11, slots: 144, cashOut: 'monthly', topUp: '2 weeks', color: 'bg-green-50', locked: true, unlockAt: 100000 },
+  { level: 3, min: 36001, max: 72000, productReturn: 0.21, cashReturn: 0.14, slots: 72, cashOut: 'monthly', topUp: '4 weeks', color: 'bg-green-50', locked: true, unlockAt: 250000 },
+  { level: 4, min: 72001, max: 144000, productReturn: 0.27, cashReturn: 0.18, slots: 36, cashOut: 'monthly', topUp: '6 weeks', color: 'bg-green-50', locked: true, unlockAt: 500000 },
+  { level: 5, min: 144001, max: 288000, productReturn: 0.31, cashReturn: 0.22, slots: 18, cashOut: 'monthly', topUp: '8 weeks', color: 'bg-blue-50', locked: true, unlockAt: 750000 },
+  { level: 6, min: 288001, max: 576000, productReturn: 0.36, cashReturn: 0.28, slots: 9, cashOut: 'monthly', topUp: '10 weeks', color: 'bg-blue-50', locked: true, unlockAt: 1000000 },
+  { level: 7, min: 576001, max: 1152000, productReturn: 0.41, cashReturn: 0.34, slots: 5, cashOut: 'monthly', topUp: '12 weeks', color: 'bg-purple-50', locked: true, unlockAt: 2000000 }
 ];
 
 
@@ -91,23 +94,31 @@ const investmentLevels = [
     }
 
     function calculateROI(investment) {
-        const currentLevel = getLevelForInvestment(investment);
-        const annualProfit = investment * currentLevel.rate;
+      const currentLevel = getLevelForInvestment(investment);
 
-        investmentLevelEl.textContent = currentLevel.level;
-        // FIXED: Round the percentage to a whole number
-        returnRateEl.textContent = `${Math.round(currentLevel.rate * 100)}%`;
-        annualProfitEl.textContent = Math.round(annualProfit).toLocaleString();
-        
-        document.querySelectorAll('.level-card').forEach(card => {
-            card.classList.remove('level-active');
-            if (parseInt(card.dataset.level) === currentLevel.level) {
-                card.classList.add('level-active');
-            }
-        });
+      const cashProfit = investment * currentLevel.cashReturn;
+      const productProfit = investment * currentLevel.productReturn;
+      const totalProfit = cashProfit + productProfit;
 
-        localStorage.setItem('biscottiInvestmentAmount', investment);
+      investmentLevelEl.textContent = currentLevel.level;
+
+      // Update display
+      document.getElementById('cash-profit').textContent = Math.round(cashProfit).toLocaleString();
+      document.getElementById('product-profit').textContent = Math.round(productProfit).toLocaleString();
+      document.getElementById('total-profit').textContent = Math.round(totalProfit).toLocaleString();
+
+      // highlight active card
+      document.querySelectorAll('.level-card').forEach(card => {
+        card.classList.remove('level-active');
+        if (parseInt(card.dataset.level) === currentLevel.level) {
+          card.classList.add('level-active');
+        }
+      });
+
+      localStorage.setItem('biscottiInvestmentAmount', investment);
     }
+
+
 
     investmentInput.addEventListener('input', (e) => {
         let value = parseInt(e.target.value, 10) || 0;
@@ -124,28 +135,79 @@ const investmentLevels = [
 
     // --- Level Cards Rendering ---
     const levelsContainer = document.getElementById('levels-container');
-    function renderLevelCards() {
-        levelsContainer.innerHTML = '';
-        investmentLevels.forEach(level => {
-            const card = document.createElement('div');
-            card.className = `level-card p-6 rounded-lg shadow-md transition-all duration-300 border-2 border-transparent ${level.color}`;
-            card.dataset.level = level.level;
+    
+function updateRoadmap() {
+  const progressPercent = Math.min((currentSales / 2000000) * 100, 100);
+  const progressBar = document.getElementById('sales-progress');
+  progressBar.style.width = progressPercent + "%";
+  progressBar.textContent = Math.round(progressPercent) + "%";
 
-            card.innerHTML = `
-                <div class="flex justify-between items-center mb-2">
-                    <h3 class="text-xl font-bold text-gray-800" data-lang="level_card_title">Level ${level.level}</h3>
-                    <span class="text-2xl font-bold text-green-700">${Math.round(level.rate * 100)}%</span>
-                </div>
-                <p class="text-gray-600 font-semibold">${level.min.toLocaleString()} - ${level.max.toLocaleString()} som</p>
-                <div class="text-sm text-gray-500 mt-4 space-y-1">
-                    <p><strong><span data-lang="level_card_slots">Slots</span>:</strong> ${level.slots}</p>
-                    <p><strong><span data-lang="level_card_cashout">Cash-out</span>:</strong> <span data-lang="level_card_after">after</span> ${level.cashOut}</p>
-                    <p><strong><span data-lang="level_card_topup">Top-up</span>:</strong> <span data-lang="level_card_after">after</span> ${level.topUp}</p>
-                </div>
-            `;
-            levelsContainer.appendChild(card);
-        });
+  document.querySelectorAll('.roadmap-step').forEach(step => {
+    const unlockAt = parseInt(step.dataset.unlock, 10);
+    const circle = step.querySelector('.roadmap-circle');
+    const icon = circle.querySelector('i');
+    const label = step.querySelector('span');
+
+    if (currentSales >= unlockAt) {
+      circle.classList.remove('bg-gray-300', 'text-gray-600');
+      circle.classList.add('bg-green-600', 'text-white');
+      icon.classList.remove('fa-lock');
+      icon.classList.add('fa-unlock');
+      label.textContent = "Unlocked!";
+      label.classList.remove('text-gray-500');
+      label.classList.add('text-green-700', 'font-semibold');
+    } else {
+      if (unlockAt <= currentSales + 50000) {
+        // pulse next unlock
+        circle.classList.add('pulse');
+      } else {
+        circle.classList.remove('pulse');
+      }
     }
+  });
+}    
+    
+   
+    
+function renderLevelCards() {
+  levelsContainer.innerHTML = '';
+  investmentLevels.forEach(level => {
+    const isUnlocked = currentSales >= level.unlockAt;
+
+    const card = document.createElement('div');
+    card.className = `level-card p-6 rounded-lg shadow-md transition-all duration-300 border-2 border-transparent ${level.color}`;
+    card.dataset.level = level.level;
+
+    if (!isUnlocked) {
+      card.innerHTML = `
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="text-xl font-bold text-gray-400">Level ${level.level} (Locked)</h3>
+          <i class="fas fa-lock text-gray-400 text-xl"></i>
+        </div>
+        <p class="text-gray-500">Unlocks at <strong>${level.unlockAt.toLocaleString()} som</strong> monthly sales</p>
+      `;
+    } else {
+      card.innerHTML = `
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="text-xl font-bold text-gray-800">Level ${level.level}</h3>
+        </div>
+        <p class="text-gray-600 font-semibold">${level.min.toLocaleString()} - ${level.max.toLocaleString()} som</p>
+        <div class="mt-4 space-y-2 text-sm text-gray-700">
+          <p><strong>Product Return:</strong> ${Math.round(level.productReturn * 100)}%</p>
+          <p><strong>Cash Return:</strong> ${Math.round(level.cashReturn * 100)}% (${level.cashOut})</p>
+          <p><strong>Slots:</strong> ${level.slots}</p>
+          <p><strong>Top-up:</strong> after ${level.topUp}</p>
+        </div>
+      `;
+    }
+
+    levelsContainer.appendChild(card);
+  });
+}
+
+
+
+
 
     // --- Modal & Pitch Generator ---
     const modal = document.getElementById('summary-modal');
@@ -164,14 +226,25 @@ const investmentLevels = [
         const lang = currentLang;
 
         summaryContent.innerHTML = `
-            <p><strong>${translations[lang].modal_summary_investment}</strong> 
-            <span class="text-green-700 font-semibold">${parseInt(investment).toLocaleString()} som</span></p>
-            <p><strong>${translations[lang].modal_summary_level}</strong> 
-            <span class="text-green-700 font-semibold">${currentLevelData.level} (${Math.round(currentLevelData.rate * 100)}%)</span></p>
-            <p><strong>${translations[lang].modal_summary_profit}</strong> 
-            <span class="text-green-700 font-semibold">${profit} som</span></p>
-            <p class="text-sm text-gray-500 mt-4">${translations[lang].modal_summary_disclaimer}</p>
+          <p><strong>${translations[lang].modal_summary_investment}</strong> 
+          <span class="text-green-700 font-semibold">${parseInt(investment).toLocaleString()} som</span></p>
+
+          <p><strong>${translations[lang].modal_summary_level}</strong> 
+          <span class="text-green-700 font-semibold">Level ${currentLevelData.level}</span></p>
+
+          <p><strong>Cash Profit:</strong> 
+          <span class="text-green-700 font-semibold">${Math.round(investment * currentLevelData.cashReturn).toLocaleString()} som</span></p>
+
+          <p><strong>Product Value:</strong> 
+          <span class="text-green-700 font-semibold">${Math.round(investment * currentLevelData.productReturn).toLocaleString()} som</span></p>
+
+          <p><strong>Total Return:</strong> 
+          <span class="text-green-800 font-bold">${Math.round(investment * (currentLevelData.cashReturn + currentLevelData.productReturn)).toLocaleString()} som</span></p>
+
+          <p class="text-sm text-gray-500 mt-4">${translations[lang].modal_summary_disclaimer}</p>
         `;
+
+
         pitchResultContainer.classList.add('hidden');
         generatePitchBtn.classList.remove('hidden');
         modal.classList.remove('hidden');
@@ -251,6 +324,9 @@ const investmentLevels = [
     }
     setLanguage(currentLang);
     calculateROI(parseInt(investmentInput.value, 10));
+    renderLevelCards();
+    updateRoadmap();
+
 });
 
 // --- WhatsApp Form Submission Logic ---
