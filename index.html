@@ -54,32 +54,61 @@
   </section>
 
   <!-- Our Products -->
-  <section id="products">
-    <h2>Our Products</h2>
-    <div class="products-container">
-      <div class="product sourdough">
-        <div class="product-header">Sourdough</div>
-        <div class="product-body">
-          <h3>Sourdough Bread</h3>
-          <p>Delicious and healthy sourdough bread made from natural ingredients.</p>
-        </div>
-      </div>
-      <div class="product granola">
-        <div class="product-header">Granola</div>
-        <div class="product-body">
-          <h3>Granola</h3>
-          <p>Crunchy granola perfect for a nutritious breakfast or snack.</p>
-        </div>
-      </div>
-      <div class="product kombucha">
-        <div class="product-header">Kombucha</div>
-        <div class="product-body">
-          <h3>Kombucha</h3>
-          <p>Refreshing and probiotic-rich fermented tea.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+<section id="products">
+  <h2>Our Products</h2>
+  <div class="products-container" id="products-container">
+    <!-- Product cards will be inserted dynamically here -->
+  </div>
+</section>
+
+<script>
+  // Define your product folders
+  const products = [
+    { name: "Sourdough", folder: "Sourdough", description: "Delicious and healthy sourdough bread made from natural ingredients." },
+    { name: "Granola", folder: "Granola", description: "Crunchy granola perfect for a nutritious breakfast or snack." },
+    { name: "Kombucha", folder: "Kombucha", description: "Refreshing and probiotic-rich fermented tea." }
+  ];
+
+  const container = document.getElementById("products-container");
+
+  // Function to load images dynamically from each folder
+  products.forEach(product => {
+    const productDiv = document.createElement("div");
+    productDiv.className = "product";
+
+    // Product header
+    const header = document.createElement("div");
+    header.className = "product-header";
+    header.textContent = product.name;
+    productDiv.appendChild(header);
+
+    // Image gallery container
+    const gallery = document.createElement("div");
+    gallery.className = "product-gallery";
+
+    // Try to load up to 10 images (Granola/image1.jpg ... image10.jpg)
+    for (let i = 1; i <= 10; i++) {
+      const img = document.createElement("img");
+      img.src = `${product.folder}/image${i}.jpg`;
+      img.alt = `${product.name} ${i}`;
+      img.loading = "lazy";
+      img.onerror = () => img.remove(); // if image doesn’t exist, remove it
+      gallery.appendChild(img);
+    }
+
+    // Product description
+    const body = document.createElement("div");
+    body.className = "product-body";
+    const desc = document.createElement("p");
+    desc.textContent = product.description;
+    body.appendChild(desc);
+
+    productDiv.appendChild(gallery);
+    productDiv.appendChild(body);
+    container.appendChild(productDiv);
+  });
+</script>
+
 
   <!-- Contact -->
   <section id="contact">
