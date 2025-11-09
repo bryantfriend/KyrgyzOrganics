@@ -56,56 +56,59 @@
   <!-- Our Products -->
 <section id="products">
   <h2>Our Products</h2>
-  <div class="products-container" id="products-container">
-    <!-- Product cards will be inserted dynamically here -->
-  </div>
+  <div class="products-container" id="products-container"></div>
 </section>
 
 <script>
-  // Define your product folders
+  // Root-level folders (e.g., /Granola, /Sourdough, /Kombucha)
   const products = [
-    { name: "Sourdough", folder: "Sourdough", description: "Delicious and healthy sourdough bread made from natural ingredients." },
-    { name: "Granola", folder: "Granola", description: "Crunchy granola perfect for a nutritious breakfast or snack." },
-    { name: "Kombucha", folder: "Kombucha", description: "Refreshing and probiotic-rich fermented tea." }
+    { name: "Sourdough", folder: "Sourdough", description: "Delicious sourdough bread made from natural ingredients." },
+    { name: "Granola",   folder: "Granola",   description: "Crunchy granola perfect for a nutritious breakfast." },
+    { name: "Kombucha",  folder: "Kombucha",  description: "Refreshing and probiotic-rich fermented tea." }
   ];
 
   const container = document.getElementById("products-container");
 
-  // Function to load images dynamically from each folder
-  products.forEach(product => {
-    const productDiv = document.createElement("div");
-    productDiv.className = "product";
+  function renderProductCard(product, images) {
+    const card = document.createElement("div");
+    card.className = "product";
 
-    // Product header
     const header = document.createElement("div");
     header.className = "product-header";
     header.textContent = product.name;
-    productDiv.appendChild(header);
 
-    // Image gallery container
     const gallery = document.createElement("div");
     gallery.className = "product-gallery";
 
-    // Try to load up to 10 images using .png
-    for (let i = 1; i <= 10; i++) {
+    images.forEach(src => {
       const img = document.createElement("img");
-      img.src = `${product.folder}/image${i}.png`;
-      img.alt = `${product.name} ${i}`;
+      img.src = src;
+      img.alt = `${product.name}`;
       img.loading = "lazy";
-      img.onerror = () => img.remove(); // if image doesn’t exist, remove it
+      img.decoding = "async";
       gallery.appendChild(img);
-    }
+    });
 
-    // Product description
     const body = document.createElement("div");
     body.className = "product-body";
-    const desc = document.createElement("p");
-    desc.textContent = product.description;
-    body.appendChild(desc);
+    body.innerHTML = `<p>${product.description}</p>`;
 
-    productDiv.appendChild(gallery);
-    productDiv.appendChild(body);
-    container.appendChild(productDiv);
+    card.appendChild(header);
+    card.appendChild(gallery);
+    card.appendChild(body);
+    container.appendChild(card);
+  }
+
+  products.forEach(async (product) => {
+    try {
+      const res = await fetch(`/api/images/${encodeURIComponent(product.folder)}`);
+      const images = await res.json(); // array of URLs
+      if (Array.isArray(images) && images.length) {
+        renderProductCard(product, images);
+      }
+    } catch (e) {
+      console.warn(`No images for ${product.folder}`);
+    }
   });
 </script>
 
