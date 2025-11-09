@@ -86,10 +86,10 @@
     const gallery = document.createElement("div");
     gallery.className = "product-gallery";
 
-    // Try to load up to 10 images (Granola/image1.jpg ... image10.jpg)
+    // Try to load up to 10 images using .png
     for (let i = 1; i <= 10; i++) {
       const img = document.createElement("img");
-      img.src = `${product.folder}/image${i}.jpg`;
+      img.src = `${product.folder}/image${i}.png`;
       img.alt = `${product.name} ${i}`;
       img.loading = "lazy";
       img.onerror = () => img.remove(); // if image doesn’t exist, remove it
