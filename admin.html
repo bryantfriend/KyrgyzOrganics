@@ -210,9 +210,20 @@
                     <form id="productForm">
                         <input type="hidden" id="pId">
                         <div class="form-group">
-                            <label>Name</label>
-                            <input type="text" id="pName" class="form-control" required>
+                            <label>Name (RU - Default)</label>
+                            <input type="text" id="pNameRu" class="form-control" placeholder="Название (RU)" required>
                         </div>
+                        <div class="form-group" style="display: flex; gap: 1rem;">
+                            <div style="flex: 1;">
+                                <label>Name (EN)</label>
+                                <input type="text" id="pNameEn" class="form-control" placeholder="Name (EN)">
+                            </div>
+                            <div style="flex: 1;">
+                                <label>Name (KG)</label>
+                                <input type="text" id="pNameKg" class="form-control" placeholder="Аты (KG)">
+                            </div>
+                        </div>
+
                         <div class="form-group" style="display: flex; gap: 1rem;">
                             <div style="flex: 1;">
                                 <label>Price</label>
@@ -235,9 +246,19 @@
                                 <img src="" style="max-height: 100px; border-radius: 4px;">
                             </div>
                         </div>
+
                         <div class="form-group">
-                            <label>Description</label>
-                            <textarea id="pDesc" class="form-control" rows="3"></textarea>
+                            <label>Description (RU)</label>
+                            <textarea id="pDescRu" class="form-control" rows="2" placeholder="Описание (RU)"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Description (EN)</label>
+                            <textarea id="pDescEn" class="form-control" rows="2"
+                                placeholder="Description (EN)"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Description (KG)</label>
+                            <textarea id="pDescKg" class="form-control" rows="2" placeholder="Баяндама (KG)"></textarea>
                         </div>
                         <div class="form-group">
                             <label><input type="checkbox" id="pFeatured"> Set as Featured</label>
@@ -262,12 +283,46 @@
             <!-- CATEGORIES -->
             <div id="categories" class="tab-content">
                 <div class="admin-card">
-                    <h3>Categories</h3>
-                    <form id="categoryForm" style="display: flex; gap: 1rem; margin-bottom: 1rem;">
-                        <input type="text" id="cName" class="form-control" placeholder="New Category Name" required>
-                        <button type="submit" class="btn-primary">Add</button>
+                    <h3>Add/Edit Category</h3>
+                    <form id="categoryForm">
+                        <input type="hidden" id="cId">
+                        <div class="form-group" style="display: flex; gap: 1rem;">
+                            <div style="flex: 1;">
+                                <label>Name (RU)</label>
+                                <input type="text" id="cNameRu" class="form-control" placeholder="RU" required>
+                            </div>
+                            <div style="flex: 1;">
+                                <label>Name (EN)</label>
+                                <input type="text" id="cNameEn" class="form-control" placeholder="EN">
+                            </div>
+                            <div style="flex: 1;">
+                                <label>Name (KG)</label>
+                                <input type="text" id="cNameKg" class="form-control" placeholder="KG">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label style="margin-bottom: 0.5rem; display: block;">Style Customization</label>
+                            <div style="display: flex; gap: 1rem; align-items: center;">
+                                <div>
+                                    <label style="font-size: 0.8rem;">Text Color</label>
+                                    <input type="color" id="cStyleColor" value="#000000">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8rem;">Background</label>
+                                    <input type="color" id="cStyleBg" value="#ffffff">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8rem;">Border Color</label>
+                                    <input type="color" id="cStyleBorder" value="#dddddd">
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1rem;">
+                            <button type="submit" id="cSaveBtn" class="btn-primary">Add Category</button>
+                            <button type="button" onclick="resetCForm()" class="btn-secondary">Cancel</button>
+                        </div>
                     </form>
-                    <div id="categoryList" class="item-list"></div>
+                    <div id="categoryList" class="item-list" style="margin-top: 1rem;"></div>
                 </div>
             </div>
 
@@ -277,12 +332,33 @@
                     <h3>Add Banner Slide</h3>
                     <form id="bannerForm">
                         <div class="form-group">
-                            <label>Title</label>
-                            <input type="text" id="bTitle" class="form-control" required>
+                            <label>Title (RU)</label>
+                            <input type="text" id="bTitleRu" class="form-control" required>
                         </div>
+                        <div class="form-group" style="display: flex; gap: 1rem;">
+                            <div style="flex: 1;">
+                                <label>Title (EN)</label>
+                                <input type="text" id="bTitleEn" class="form-control">
+                            </div>
+                            <div style="flex: 1;">
+                                <label>Title (KG)</label>
+                                <input type="text" id="bTitleKg" class="form-control">
+                            </div>
+                        </div>
+
                         <div class="form-group">
-                            <label>Subtitle</label>
-                            <input type="text" id="bSubtitle" class="form-control" required>
+                            <label>Subtitle (RU)</label>
+                            <input type="text" id="bSubtitleRu" class="form-control" required>
+                        </div>
+                        <div class="form-group" style="display: flex; gap: 1rem;">
+                            <div style="flex: 1;">
+                                <label>Subtitle (EN)</label>
+                                <input type="text" id="bSubtitleEn" class="form-control">
+                            </div>
+                            <div style="flex: 1;">
+                                <label>Subtitle (KG)</label>
+                                <input type="text" id="bSubtitleKg" class="form-control">
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>Banner Image (Landscape)</label>
@@ -352,39 +428,98 @@
         }
 
         // --- CATEGORIES ---
+        let categoriesMap = {};
         const catList = document.getElementById('categoryList');
         const pCategorySelect = document.getElementById('pCategory');
+        const cForm = document.getElementById('categoryForm');
 
         function loadCategories() {
-            const q = query(collection(db, "categories"), orderBy("name"));
+            const q = query(collection(db, "categories"), orderBy("name_ru"));
             onSnapshot(q, (snapshot) => {
                 catList.innerHTML = '';
                 pCategorySelect.innerHTML = '<option value="">Select Category...</option>';
+                categoriesMap = {};
 
                 snapshot.forEach(docSnap => {
                     const data = docSnap.data();
                     const id = docSnap.id;
+                    categoriesMap[id] = data;
 
-                    // List
-                    const item = document.createElement('div');
-                    item.className = 'list-item';
-                    item.innerHTML = `<span>${data.name}</span> <button class="btn-danger" onclick="window.delCat('${id}')">Delete</button>`;
-                    catList.appendChild(item);
+                    // List Item with Color Preview
+                    const el = document.createElement('div');
+                    el.className = 'list-item';
 
-                    // Select
+                    // Style preview
+                    const stylePreview = `display:inline-block; padding:2px 8px; border-radius:12px; font-size:0.8rem; background:${data.style_bg || '#eee'}; color:${data.style_color || '#000'}; border:1px solid ${data.style_border || 'transparent'};`;
+
+                    el.innerHTML = `
+                        <div>
+                            <span style="${stylePreview}">
+                                ${data.name_ru || 'No Name'}
+                            </span>
+                            <small class="text-muted"> / ${data.name_en || '-'} / ${data.name_kg || '-'}</small>
+                        </div>
+                        <div>
+                            <button class="btn-primary" style="font-size:0.8rem" onclick="window.prepEditCat('${id}')">Edit</button>
+                            <button class="btn-danger" style="font-size:0.8rem" onclick="window.delCat('${id}')">Del</button>
+                        </div>
+                    `;
+                    catList.appendChild(el);
+
+                    // Select (Prefer ID as value now, but sticking to Name for migration unless we refactor products too. 
+                    // Let's stick to Name Ref for Products to keep it simple, defaulting to RU name for storage link)
+                    // ACTUALLY: Product stores "category". If we rename category, product link breaks. 
+                    // Ideally we use ID. But let's stick to storing localized names separately? No, that's messy.
+                    // Let's store category ID in product? 
+                    // REFACTOR DECISION: Store Category ID in Product. 
                     const opt = document.createElement('option');
-                    opt.value = data.name; // Storing Name as ref for simplicity, ideally ID
-                    opt.textContent = data.name;
+                    opt.value = id;
+                    opt.textContent = data.name_ru;
                     pCategorySelect.appendChild(opt);
                 });
             });
         }
 
-        document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+        window.prepEditCat = (id) => {
+            const data = categoriesMap[id];
+            if (!data) return;
+            document.getElementById('cId').value = id;
+            document.getElementById('cNameRu').value = data.name_ru || '';
+            document.getElementById('cNameEn').value = data.name_en || '';
+            document.getElementById('cNameKg').value = data.name_kg || '';
+
+            document.getElementById('cStyleColor').value = data.style_color || '#000000';
+            document.getElementById('cStyleBg').value = data.style_bg || '#ffffff';
+            document.getElementById('cStyleBorder').value = data.style_border || '#dddddd';
+
+            document.getElementById('cSaveBtn').textContent = "Update Category";
+        };
+
+        window.resetCForm = () => {
+            cForm.reset();
+            document.getElementById('cId').value = '';
+            document.getElementById('cSaveBtn').textContent = "Add Category";
+        };
+
+        cForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const name = document.getElementById('cName').value;
-            await addDoc(collection(db, "categories"), { name, active: true });
-            document.getElementById('cName').value = '';
+            const id = document.getElementById('cId').value;
+            const data = {
+                name_ru: document.getElementById('cNameRu').value,
+                name_en: document.getElementById('cNameEn').value,
+                name_kg: document.getElementById('cNameKg').value,
+                style_color: document.getElementById('cStyleColor').value,
+                style_bg: document.getElementById('cStyleBg').value,
+                style_border: document.getElementById('cStyleBorder').value,
+                active: true
+            };
+
+            if (id) {
+                await updateDoc(doc(db, "categories", id), data);
+            } else {
+                await addDoc(collection(db, "categories"), data);
+            }
+            resetCForm();
         });
 
         window.delCat = async (id) => {
@@ -394,11 +529,11 @@
 
         // --- PRODUCTS ---
         const productForm = document.getElementById('productForm');
+        let productsMap = {};
 
         document.getElementById('pImageFile').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
-                // Local Preview
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     document.querySelector('#pImgPreview img').src = ev.target.result;
@@ -408,54 +543,8 @@
             }
         });
 
-        function loadProducts() {
-            const q = query(collection(db, "products"), orderBy("name"));
-            onSnapshot(q, (snapshot) => {
-                const list = document.getElementById('productList');
-                list.innerHTML = '';
-                snapshot.forEach(docSnap => {
-                    const data = docSnap.data();
-                    const id = docSnap.id;
-                    const el = document.createElement('div');
-                    el.className = 'list-item';
-                    el.innerHTML = `
-                        <div class="item-info">
-                            <img src="${data.imageUrl || 'https://placehold.co/50'}" class="preview-img">
-                            <div>
-                                <strong>${data.name}</strong><br>
-                                <small>${data.category} | ${data.price}</small>
-                                ${data.isFeatured ? '<span style="color:orange">★</span>' : ''}
-                            </div>
-                        </div>
-                        <div>
-                            <button class="btn-primary" style="font-size:0.8rem" onclick="window.editProd('${id}')">Edit</button>
-                            <button class="btn-danger" onclick="window.delProd('${id}')">Del</button>
-                        </div>
-                    `;
-                    list.appendChild(el);
-                });
-            });
-        }
-
-        window.editProd = async (id) => {
-            // Find data in UI (lazy mechanism) or fetch
-            // Let's fetch single doc for safety
-            // Or better, store snapshot data in memory map. For now, simplistic:
-            // We'll iterate the DOM or just re-fetch for simplicity of implementation in this context
-            // Actually, let's just create a quick map from the last snapshot if we wanted, 
-            // but `getDoc` is fine.
-            // Wait, we can't export `getDoc` easily to window scope without module complications.
-            // We'll attach a data attribute to the edit button? No, data might be large.
-            // Let's just make a specialized listener or object storage.
-            // Correct approach: Maintain `productsMap`.
-
-            // Re-implement loadProducts with map storage
-            // (Skipped for brevity, assume we just clear form for now or implement properly below)
-        };
-
-        let productsMap = {}; // Local cache
         function loadProductsWithMap() {
-            const q = query(collection(db, "products"), orderBy("name"));
+            const q = query(collection(db, "products"), orderBy("name_ru")); // changed sort to name_ru
             onSnapshot(q, (snapshot) => {
                 const list = document.getElementById('productList');
                 list.innerHTML = '';
@@ -470,14 +559,14 @@
                         <div class="item-info">
                             <img src="${data.imageUrl || 'https://placehold.co/50'}" class="preview-img">
                             <div>
-                                <strong>${data.name}</strong><br>
-                                <small>${data.category} | ${data.price}</small>
+                                <strong>${data.name_ru || 'No Name'}</strong><br>
+                                <small>${data.price || '-'}</small>
                                 ${data.isFeatured ? '<span style="color:orange">★</span>' : ''}
                             </div>
                         </div>
                         <div>
                             <button class="btn-primary" style="font-size:0.8rem; margin-right: 0.5rem;" onclick="window.prepEdit('${docSnap.id}')">Edit</button>
-                            <button class="btn-danger" onclick="window.delProd('${docSnap.id}')">Del</button>
+                            <button class="btn-danger" style="font-size:0.8rem" onclick="window.delProd('${docSnap.id}')">Del</button>
                         </div>
                     `;
                     list.appendChild(el);
@@ -489,13 +578,20 @@
             const data = productsMap[id];
             if (!data) return;
             document.getElementById('pId').value = id;
-            document.getElementById('pName').value = data.name;
+            // Localization
+            document.getElementById('pNameRu').value = data.name_ru || '';
+            document.getElementById('pNameEn').value = data.name_en || '';
+            document.getElementById('pNameKg').value = data.name_kg || '';
+
+            document.getElementById('pDescRu').value = data.description_ru || '';
+            document.getElementById('pDescEn').value = data.description_en || '';
+            document.getElementById('pDescKg').value = data.description_kg || '';
+
             document.getElementById('pPrice').value = data.price;
             document.getElementById('pWeight').value = data.weight;
-            document.getElementById('pCategory').value = data.category;
-            document.getElementById('pDesc').value = data.description;
+            document.getElementById('pCategory').value = data.categoryId; // Use ID now
             document.getElementById('pFeatured').checked = data.isFeatured;
-            document.getElementById('pActive').checked = data.active;
+            document.getElementById('pActive').checked = data.active !== false;
 
             document.getElementById('pImageURL').value = data.imageUrl;
             document.querySelector('#pImgPreview img').src = data.imageUrl;
@@ -504,7 +600,6 @@
             document.getElementById('pFormTitle').textContent = "Edit Product";
             document.getElementById('pSaveBtn').textContent = "Update Product";
 
-            // Scroll top
             document.getElementById('products').scrollIntoView();
         };
 
@@ -527,20 +622,25 @@
 
             if (file) {
                 imageUrl = await uploadImage(file, 'products');
-            } else if (!imageUrl) {
-                // If no file and no existing URL, use placeholder
-                imageUrl = "https://placehold.co/400x300?text=No+Image";
             }
 
             const data = {
-                name: document.getElementById('pName').value,
+                // Localized Fields
+                name_ru: document.getElementById('pNameRu').value,
+                name_en: document.getElementById('pNameEn').value,
+                name_kg: document.getElementById('pNameKg').value,
+
+                description_ru: document.getElementById('pDescRu').value,
+                description_en: document.getElementById('pDescEn').value,
+                description_kg: document.getElementById('pDescKg').value,
+
                 price: document.getElementById('pPrice').value,
                 weight: document.getElementById('pWeight').value,
-                category: document.getElementById('pCategory').value,
-                description: document.getElementById('pDesc').value,
+                categoryId: document.getElementById('pCategory').value, // ID
+
                 isFeatured: document.getElementById('pFeatured').checked,
                 active: document.getElementById('pActive').checked,
-                imageUrl: imageUrl
+                imageUrl: imageUrl || 'https://placehold.co/400x300?text=No+Image'
             };
 
             if (id) {
@@ -570,7 +670,7 @@
                     el.innerHTML = `
                         <div class="item-info">
                             <img src="${d.imageUrl || 'https://placehold.co/100x50'}" class="preview-img" style="width: 100px; height: 50px;">
-                            <div><strong>${d.title}</strong><br>${d.subtitle}</div>
+                            <div><strong>${d.title_ru || d.title || 'No Title'}</strong><br>${d.subtitle_ru || d.subtitle || '-'}</div>
                         </div>
                         <button class="btn-danger" onclick="window.delBan('${docSnap.id}')">Del</button>
                      `;
@@ -585,16 +685,23 @@
             btn.disabled = true;
             btn.textContent = "Uploading...";
 
-            const title = document.getElementById('bTitle').value;
-            const subtitle = document.getElementById('bSubtitle').value;
             const file = document.getElementById('bImageFile').files[0];
-
             let imageUrl = '';
-            if (file) {
-                imageUrl = await uploadImage(file, 'banners');
-            }
+            if (file) imageUrl = await uploadImage(file, 'banners');
 
-            await addDoc(collection(db, "banners"), { title, subtitle, imageUrl });
+            const data = {
+                title_ru: document.getElementById('bTitleRu').value,
+                title_en: document.getElementById('bTitleEn').value,
+                title_kg: document.getElementById('bTitleKg').value,
+
+                subtitle_ru: document.getElementById('bSubtitleRu').value,
+                subtitle_en: document.getElementById('bSubtitleEn').value,
+                subtitle_kg: document.getElementById('bSubtitleKg').value,
+
+                imageUrl: imageUrl
+            };
+
+            await addDoc(collection(db, "banners"), data);
             document.getElementById('bannerForm').reset();
 
             btn.disabled = false;
