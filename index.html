@@ -1,131 +1,172 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>OA Kyrgyz Organic</title>
-  <link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OA Kyrgyz Organic - Grocery Catalog</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
-  <!-- Header -->
-  <header>
-    <h1>OA Kyrgyz Organic</h1>
-    <p>Natural Eco Products Delivered to Your Home</p>
+
+  <!-- Top Header -->
+  <header class="header">
+    <div class="container header-inner">
+      <a href="#" class="logo">OA Kyrgyz Organic</a>
+
+      <nav class="nav-links">
+        <a href="#">Home</a>
+        <a href="#">Products</a>
+        <a href="#">Categories</a>
+        <a href="#">About</a>
+        <a href="#">Contact</a>
+      </nav>
+
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Search organic products...">
+      </div>
+
+      <div class="lang-toggle">
+        <span class="active">EN</span> / <span>RU</span>
+      </div>
+    </div>
   </header>
 
-  <!-- Hero Banner -->
-  <section class="hero-banner" aria-label="Featured image">
-    <figure>
-      <img
-        src="images/banner1.jpg"
-        alt="Fresh sourdough bread on a wooden board"
-        loading="eager"
-        decoding="async"
-        style="width:100%; height:auto;"
-      />
-      <figcaption class="visually-hidden">Fresh sourdough bread</figcaption>
-    </figure>
-  </section>
-
-  <!-- Navigation -->
-  <nav>
-    <ul>
-      <li><a class="active" href="#">Home</a></li>
-      <li><a href="#">Oku Way</a></li>
-      <li><a href="EONIS/EONIS.html">eONIS</a></li>
-      <li><a href="#">My Cafe</a></li>
-      <li><a href="careers.html">Careers</a></li>
-    </ul>
-  </nav>
-
-  <!-- Investment Button -->
-  <div class="investment-btn-wrapper" style="text-align:center; margin:20px;">
-    <a href="biscotti.html" class="star-btn">✨ Invest in Biscotti_Miste ✨</a>
+  <!-- Category Filter Bar -->
+  <div class="filter-bar">
+    <div class="container">
+      <ul class="filter-list" id="categoryFilters">
+        <li><button class="filter-pill active" data-category="all">All Products</button></li>
+        <li><button class="filter-pill" data-category="Bakery">Bakery</button></li>
+        <li><button class="filter-pill" data-category="Organic Dairy">Organic Dairy</button></li>
+        <li><button class="filter-pill" data-category="Honey & Jam">Honey & Jam</button></li>
+        <li><button class="filter-pill" data-category="Grains & Seeds">Grains & Seeds</button></li>
+        <li><button class="filter-pill" data-category="Snacks">Snacks</button></li>
+        <li><button class="filter-pill" data-category="Tea & Coffee">Tea & Coffee</button></li>
+      </ul>
+    </div>
   </div>
 
-  <!-- About Us -->
-  <section id="about">
-    <h2>About Us</h2>
-    <p>
-      OA Kyrgyz Organic specializes in sourcing and delivering organic and natural food products in the Kyrgyz Republic.
-      We offer a variety of eco-friendly products, including sourdough bread, granola, and more. Our mission is to
-      promote healthy living through sustainable agriculture and high-quality ingredients.
-    </p>
-  </section>
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="container">
 
-  <!-- Our Products -->
-<section id="products">
-  <h2>Our Products</h2>
-  <div class="products-container" id="products-container"></div>
-</section>
+      <!-- Hero Carousel -->
+      <section class="hero-carousel">
+        <div class="hero-slide">
+          <h1 class="hero-title">Fresh Organic Products<br>from Local Farmers</h1>
+          <p class="hero-subtitle">Delivery in Bishkek & Nearby Regions</p>
+        </div>
+      </section>
 
-<script>
-  // Root-level folders (e.g., /Granola, /Sourdough, /Kombucha)
-  const products = [
-    { name: "Sourdough", folder: "Sourdough", description: "Delicious sourdough bread made from natural ingredients." },
-    { name: "Granola",   folder: "Granola",   description: "Crunchy granola perfect for a nutritious breakfast." },
-    { name: "Kombucha",  folder: "Kombucha",  description: "Refreshing and probiotic-rich fermented tea." }
-  ];
+      <!-- Quick Actions -->
+      <section class="quick-actions-row">
+        <div class="action-card">
+          <span class="action-icon">🚚</span>
+          Free Delivery
+        </div>
+        <div class="action-card">
+          <span class="action-icon">🌱</span>
+          Local Producers
+        </div>
+        <div class="action-card">
+          <span class="action-icon">♻️</span>
+          Eco Certified
+        </div>
+        <div class="action-card">
+          <span class="action-icon">🍂</span>
+          Seasonal
+        </div>
+      </section>
 
-  const container = document.getElementById("products-container");
+      <!-- Featured Section -->
+      <section class="featured-section">
+        <div class="featured-header">
+          <h2 class="section-title" style="margin: 0;">Hits of the Week</h2>
+          <span class="featured-label">Top Sellers</span>
+        </div>
+        <div class="product-grid" id="featuredGrid">
+          <!-- Featured products injected here -->
+        </div>
+      </section>
 
-  function renderProductCard(product, images) {
-    const card = document.createElement("div");
-    card.className = "product";
+      <!-- Investment CTA -->
+      <section class="investment-cta">
+        <div class="cta-content">
+          <h2 class="cta-title">Invest in Biscotti Miste</h2>
+          <p class="cta-text">Join our community of investors and support the growth of local organic production. Secure
+            returns and sustainable impact.</p>
+          <a href="#" class="cta-btn">Learn More</a>
+        </div>
+      </section>
 
-    const header = document.createElement("div");
-    header.className = "product-header";
-    header.textContent = product.name;
+      <!-- All Products Grid -->
+      <h2 class="section-title">Full Catalog</h2>
+      <div class="product-grid" id="productGrid">
+        <!-- Products injected here -->
+      </div>
 
-    const gallery = document.createElement("div");
-    gallery.className = "product-gallery";
+      <!-- Recommended Section -->
+      <h2 class="section-title" style="margin-top: 3rem;">Frequently Bought Together</h2>
+      <div class="product-grid" id="recommendedGrid">
+        <!-- Reuse same grid structure -->
+      </div>
+    </div>
+  </main>
 
-    images.forEach(src => {
-      const img = document.createElement("img");
-      img.src = src;
-      img.alt = `${product.name}`;
-      img.loading = "lazy";
-      img.decoding = "async";
-      gallery.appendChild(img);
-    });
-
-    const body = document.createElement("div");
-    body.className = "product-body";
-    body.innerHTML = `<p>${product.description}</p>`;
-
-    card.appendChild(header);
-    card.appendChild(gallery);
-    card.appendChild(body);
-    container.appendChild(card);
-  }
-
-  products.forEach(async (product) => {
-    try {
-      const res = await fetch(`/api/images/${encodeURIComponent(product.folder)}`);
-      const images = await res.json(); // array of URLs
-      if (Array.isArray(images) && images.length) {
-        renderProductCard(product, images);
-      }
-    } catch (e) {
-      console.warn(`No images for ${product.folder}`);
-    }
-  });
-</script>
-
-
-  <!-- Contact -->
-  <section id="contact">
-    <h2>Contact Us</h2>
-    <div class="contact-box">
-      <p>📧 <a href="mailto:info@oa.kg">info@oa.kg</a></p>
-      <p>📞 <a href="tel:+996778995523">+996 778 995 523</a></p>
-      <p>📍 Kyrgyzstan 1, Boz-Boltok 68, Bishkek, Kyrgyzstan</p>
+  <!-- Delivery Banner -->
+  <section class="delivery-banner">
+    <div class="container">
+      <h2>Delivery across Bishkek and nearby areas</h2>
+      <p>Eco-friendly local producers at your doorstep</p>
+      <div style="margin-top: 1.5rem; max-width: 400px; margin-left: auto; margin-right: auto; position: relative;">
+        <input type="text" placeholder="Enter your address"
+          style="width: 100%; padding: 1rem; border-radius: 2rem; border: none; outline: none;">
+        <button
+          style="position: absolute; right: 5px; top: 5px; bottom: 5px; background: var(--color-primary-dark); color: white; padding: 0 1.5rem; border-radius: 2rem; font-weight: 600;">Check</button>
+      </div>
     </div>
   </section>
 
   <!-- Footer -->
-  <footer>
-    <p>&copy; 2025 OA Kyrgyz Organic. All rights reserved.</p>
+  <footer class="footer">
+    <div class="container">
+      <div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: space-between;">
+        <div>
+          <h3 style="color: white; margin-bottom: 1rem;">OA Kyrgyz Organic</h3>
+          <p>Connecting you with the best<br>organic producers in Kyrgyzstan.</p>
+        </div>
+        <div>
+          <h4 style="color: white; margin-bottom: 0.5rem;">Contact</h4>
+          <p>info@kyrgyzorganic.kg</p>
+          <p>+996 555 123 456</p>
+          <p>Bishkek, Kyrgyzstan</p>
+        </div>
+      </div>
+      <div style="margin-top: 2rem; border-top: 1px solid #444; padding-top: 1rem; font-size: 0.8rem;">
+        <p>© 2025 OA Kyrgyz Organic. All rights reserved.</p>
+      </div>
+    </div>
   </footer>
+
+  <!-- Product Modal -->
+  <div id="productModal"
+    style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; padding: 1rem;">
+    <div
+      style="background: white; padding: 2rem; border-radius: 8px; max-width: 700px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto;">
+      <button id="closeModal"
+        style="position: absolute; right: 1rem; top: 1rem; font-size: 2rem; line-height: 1; color: #777;">&times;</button>
+      <div id="modalContent" style="display: flex; flex-direction: column; gap: 2rem;">
+        <!-- Content injected via JS -->
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
+
 </html>

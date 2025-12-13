@@ -1,0 +1,90 @@
+[
+    {
+        "id": 1,
+        "name": "Organic Whole Wheat Bread",
+        "category": "Bakery",
+        "price": "85 KGS",
+        "weight": "400g",
+        "rating": 4.8,
+        "description": "Freshly baked whole wheat bread made with locally sourced organic flour. No preservatives.",
+        "image": "https://placehold.co/400x300?text=Bread",
+        "isFeatured": true
+    },
+    {
+        "id": 2,
+        "name": "Mountain Flower Honey",
+        "category": "Honey & Jam",
+        "price": "450 KGS",
+        "weight": "500g",
+        "rating": 5.0,
+        "description": "Pure raw honey collected from the high meadows of Naryn. Rich in antioxidants.",
+        "image": "https://placehold.co/400x300?text=Honey",
+        "isFeatured": true
+    },
+    {
+        "id": 3,
+        "name": "Fresh Farm Milk",
+        "category": "Organic Dairy",
+        "price": "90 KGS",
+        "weight": "1L",
+        "rating": 4.7,
+        "description": "Pasteurized organic cow's milk from grass-fed cows. High in calcium and protein.",
+        "image": "https://placehold.co/400x300?text=Milk",
+        "isFeatured": true
+    },
+    {
+        "id": 4,
+        "name": "Quinoa Seeds",
+        "category": "Grains & Seeds",
+        "price": "320 KGS",
+        "weight": "350g",
+        "rating": 4.6,
+        "description": "Organic white quinoa, perfect for salads and healthy bowls. Gluten-free superfood.",
+        "image": "https://placehold.co/400x300?text=Quinoa",
+        "isFeatured": true
+    },
+    {
+        "id": 5,
+        "name": "Dried Apricots",
+        "category": "Snacks",
+        "price": "250 KGS",
+        "weight": "300g",
+        "rating": 4.9,
+        "description": "Sun-dried apricots from Batken. No added sugar or sulfur dioxide.",
+        "image": "https://placehold.co/400x300?text=Apricots",
+        "isFeatured": false
+    },
+    {
+        "id": 6,
+        "name": "Herbal Mountain Tea",
+        "category": "Tea & Coffee",
+        "price": "180 KGS",
+        "weight": "100g",
+        "rating": 4.9,
+        "description": "A soothing blend of wild thyme, mint, and oregano hand-picked in the mountains.",
+        "image": "https://placehold.co/400x300?text=Tea",
+        "isFeatured": false
+    },
+    {
+        "id": 7,
+        "name": "Rye Sourdough",
+        "category": "Bakery",
+        "price": "110 KGS",
+        "weight": "450g",
+        "rating": 4.7,
+        "description": "Traditional fermented rye bread with a rich, tangy flavor and crispy crust.",
+        "image": "https://placehold.co/400x300?text=Sourdough",
+        "isFeatured": false
+    },
+    {
+        "id": 8,
+        "name": "Homemade Raspberry Jam",
+        "category": "Honey & Jam",
+        "price": "280 KGS",
+        "weight": "380g",
+        "rating": 4.8,
+        "description": "Classic grandmother's recipe with organic raspberries. Perfect for breakfast.",
+        "image": "https://placehold.co/400x300?text=Jam",
+        "isFeatured": false
+    }
+]
