@@ -53,11 +53,8 @@ function renderBanner() {
     if (!bannerData.length) return;
     // Just showing first slide for now to keep it simple as per original implementation
     const slide = bannerData[0];
-    // Use a nice placeholder if no image is uploaded yet
-    const bgImage = slide.imageUrl || 'https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1920&auto=format&fit=crop';
-    
     const slideHtml = `
-        <div class="hero-slide" style="background-image: url('${bgImage}');">
+        <div class="hero-slide" style="background-image: url('${slide.imageUrl || ''}');">
             <div class="hero-overlay">
                 <h1 class="hero-title">${slide.title}</h1>
                 <p class="hero-subtitle">${slide.subtitle}</p>
