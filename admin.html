@@ -284,7 +284,11 @@
                             <label>Subtitle</label>
                             <input type="text" id="bSubtitle" class="form-control" required>
                         </div>
-                        <button type="submit" class="btn-primary">Add Banner</button>
+                        <div class="form-group">
+                            <label>Banner Image (Landscape)</label>
+                            <input type="file" id="bImageFile" class="form-control" accept="image/*" required>
+                        </div>
+                        <button type="submit" id="bSaveBtn" class="btn-primary">Add Banner</button>
                     </form>
                 </div>
                 <div class="admin-card">
@@ -563,7 +567,13 @@
                     const d = docSnap.data();
                     const el = document.createElement('div');
                     el.className = 'list-item';
-                    el.innerHTML = `<div><strong>${d.title}</strong><br>${d.subtitle}</div> <button class="btn-danger" onclick="window.delBan('${docSnap.id}')">Del</button>`;
+                    el.innerHTML = `
+                        <div class="item-info">
+                            <img src="${d.imageUrl || 'https://placehold.co/100x50'}" class="preview-img" style="width: 100px; height: 50px;">
+                            <div><strong>${d.title}</strong><br>${d.subtitle}</div>
+                        </div>
+                        <button class="btn-danger" onclick="window.delBan('${docSnap.id}')">Del</button>
+                     `;
                     list.appendChild(el);
                 });
             });
@@ -571,10 +581,24 @@
 
         document.getElementById('bannerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const btn = document.getElementById('bSaveBtn');
+            btn.disabled = true;
+            btn.textContent = "Uploading...";
+
             const title = document.getElementById('bTitle').value;
             const subtitle = document.getElementById('bSubtitle').value;
-            await addDoc(collection(db, "banners"), { title, subtitle });
+            const file = document.getElementById('bImageFile').files[0];
+
+            let imageUrl = '';
+            if (file) {
+                imageUrl = await uploadImage(file, 'banners');
+            }
+
+            await addDoc(collection(db, "banners"), { title, subtitle, imageUrl });
             document.getElementById('bannerForm').reset();
+
+            btn.disabled = false;
+            btn.textContent = "Add Banner";
         });
 
         window.delBan = async (id) => {

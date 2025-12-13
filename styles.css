@@ -184,29 +184,48 @@ button {
 
 /* Hero Carousel */
 .hero-carousel {
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-    color: white;
-    padding: 3rem 1rem;
-    text-align: center;
-    border-radius: 0 0 var(--radius) var(--radius);
-    margin-bottom: 2rem;
+    margin-top: 1rem;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    /* aspect-ratio: 21/9; Remove fixed aspect if content drives height, but usually good for banners */
+    height: 400px;
 }
 
 .hero-slide {
-    max-width: 800px;
-    margin: 0 auto;
+    height: 100%;
+    background-color: var(--color-primary-light);
+    /* Fallback */
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: white;
+    /* Default text color on image */
+}
+
+.hero-overlay {
+    background: rgba(0, 0, 0, 0.4);
+    /* Dark overlay for text readability */
+    padding: 2rem;
+    border-radius: 8px;
+    backdrop-filter: blur(2px);
 }
 
 .hero-title {
     font-size: 2.5rem;
-    font-weight: 800;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     line-height: 1.2;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .hero-subtitle {
-    font-size: 1.25rem;
-    opacity: 0.9;
+    font-size: 1.2rem;
+    opacity: 0.95;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 /* Quick Actions */
