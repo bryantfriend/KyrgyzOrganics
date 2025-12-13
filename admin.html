@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OA Kyrgyz Organic - Admin Panel</title>
+    <title>OA Kyrgyz Organic - Admin Panel (Firebase)</title>
     <link rel="stylesheet" href="styles.css">
     <style>
         body {
@@ -25,8 +25,29 @@
             padding: 0 1rem;
         }
 
-        .admin-title {
-            margin-bottom: 0.5rem;
+        /* Auth Screen */
+        #authScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-box {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            border: 1px solid #eee;
         }
 
         /* Tabs */
@@ -50,7 +71,6 @@
             border-color: var(--color-primary);
         }
 
-        /* Content Areas */
         .tab-content {
             display: none;
         }
@@ -59,7 +79,7 @@
             display: block;
         }
 
-        /* Forms & Lists */
+        /* General Forms */
         .admin-card {
             background: white;
             padding: 1.5rem;
@@ -70,6 +90,7 @@
 
         .form-group {
             margin-bottom: 1rem;
+            text-align: left;
         }
 
         .form-group label {
@@ -90,6 +111,7 @@
             color: white;
             padding: 0.5rem 1rem;
             border-radius: 4px;
+            cursor: pointer;
         }
 
         .btn-danger {
@@ -98,15 +120,15 @@
             padding: 0.25rem 0.5rem;
             border-radius: 4px;
             font-size: 0.8rem;
+            cursor: pointer;
         }
 
-        .btn-success {
-            background: #43a047;
+        .btn-secondary {
+            background: #777;
             color: white;
             padding: 0.5rem 1rem;
             border-radius: 4px;
-            margin-top: 1rem;
-            display: inline-block;
+            cursor: pointer;
         }
 
         .item-list {
@@ -125,341 +147,448 @@
             border: 1px solid #eee;
         }
 
-        .alert-box {
-            background: #e3f2fd;
-            color: #0d47a1;
-            padding: 1rem;
+        .preview-img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
             border-radius: 4px;
-            margin-bottom: 2rem;
-            border: 1px solid #bbdefb;
+            margin-right: 1rem;
+        }
+
+        .item-info {
+            display: flex;
+            align-items: center;
         }
     </style>
 </head>
 
 <body>
 
-    <header class="admin-header">
-        <div class="admin-container">
-            <h1 class="admin-title">Content Manager</h1>
-            <p>Manage website content without code.</p>
-        </div>
-    </header>
-
-    <div class="admin-container">
-
-        <div class="alert-box">
-            <strong>⚠️ IMPORTANT INSTRUCTION:</strong><br>
-            Since this is a static website, saving changes works by <strong>Downloading</strong> a new data file.<br>
-            After you click "Download JSON", you MUST manually move the downloaded file to the <code>/data</code> folder
-            in your project, replacing the old one.
-        </div>
-
-        <div class="tabs">
-            <div class="tab-btn active" onclick="switchTab('products')">Products</div>
-            <div class="tab-btn" onclick="switchTab('categories')">Categories</div>
-            <div class="tab-btn" onclick="switchTab('banners')">Banners</div>
-        </div>
-
-        <!-- PRODUCTS TAB -->
-        <div id="products" class="tab-content active">
-            <div class="admin-card">
-                <h3 id="formTitle">Add New Product</h3>
-                <form id="productForm">
-                    <input type="hidden" id="pIndex" value="-1"> <!-- Hidden index for editing -->
-                    <div class="form-group">
-                        <label>Name</label>
-                        <input type="text" id="pName" class="form-control" required>
-                    </div>
-                    <div class="form-group" style="display: flex; gap: 1rem;">
-                        <div style="flex: 1;">
-                            <label>Price (e.g. 100 KGS)</label>
-                            <input type="text" id="pPrice" class="form-control" required>
-                        </div>
-                        <div style="flex: 1;">
-                            <label>Weight (e.g. 500g)</label>
-                            <input type="text" id="pWeight" class="form-control" required>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Category</label>
-                        <select id="pCategory" class="form-control"></select>
-                    </div>
-                    <div class="form-group">
-                        <label>Image URL</label>
-                        <input type="text" id="pImage" class="form-control" placeholder="https://..."
-                            value="https://placehold.co/400x300">
-                    </div>
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea id="pDesc" class="form-control" rows="3"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="pFeatured"> Set as "Featured / Hit of the Week"
-                        </label>
-                    </div>
-                    <div style="display: flex; gap: 1rem;">
-                        <button type="submit" id="saveBtn" class="btn-primary">Add Product</button>
-                        <button type="button" id="cancelBtn" class="btn-danger" style="background: #777; display: none;"
-                            onclick="resetForm()">Cancel</button>
-                    </div>
-                </form>
-            </div>
-
-            <div class="admin-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h3>All Products</h3>
-                    <button class="btn-success" onclick="downloadJSON('products', productsData)">⬇ Download
-                        products.json</button>
+    <!-- Auth Screen -->
+    <div id="authScreen">
+        <div class="login-box">
+            <h2 style="margin-bottom: 1.5rem; color: var(--color-primary);">Admin Login</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="loginEmail" class="form-control" required>
                 </div>
-                <div id="productList" class="item-list"></div>
-            </div>
-        </div>
-
-        <!-- CATEGORIES TAB -->
-        <div id="categories" class="tab-content">
-            <div class="admin-card">
-                <h3>Add Category</h3>
-                <form id="categoryForm" style="display: flex; gap: 1rem;">
-                    <input type="text" id="cName" class="form-control" placeholder="New Category Name" required>
-                    <button type="submit" class="btn-primary">Add</button>
-                </form>
-            </div>
-            <div class="admin-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h3>Existing Categories</h3>
-                    <button class="btn-success" onclick="downloadJSON('categories', categoriesData)">⬇ Download
-                        categories.json</button>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="loginPwd" class="form-control" required>
                 </div>
-                <div id="categoryList" class="item-list"></div>
-            </div>
+                <button type="submit" class="btn-primary" style="width: 100%;">Sign In</button>
+                <p id="loginError" style="color: red; margin-top: 1rem; font-size: 0.9rem;"></p>
+            </form>
         </div>
-
-        <!-- BANNERS TAB -->
-        <div id="banners" class="tab-content">
-            <div class="admin-card">
-                <h3>Edit Banners</h3>
-                <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">Change the text or image URL for the
-                    homepage slider.</p>
-                <div id="bannerList" class="item-list"></div>
-                <button class="btn-success" onclick="downloadJSON('banner', bannerData)">⬇ Download banner.json</button>
-            </div>
-        </div>
-
     </div>
 
-    <script>
-        // State
-        let productsData = [];
-        let categoriesData = [];
-        let bannerData = [];
+    <!-- Main Content (Hidden until login) -->
+    <div id="mainApp" style="display: none;">
+        <header class="admin-header">
+            <div class="admin-container" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h1 class="admin-title">Content Manager</h1>
+                    <p>Firebase Connected</p>
+                </div>
+                <button onclick="logout()" class="btn-danger"
+                    style="font-size: 1rem; padding: 0.5rem 1rem;">Logout</button>
+            </div>
+        </header>
 
-        // Init
-        async function init() {
-            await loadData();
-            renderAll();
-        }
+        <div class="admin-container">
+            <div class="tabs">
+                <div class="tab-btn active" onclick="switchTab('products')">Products</div>
+                <div class="tab-btn" onclick="switchTab('categories')">Categories</div>
+                <div class="tab-btn" onclick="switchTab('banners')">Banners</div>
+            </div>
 
-        async function loadData() {
-            try {
-                const [pRes, cRes, bRes] = await Promise.all([
-                    fetch('data/products.json'),
-                    fetch('data/categories.json'),
-                    fetch('data/banner.json')
-                ]);
-                productsData = await pRes.json();
-                categoriesData = await cRes.json();
-                bannerData = await bRes.json();
-            } catch (e) {
-                console.error("Error loading data", e);
-                alert("Could not load data. Make sure /data/*.json files exist.");
+            <!-- PRODUCTS -->
+            <div id="products" class="tab-content active">
+                <div class="admin-card">
+                    <h3 id="pFormTitle">Add New Product</h3>
+                    <form id="productForm">
+                        <input type="hidden" id="pId">
+                        <div class="form-group">
+                            <label>Name</label>
+                            <input type="text" id="pName" class="form-control" required>
+                        </div>
+                        <div class="form-group" style="display: flex; gap: 1rem;">
+                            <div style="flex: 1;">
+                                <label>Price</label>
+                                <input type="text" id="pPrice" class="form-control" placeholder="100 KGS" required>
+                            </div>
+                            <div style="flex: 1;">
+                                <label>Weight</label>
+                                <input type="text" id="pWeight" class="form-control" placeholder="500g" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Category</label>
+                            <select id="pCategory" class="form-control"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Image</label>
+                            <input type="file" id="pImageFile" class="form-control" accept="image/*">
+                            <input type="hidden" id="pImageURL">
+                            <div id="pImgPreview" style="margin-top: 0.5rem; display: none;">
+                                <img src="" style="max-height: 100px; border-radius: 4px;">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea id="pDesc" class="form-control" rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" id="pFeatured"> Set as Featured</label>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" id="pActive" checked> Active (Visible on site)</label>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem;">
+                            <button type="submit" id="pSaveBtn" class="btn-primary">Add Product</button>
+                            <button type="button" onclick="resetPForm()" class="btn-secondary">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="admin-card">
+                    <h3>Product List</h3>
+                    <div id="productList" class="item-list"></div>
+                </div>
+            </div>
+
+            <!-- CATEGORIES -->
+            <div id="categories" class="tab-content">
+                <div class="admin-card">
+                    <h3>Categories</h3>
+                    <form id="categoryForm" style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                        <input type="text" id="cName" class="form-control" placeholder="New Category Name" required>
+                        <button type="submit" class="btn-primary">Add</button>
+                    </form>
+                    <div id="categoryList" class="item-list"></div>
+                </div>
+            </div>
+
+            <!-- BANNERS -->
+            <div id="banners" class="tab-content">
+                <div class="admin-card">
+                    <h3>Add Banner Slide</h3>
+                    <form id="bannerForm">
+                        <div class="form-group">
+                            <label>Title</label>
+                            <input type="text" id="bTitle" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Subtitle</label>
+                            <input type="text" id="bSubtitle" class="form-control" required>
+                        </div>
+                        <button type="submit" class="btn-primary">Add Banner</button>
+                    </form>
+                </div>
+                <div class="admin-card">
+                    <h3>Current Banners</h3>
+                    <div id="bannerList" class="item-list"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MAIN LOGIC -->
+    <script type="module">
+        import { db, storage, auth } from './firebase-config.js';
+        import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+        // --- AUTH ---
+        const loginForm = document.getElementById('loginForm');
+        const authScreen = document.getElementById('authScreen');
+        const mainApp = document.getElementById('mainApp');
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                authScreen.style.display = 'none';
+                mainApp.style.display = 'block';
+                loadAllData();
+            } else {
+                authScreen.style.display = 'flex';
+                mainApp.style.display = 'none';
             }
-        }
+        });
 
-        function renderAll() {
-            renderProducts();
-            renderCategories();
-            renderBanners();
-        }
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const pwd = document.getElementById('loginPwd').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, pwd);
+            } catch (error) {
+                document.getElementById('loginError').textContent = error.message;
+            }
+        });
 
-        function switchTab(tabId) {
+        window.logout = () => signOut(auth);
+
+        // --- GLOBAL UI HELPERS ---
+        window.switchTab = (tabId) => {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
             event.target.classList.add('active');
+        };
+
+        async function uploadImage(file, path) {
+            if (!file) return null;
+            const storageRef = ref(storage, path + '/' + Date.now() + '_' + file.name);
+            await uploadBytes(storageRef, file);
+            return await getDownloadURL(storageRef);
         }
+
+        // --- CATEGORIES ---
+        const catList = document.getElementById('categoryList');
+        const pCategorySelect = document.getElementById('pCategory');
+
+        function loadCategories() {
+            const q = query(collection(db, "categories"), orderBy("name"));
+            onSnapshot(q, (snapshot) => {
+                catList.innerHTML = '';
+                pCategorySelect.innerHTML = '<option value="">Select Category...</option>';
+
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const id = docSnap.id;
+
+                    // List
+                    const item = document.createElement('div');
+                    item.className = 'list-item';
+                    item.innerHTML = `<span>${data.name}</span> <button class="btn-danger" onclick="window.delCat('${id}')">Delete</button>`;
+                    catList.appendChild(item);
+
+                    // Select
+                    const opt = document.createElement('option');
+                    opt.value = data.name; // Storing Name as ref for simplicity, ideally ID
+                    opt.textContent = data.name;
+                    pCategorySelect.appendChild(opt);
+                });
+            });
+        }
+
+        document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('cName').value;
+            await addDoc(collection(db, "categories"), { name, active: true });
+            document.getElementById('cName').value = '';
+        });
+
+        window.delCat = async (id) => {
+            if (confirm('Delete?')) await deleteDoc(doc(db, "categories", id));
+        };
+
 
         // --- PRODUCTS ---
-        function renderProducts() {
-            const list = document.getElementById('productList');
-            list.innerHTML = '';
-            productsData.forEach((p, index) => {
-                const div = document.createElement('div');
-                div.className = 'list-item';
-                div.innerHTML = `
-                    <div>
-                        <strong>${p.name}</strong> <span style="font-size: 0.8rem; color: #777;">(${p.category})</span>
-                        ${p.isFeatured ? '<span style="color: orange; font-size: 0.8rem;">★ Hit</span>' : ''}
-                    </div>
-                    <div>
-                        <button class="btn-primary" style="background: #2196f3; font-size: 0.8rem; padding: 0.25rem 0.5rem;" onclick="editProduct(${index})">Edit</button>
-                        <button class="btn-danger" onclick="deleteProduct(${index})">Delete</button>
-                    </div>
-                `;
-                list.appendChild(div);
+        const productForm = document.getElementById('productForm');
+
+        document.getElementById('pImageFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                // Local Preview
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    document.querySelector('#pImgPreview img').src = ev.target.result;
+                    document.getElementById('pImgPreview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function loadProducts() {
+            const q = query(collection(db, "products"), orderBy("name"));
+            onSnapshot(q, (snapshot) => {
+                const list = document.getElementById('productList');
+                list.innerHTML = '';
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const id = docSnap.id;
+                    const el = document.createElement('div');
+                    el.className = 'list-item';
+                    el.innerHTML = `
+                        <div class="item-info">
+                            <img src="${data.imageUrl || 'https://placehold.co/50'}" class="preview-img">
+                            <div>
+                                <strong>${data.name}</strong><br>
+                                <small>${data.category} | ${data.price}</small>
+                                ${data.isFeatured ? '<span style="color:orange">★</span>' : ''}
+                            </div>
+                        </div>
+                        <div>
+                            <button class="btn-primary" style="font-size:0.8rem" onclick="window.editProd('${id}')">Edit</button>
+                            <button class="btn-danger" onclick="window.delProd('${id}')">Del</button>
+                        </div>
+                    `;
+                    list.appendChild(el);
+                });
             });
+        }
 
-            // Populate Category Select
-            const select = document.getElementById('pCategory');
-            // Save current selection if re-rendering during edit? No, usually fine.
-            const currentVal = select.value;
-            select.innerHTML = '<option value="">Select Category...</option>';
-            categoriesData.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c;
-                opt.textContent = c;
-                select.appendChild(opt);
+        window.editProd = async (id) => {
+            // Find data in UI (lazy mechanism) or fetch
+            // Let's fetch single doc for safety
+            // Or better, store snapshot data in memory map. For now, simplistic:
+            // We'll iterate the DOM or just re-fetch for simplicity of implementation in this context
+            // Actually, let's just create a quick map from the last snapshot if we wanted, 
+            // but `getDoc` is fine.
+            // Wait, we can't export `getDoc` easily to window scope without module complications.
+            // We'll attach a data attribute to the edit button? No, data might be large.
+            // Let's just make a specialized listener or object storage.
+            // Correct approach: Maintain `productsMap`.
+
+            // Re-implement loadProducts with map storage
+            // (Skipped for brevity, assume we just clear form for now or implement properly below)
+        };
+
+        let productsMap = {}; // Local cache
+        function loadProductsWithMap() {
+            const q = query(collection(db, "products"), orderBy("name"));
+            onSnapshot(q, (snapshot) => {
+                const list = document.getElementById('productList');
+                list.innerHTML = '';
+                productsMap = {};
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    productsMap[docSnap.id] = data;
+
+                    const el = document.createElement('div');
+                    el.className = 'list-item';
+                    el.innerHTML = `
+                        <div class="item-info">
+                            <img src="${data.imageUrl || 'https://placehold.co/50'}" class="preview-img">
+                            <div>
+                                <strong>${data.name}</strong><br>
+                                <small>${data.category} | ${data.price}</small>
+                                ${data.isFeatured ? '<span style="color:orange">★</span>' : ''}
+                            </div>
+                        </div>
+                        <div>
+                            <button class="btn-primary" style="font-size:0.8rem; margin-right: 0.5rem;" onclick="window.prepEdit('${docSnap.id}')">Edit</button>
+                            <button class="btn-danger" onclick="window.delProd('${docSnap.id}')">Del</button>
+                        </div>
+                    `;
+                    list.appendChild(el);
+                });
             });
-            if (currentVal) select.value = currentVal;
         }
 
-        function editProduct(index) {
-            const p = productsData[index];
-            document.getElementById('pIndex').value = index;
-            document.getElementById('pName').value = p.name;
-            document.getElementById('pPrice').value = p.price;
-            document.getElementById('pWeight').value = p.weight;
-            document.getElementById('pCategory').value = p.category;
-            document.getElementById('pImage').value = p.image;
-            document.getElementById('pDesc').value = p.description;
-            document.getElementById('pFeatured').checked = p.isFeatured;
+        window.prepEdit = (id) => {
+            const data = productsMap[id];
+            if (!data) return;
+            document.getElementById('pId').value = id;
+            document.getElementById('pName').value = data.name;
+            document.getElementById('pPrice').value = data.price;
+            document.getElementById('pWeight').value = data.weight;
+            document.getElementById('pCategory').value = data.category;
+            document.getElementById('pDesc').value = data.description;
+            document.getElementById('pFeatured').checked = data.isFeatured;
+            document.getElementById('pActive').checked = data.active;
 
-            // UI Mode Update
-            document.getElementById('formTitle').textContent = "Edit Product";
-            document.getElementById('saveBtn').textContent = "Update Product";
-            document.getElementById('cancelBtn').style.display = "inline-block";
+            document.getElementById('pImageURL').value = data.imageUrl;
+            document.querySelector('#pImgPreview img').src = data.imageUrl;
+            document.getElementById('pImgPreview').style.display = 'block';
 
-            // Scroll to form
-            document.getElementById('productForm').scrollIntoView({ behavior: 'smooth' });
-        }
+            document.getElementById('pFormTitle').textContent = "Edit Product";
+            document.getElementById('pSaveBtn').textContent = "Update Product";
 
-        function resetForm() {
-            document.getElementById('productForm').reset();
-            document.getElementById('pIndex').value = "-1";
-            document.getElementById('formTitle').textContent = "Add New Product";
-            document.getElementById('saveBtn').textContent = "Add Product";
-            document.getElementById('cancelBtn').style.display = "none";
-        }
+            // Scroll top
+            document.getElementById('products').scrollIntoView();
+        };
 
-        document.getElementById('productForm').addEventListener('submit', (e) => {
+        window.resetPForm = () => {
+            productForm.reset();
+            document.getElementById('pId').value = '';
+            document.getElementById('pFormTitle').textContent = "Add New Product";
+            document.getElementById('pSaveBtn').textContent = "Add Product";
+            document.getElementById('pImgPreview').style.display = 'none';
+        };
+
+        productForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const id = document.getElementById('pId').value;
+            const file = document.getElementById('pImageFile').files[0];
+            let imageUrl = document.getElementById('pImageURL').value;
 
-            const indexStr = document.getElementById('pIndex').value;
-            const index = parseInt(indexStr);
+            document.getElementById('pSaveBtn').disabled = true;
+            document.getElementById('pSaveBtn').textContent = "Saving...";
 
-            const productData = {
-                id: index >= 0 ? productsData[index].id : Date.now(),
+            if (file) {
+                imageUrl = await uploadImage(file, 'products');
+            } else if (!imageUrl) {
+                // If no file and no existing URL, use placeholder
+                imageUrl = "https://placehold.co/400x300?text=No+Image";
+            }
+
+            const data = {
                 name: document.getElementById('pName').value,
                 price: document.getElementById('pPrice').value,
                 weight: document.getElementById('pWeight').value,
                 category: document.getElementById('pCategory').value,
-                image: document.getElementById('pImage').value,
                 description: document.getElementById('pDesc').value,
-                isFeatured: document.getElementById('pFeatured').checked
+                isFeatured: document.getElementById('pFeatured').checked,
+                active: document.getElementById('pActive').checked,
+                imageUrl: imageUrl
             };
 
-            if (index >= 0) {
-                // Update
-                productsData[index] = productData;
-                alert("Product Updated! Remember to Download.");
+            if (id) {
+                await updateDoc(doc(db, "products", id), data);
             } else {
-                // Add
-                productsData.push(productData);
-                alert("Product Added! Remember to Download.");
+                await addDoc(collection(db, "products"), data);
             }
 
-            renderProducts();
-            resetForm();
+            resetPForm();
+            document.getElementById('pSaveBtn').disabled = false;
         });
 
-        function deleteProduct(index) {
-            if (confirm('Delete this product?')) {
-                productsData.splice(index, 1);
-                renderProducts();
-            }
-        }
-
-        // --- CATEGORIES ---
-        function renderCategories() {
-            const list = document.getElementById('categoryList');
-            list.innerHTML = '';
-            categoriesData.forEach((c, index) => {
-                const div = document.createElement('div');
-                div.className = 'list-item';
-                div.innerHTML = `
-                    <span>${c}</span>
-                    <button class="btn-danger" onclick="deleteCategory(${index})">Delete</button>
-                `;
-                list.appendChild(div);
-            });
-        }
-
-        document.getElementById('categoryForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const val = document.getElementById('cName').value;
-            if (val) {
-                categoriesData.push(val);
-                renderCategories();
-                document.getElementById('cName').value = '';
-            }
-        });
-
-        function deleteCategory(index) {
-            if (confirm('Delete this category?')) {
-                categoriesData.splice(index, 1);
-                renderCategories();
-                renderProducts(); // Update select
-            }
-        }
+        window.delProd = async (id) => {
+            if (confirm('Delete product?')) await deleteDoc(doc(db, "products", id));
+        };
 
         // --- BANNERS ---
-        function renderBanners() {
-            const list = document.getElementById('bannerList');
-            list.innerHTML = '';
-            bannerData.forEach((b, index) => {
-                const div = document.createElement('div');
-                div.className = 'admin-card';
-                div.innerHTML = `
-                    <h4>Slide ${index + 1}</h4>
-                    <div class="form-group">
-                        <label>Title</label>
-                        <input type="text" class="form-control" value="${b.title.replace(/"/g, '&quot;')}" onchange="updateBanner(${index}, 'title', this.value)">
-                    </div>
-                    <div class="form-group">
-                        <label>Subtitle</label>
-                        <input type="text" class="form-control" value="${b.subtitle.replace(/"/g, '&quot;')}" onchange="updateBanner(${index}, 'subtitle', this.value)">
-                    </div>
-                `;
-                list.appendChild(div);
+        function loadBanners() {
+            const q = query(collection(db, "banners"));
+            onSnapshot(q, (snapshot) => {
+                const list = document.getElementById('bannerList');
+                list.innerHTML = '';
+                snapshot.forEach(docSnap => {
+                    const d = docSnap.data();
+                    const el = document.createElement('div');
+                    el.className = 'list-item';
+                    el.innerHTML = `<div><strong>${d.title}</strong><br>${d.subtitle}</div> <button class="btn-danger" onclick="window.delBan('${docSnap.id}')">Del</button>`;
+                    list.appendChild(el);
+                });
             });
         }
 
-        function updateBanner(index, field, value) {
-            bannerData[index][field] = value;
+        document.getElementById('bannerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('bTitle').value;
+            const subtitle = document.getElementById('bSubtitle').value;
+            await addDoc(collection(db, "banners"), { title, subtitle });
+            document.getElementById('bannerForm').reset();
+        });
+
+        window.delBan = async (id) => {
+            if (confirm('Delete banner?')) await deleteDoc(doc(db, "banners", id));
+        };
+
+
+        // --- INIT ---
+        function loadAllData() {
+            loadCategories();
+            loadProductsWithMap();
+            loadBanners();
         }
 
-        // --- DOWNLOAD ---
-        function downloadJSON(filename, data) {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 4));
-            const anchor = document.createElement('a');
-            anchor.setAttribute("href", dataStr);
-            anchor.setAttribute("download", filename + ".json");
-            document.body.appendChild(anchor);
-            anchor.click();
-            anchor.remove();
-        }
-
-        init();
     </script>
 </body>
 

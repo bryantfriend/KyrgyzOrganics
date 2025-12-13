@@ -1,3 +1,6 @@
+import { db } from './firebase-config.js';
+import { collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
 // Data Containers
 let products = [];
 let bannerData = [];
@@ -28,17 +31,21 @@ async function init() {
 async function loadData() {
     try {
         const [pRes, cRes, bRes] = await Promise.all([
-            fetch('data/products.json'),
-            fetch('data/categories.json'),
-            fetch('data/banner.json')
+            getDocs(query(collection(db, "products"), where("active", "==", true))),
+            getDocs(query(collection(db, "categories"), where("active", "==", true), orderBy("name"))),
+            getDocs(collection(db, "banners"))
         ]);
-        products = await pRes.json();
-        categories = await cRes.json();
-        bannerData = await bRes.json();
+
+        products = pRes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        categories = cRes.docs.map(doc => doc.data().name); // Just extracting names for compatibility
+        bannerData = bRes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
     } catch (e) {
-        console.error("Error loading data:", e);
-        // Fallback or Alert?
-        productGrid.innerHTML = '<p style="color: red;">Error loading products. Please check console.</p>';
+        console.error("Error loading data from Firebase:", e);
+        // Fallback for demo if firebase fails (e.g. invalid config)
+        if (e.code === 'permission-denied' || e.code === 'failed-precondition') {
+            productGrid.innerHTML = '<p style="color: red; padding: 2rem;">Error: Check Firebase Config.</p>';
+        }
     }
 }
 
@@ -101,7 +108,7 @@ function createCard(product, tag = 'Available') {
     card.innerHTML = `
         <div class="delivery-badge">${tag}</div>
         <div class="product-image">
-            <img src="${product.image}" alt="${product.name}">
+            <img src="${product.imageUrl || 'https://placehold.co/400x300'}" alt="${product.name}">
         </div>
         <div class="product-info">
             <div class="product-category">${product.category}</div>
@@ -191,7 +198,7 @@ function openModal(product) {
     modalContent.innerHTML = `
         <div style="display: flex; flex-direction: ${isMobile ? 'column' : 'row'}; gap: 2rem;">
             <div style="flex: 1;">
-                <img src="${product.image}" style="width: 100%; border-radius: 8px; object-fit: cover; aspect-ratio: 4/3;" alt="${product.name}">
+                <img src="${product.imageUrl || 'https://placehold.co/400x300'}" style="width: 100%; border-radius: 8px; object-fit: cover; aspect-ratio: 4/3;" alt="${product.name}">
             </div>
             <div style="flex: 1;">
                 <div style="color: var(--color-primary); font-size: 0.9rem; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: 600;">${product.category}</div>
