@@ -1,6 +1,6 @@
 import { db } from './firebase-config.js';
 import { collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { Carousel } from './Carousel.js';
+import { Carousel } from './carousel.js';
 import { $, $$, t, loc, setupLanguage, currentLang, initMobileMenu } from './common.js';
 
 // --- STATE ---
