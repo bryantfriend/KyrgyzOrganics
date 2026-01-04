@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>OA Kyrgyz Organic – Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="adminStyles.css" />
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+</head>
+
+<body>
+
+  <!-- AUTH SCREEN -->
+  <div id="authScreen">
+    <div class="login-box">
+      <h2>Admin Login</h2>
+      <form id="loginForm">
+        <input type="email" id="loginEmail" placeholder="Email" required />
+        <input type="password" id="loginPwd" placeholder="Password" required />
+        <button type="submit">Sign In</button>
+        <p id="loginError"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="mainApp" hidden>
+
+    <header class="admin-header">
+      <h1>Content Manager</h1>
+      <button id="logoutBtn">Logout</button>
+    </header>
+
+    <nav class="tabs">
+      <button data-tab="products" class="active">Products</button>
+      <button data-tab="categories">Categories</button>
+      <button data-tab="banners">Banners</button>
+      <button data-tab="content">Content Pages</button>
+    </nav>
+
+    <!-- PRODUCTS -->
+    <section id="products" class="tab-content" style="display:block;">
+      <div class="admin-card">
+        <h3 id="prodFormTitle" style="margin-bottom:1.5rem;">Add Product</h3>
+        <form id="productForm">
+          <input type="hidden" id="pId"> <!-- Hidden ID for Editing -->
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pNameRU">Name (RU)</label>
+              <input type="text" id="pNameRU" required>
+            </div>
+            <div class="form-group">
+              <label for="pNameEN">Name (EN)</label>
+              <input type="text" id="pNameEN">
+            </div>
+            <div class="form-group">
+              <label for="pNameKG">Name (KG)</label>
+              <input type="text" id="pNameKG">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pPrice">Price</label>
+              <input type="number" id="pPrice" required>
+            </div>
+            <div class="form-group">
+              <label for="pWeight">Weight</label>
+              <input type="text" id="pWeight" placeholder="e.g. 500g">
+            </div>
+            <div class="form-group">
+              <label for="pCategory">Category</label>
+              <select id="pCategory" required>
+                <option value="" disabled selected>Select Category...</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pDescRU">Description (RU)</label>
+              <textarea id="pDescRU"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="pDescEN">Description (EN)</label>
+              <textarea id="pDescEN"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="pDescKG">Description (KG)</label>
+              <textarea id="pDescKG"></textarea>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Packaging Photo</label>
+              <div class="file-upload-wrapper">
+                <label for="pImgPack" class="btn-secondary"
+                  style="cursor:pointer; display:inline-block; margin-bottom:0.5rem;">Choose File</label>
+                <input type="file" id="pImgPack" accept="image/*" style="display:none;">
+                <span id="fNamePack" style="margin-left:8px; font-size:0.9rem; color:#666;">No file chosen</span>
+              </div>
+              <small style="display:block; color:#777; margin-bottom:0.5rem;">Max 5MB, 1024x1024 or smaller</small>
+              <div id="previewContainerPack"
+                style="width:100px; height:100px; background:#eee; display:flex; align-items:center; justify-content:center; border-radius:4px; overflow:hidden; display:none;">
+                <img id="pPreviewPack" src="" style="width:100%; height:100%; object-fit:cover;">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Content Photo (Optional)</label>
+              <div class="file-upload-wrapper">
+                <label for="pImgContent" class="btn-secondary"
+                  style="cursor:pointer; display:inline-block; margin-bottom:0.5rem;">Choose File</label>
+                <input type="file" id="pImgContent" accept="image/*" style="display:none;">
+                <span id="fNameContent" style="margin-left:8px; font-size:0.9rem; color:#666;">No file chosen</span>
+              </div>
+              <small style="display:block; color:#777; margin-bottom:0.5rem;">Max 5MB, 1024x1024 or smaller</small>
+              <div id="previewContainerContent"
+                style="width:100px; height:100px; background:#eee; display:flex; align-items:center; justify-content:center; border-radius:4px; overflow:hidden; display:none;">
+                <img id="pPreviewContent" src="" style="width:100%; height:100%; object-fit:cover;">
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:1rem;">
+            <button type="submit" id="pSubmitBtn">Add Product</button>
+            <button type="button" id="pCancelBtn" class="btn-secondary"
+              style="margin-left:1rem; display:none;">Cancel</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="admin-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <h3>All Products</h3>
+          <select id="filterCategory" style="padding:0.5rem; border-radius:4px; border:1px solid #ccc;">
+            <option value="all">All Categories</option>
+          </select>
+        </div>
+        <div id="productList" class="item-list"></div>
+      </div>
+    </section>
+
+    <!-- CONTENT PAGES -->
+    <section id="content" class="tab-content" style="display:none;">
+      <div class="admin-card">
+        <h3>Edit Page Content</h3>
+        <div class="form-row" style="margin-bottom: 1rem; align-items: flex-end;">
+          <div class="form-group" style="flex:1;">
+            <label for="pageSelect">Select Page</label>
+            <select id="pageSelect" style="width:100%; padding: 8px;">
+              <option value="about">About Us</option>
+              <option value="contact">Contact Us</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label for="langSelect">Select Language</label>
+            <select id="langSelect" style="width:100%; padding: 8px;">
+              <option value="en">English (EN)</option>
+              <option value="ru">Russian (RU)</option>
+              <option value="kg">Kyrgyz (KG)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <button id="loadContentBtn" class="btn-secondary">Load Content</button>
+            <button id="translateBtn" class="btn-secondary" style="background:#f0e68c; color:#333;">✨ Translate from
+              English</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <!-- Quill Editor Container -->
+          <div id="contentEditor" style="height: 400px; background: white;"></div>
+        </div>
+
+        <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+          <button id="saveContentBtn">Save Content</button>
+          <button id="previewContentBtn" class="btn-secondary">Preview</button>
+        </div>
+      </div>
+
+      <div class="admin-card" id="previewCard" style="display:none; margin-top:2rem;">
+        <h3>Preview</h3>
+        <div id="contentPreview" style="border: 1px solid #ddd; padding: 1rem; min-height: 200px; background: white;">
+        </div>
+      </div>
+    </section>
+
+    <!-- CATEGORIES -->
+    <section id="categories" class="tab-content" style="display:none;">
+      <div class="admin-card">
+        <h3 id="catFormTitle" style="margin-bottom:1.5rem;">Add Category</h3>
+
+        <div style="display:flex; gap:2rem; flex-wrap:wrap;">
+          <!-- FORM -->
+          <form id="categoryForm" style="flex:1; min-width:300px;">
+            <input type="hidden" id="cId"> <!-- Hidden ID for Editing -->
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cNameEN">Name (EN)</label>
+                <input type="text" id="cNameEN" placeholder="Breads">
+              </div>
+              <div class="form-group">
+                <label for="cNameRU">Name (RU)</label>
+                <input type="text" id="cNameRU" placeholder="Хлеб" required>
+              </div>
+              <div class="form-group">
+                <label for="cNameKG">Name (KG)</label>
+                <input type="text" id="cNameKG" placeholder="Нандар">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cStyleBg">Background</label>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <input type="color" id="cStyleBg" value="#ffffff" style="height:40px; cursor:pointer;">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="cStyleBorder">Border Color</label>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <input type="color" id="cStyleBorder" value="#045d2b" style="height:40px; cursor:pointer;">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="cStyleColor">Font Color</label>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <input type="color" id="cStyleColor" value="#03e23f" style="height:40px; cursor:pointer;">
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label style="display:flex; align-items:center; cursor:pointer;">
+                <input type="checkbox" id="cActive" checked style="width:auto; margin-right:8px;">
+                Category Active
+              </label>
+            </div>
+
+            <div style="margin-top:1rem;">
+              <button type="submit" id="cSubmitBtn">Add Category</button>
+              <button type="button" id="cCancelBtn" class="btn-secondary"
+                style="margin-left:1rem; display:none;">Cancel</button>
+            </div>
+          </form>
+
+          <!-- PREVIEW -->
+          <div
+            style="min-width:200px; padding:1rem; background:#f9f9f9; border-radius:8px; text-align:center; align-self:flex-start;">
+            <h4 style="margin-top:0;">Preview</h4>
+            <div id="catPreview"
+              style="padding:0.25rem 0.75rem; border-radius:50px; border:1px solid #000; display:inline-block; font-size:0.9rem;">
+              Category Name
+            </div>
+            <p style="font-size:0.8rem; color:#666; margin-top:1rem;">Live preview of the category pill.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <h3>All Categories</h3>
+        <div id="categoryList" class="item-list"></div>
+      </div>
+    </section>
+
+    <!-- BANNERS -->
+    <section id="banners" class="tab-content">
+      <div class="admin-card">
+        <h3>Add Banner</h3>
+        <form id="bannerForm" class="banner-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Banner Image (Mobile Ratio 16:9)</label>
+              <div class="file-upload-wrapper">
+                <label for="bImageFile" class="btn-secondary"
+                  style="cursor:pointer; display:inline-block; margin-bottom:0.5rem;">Choose File</label>
+                <input type="file" id="bImageFile" accept="image/*" style="display:none;" required>
+                <span id="fNameBanner" style="margin-left:8px; font-size:0.9rem; color:#666;">No file chosen</span>
+              </div>
+              <small style="display:block; color:#777; margin-bottom:0.5rem;">Max 5MB, 1024x1024 approximately</small>
+
+              <div id="previewContainerBanner"
+                style="width:200px; height:112px; background:#eee; display:flex; align-items:center; justify-content:center; border-radius:4px; overflow:hidden; display:none; margin-top:0.5rem;">
+                <img id="bPreviewImg" src="" style="width:100%; height:100%; object-fit:cover;">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group" style="flex:0 0 100%;">
+              <label style="cursor:pointer; margin-bottom:1rem; display:inline-block;">
+                <input type="checkbox" id="bPermanent" style="width:auto; margin-right:8px;" />
+                Permanent (No Dates)
+              </label>
+            </div>
+
+            <div id="dateFields" style="display:contents;">
+              <div class="form-group">
+                <label for="bStartAt">Start Date</label>
+                <input type="datetime-local" id="bStartAt" />
+              </div>
+              <div class="form-group">
+                <label for="bEndAt">End Date</label>
+                <input type="datetime-local" id="bEndAt" />
+              </div>
+            </div>
+
+            <div class="form-group" style="display:flex; align-items:center;">
+              <label style="cursor:pointer; margin-top:1.5rem;">
+                <input type="checkbox" id="bActive" checked style="width:auto; margin-right:8px;" />
+                Active
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" id="bSubmitBtn">Upload Banner</button>
+        </form>
+      </div>
+
+      <div class="admin-card">
+        <h3>Current Banners</h3>
+        <div id="bannerList" class="item-list sortable"></div>
+      </div>
+    </section>
+
+    <!-- Mobile Preview Modal -->
+    <div id="mobilePreview" class="modal hidden">
+      <div class="modal-content mobile-frame">
+        <img id="mobilePreviewImg" />
+        <button onclick="closePreview()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="admin.js"></script>
+</body>
+
+</html>

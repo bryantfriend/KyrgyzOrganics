@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us - OA Kyrgyz Organic</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header">
+        <div class="container header-inner">
+            <a href="index.html" class="logo">OA Kyrgyz Organic</a>
+
+            <!-- Desktop Nav -->
+            <nav class="nav-links">
+                <a href="index.html" id="navHome">Home</a>
+                <a href="about.html" id="navAbout">About</a>
+                <a href="contact.html" id="navContact" class="active" style="color: var(--color-primary)">Contact</a>
+            </nav>
+
+            <!-- Mobile Hamburger -->
+            <button class="hamburger-btn" aria-label="Menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <!-- Mobile Menu Overlay -->
+            <div class="mobile-menu">
+                <button class="close-menu">&times;</button>
+                <nav class="mobile-nav-links">
+                    <a href="index.html" id="mobHome">Home</a>
+                    <a href="#" id="mobCategories">Categories ▾</a>
+                    <div id="mobCategoryList" class="mobile-sub-menu"
+                        style="display:none; padding-left: 1.5rem; flex-direction: column; gap: 0.5rem;">
+                        <!-- Populated by JS -->
+                    </div>
+                    <a href="about.html" id="mobAbout">About</a>
+                    <a href="contact.html" id="mobContact">Contact</a>
+                </nav>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search organic products...">
+            </div>
+
+            <!-- Language Selector (Globe) -->
+            <div class="lang-dropdown">
+                <button class="lang-btn" aria-label="Language" style="font-size: 1.5rem;">
+                    🌐
+                </button>
+                <div class="lang-menu">
+                    <a href="#" onclick="changeLanguage('en')"><img src="https://flagcdn.com/w20/us.png" alt="English">
+                        English</a>
+                    <a href="#" onclick="changeLanguage('ru')"><img src="https://flagcdn.com/w20/ru.png" alt="Russian">
+                        Русский</a>
+                    <a href="#" onclick="changeLanguage('kg')"><img src="https://flagcdn.com/w20/kg.png" alt="Kyrgyz">
+                        Кыргызча</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container" style="padding: 4rem 1rem;">
+        <h1 class="section-title">Contact Us</h1>
+        <div id="dynamicContent" class="cms-content">
+            <p>Loading content...</p>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-column">
+                    <h3 id="footQuickLinks">Quick Links</h3>
+                    <ul>
+                        <li><a href="index.html" id="footLinkHome">Home</a></li>
+                        <li><a href="about.html" id="footLinkAbout">About Us</a></li>
+                        <li><a href="contact.html" id="footLinkContact">Contact Us</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h3 id="footContactsTitle">Contacts</h3>
+                    <p>info@kyrgyzorganic.kg</p>
+                    <p>+996 555 123 456</p>
+                    <p id="footAddress">Bishkek, Kyrgyzstan</p>
+                </div>
+            </div>
+            <div style="margin-top: 2rem; border-top: 1px solid #444; padding-top: 1rem; font-size: 0.8rem;">
+                <p><span id="footCopyright">© 2025 OA Kyrgyz Organic. All rights reserved.</span> | <a
+                        href="admin/admin.html" style="color: #666; text-decoration: none;" id="footAdmin">Admin
+                        Login</a></p>
+            </div>
+        </div>
+    </footer>
+    <script type="module" src="cms.js"></script>
+</body>
+
+</html>

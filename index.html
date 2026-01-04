@@ -16,22 +16,58 @@
   <!-- Top Header -->
   <header class="header">
     <div class="container header-inner">
-      <a href="#" class="logo">OA Kyrgyz Organic</a>
+      <a href="index.html" class="logo">OA Kyrgyz Organic</a>
 
+      <!-- Desktop Nav -->
       <nav class="nav-links">
-        <a href="#">Home</a>
-        <a href="#">Products</a>
-        <a href="#">Categories</a>
-        <a href="#">About</a>
-        <a href="#">Contact</a>
+        <a href="index.html" id="navHome">Home</a>
+
+        <a href="about.html" id="navAbout">About</a>
+        <a href="contact.html" id="navContact">Contact</a>
       </nav>
+
+      <!-- Mobile Hamburger -->
+      <button class="hamburger-btn" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <!-- Mobile Menu Overlay -->
+      <div class="mobile-menu">
+        <button class="close-menu">&times;</button>
+        <nav class="mobile-nav-links">
+          <a href="index.html" id="mobHome">Home</a>
+          <a href="#" id="mobCategories">Categories ▾</a>
+          <div id="mobCategoryList" class="mobile-sub-menu"
+            style="display:none; padding-left: 1.5rem; flex-direction: column; gap: 0.5rem;">
+            <!-- Populated by JS -->
+          </div>
+          <a href="about.html" id="mobAbout">About</a>
+          <a href="contact.html" id="mobContact">Contact</a>
+        </nav>
+      </div>
 
       <div class="search-bar">
         <input type="text" id="searchInput" placeholder="Search organic products...">
       </div>
 
-      <div class="lang-toggle">
-        <span class="active">EN</span> / <span>RU</span>
+      <!-- Language Selector (Globe) -->
+      <div class="lang-dropdown">
+        <button class="lang-btn" aria-label="Language" style="font-size: 1.5rem;">
+          🌐
+        </button>
+        <div class="lang-menu">
+          <a href="#" onclick="setLang('en')">
+            <img src="https://flagcdn.com/20x15/us.png" alt="USA" width="20" height="15"> English
+          </a>
+          <a href="#" onclick="setLang('ru')">
+            <img src="https://flagcdn.com/20x15/ru.png" alt="RU" width="20" height="15"> Русский
+          </a>
+          <a href="#" onclick="setLang('kg')">
+            <img src="https://flagcdn.com/20x15/kg.png" alt="KG" width="20" height="15"> Кыргызча
+          </a>
+        </div>
       </div>
     </div>
   </header>
@@ -40,13 +76,7 @@
   <div class="filter-bar">
     <div class="container">
       <ul class="filter-list" id="categoryFilters">
-        <li><button class="filter-pill active" data-category="all">All Products</button></li>
-        <li><button class="filter-pill" data-category="Bakery">Bakery</button></li>
-        <li><button class="filter-pill" data-category="Organic Dairy">Organic Dairy</button></li>
-        <li><button class="filter-pill" data-category="Honey & Jam">Honey & Jam</button></li>
-        <li><button class="filter-pill" data-category="Grains & Seeds">Grains & Seeds</button></li>
-        <li><button class="filter-pill" data-category="Snacks">Snacks</button></li>
-        <li><button class="filter-pill" data-category="Tea & Coffee">Tea & Coffee</button></li>
+        <!-- Categories populated by JS -->
       </ul>
     </div>
   </div>
@@ -56,30 +86,25 @@
     <div class="container">
 
       <!-- Hero Carousel -->
-      <section class="hero-carousel">
-        <div class="hero-slide">
-          <h1 class="hero-title">Fresh Organic Products<br>from Local Farmers</h1>
-          <p class="hero-subtitle">Delivery in Bishkek & Nearby Regions</p>
-        </div>
-      </section>
+      <section class="hero-carousel"></section>
 
       <!-- Quick Actions -->
       <section class="quick-actions-row">
         <div class="action-card">
           <span class="action-icon">🚚</span>
-          Free Delivery
+          <span id="iconDelivery">Free Delivery</span>
         </div>
         <div class="action-card">
           <span class="action-icon">🌱</span>
-          Local Producers
+          <span id="iconLocal">Local Producers</span>
         </div>
         <div class="action-card">
           <span class="action-icon">♻️</span>
-          Eco Certified
+          <span id="iconEco">Eco Certified</span>
         </div>
         <div class="action-card">
           <span class="action-icon">🍂</span>
-          Seasonal
+          <span id="iconSeasonal">Seasonal</span>
         </div>
       </section>
 
@@ -105,7 +130,7 @@
       </section>
 
       <!-- All Products Grid -->
-      <h2 class="section-title">Full Catalog</h2>
+      <h2 class="section-title" id="fullCatalog">Full Catalog</h2>
       <div class="product-grid" id="productGrid">
         <!-- Products injected here -->
       </div>
@@ -121,12 +146,12 @@
   <!-- Delivery Banner -->
   <section class="delivery-banner">
     <div class="container">
-      <h2>Delivery across Bishkek and nearby areas</h2>
-      <p>Eco-friendly local producers at your doorstep</p>
+      <h2 id="bannerDelivTitle">Delivery across Bishkek and nearby areas</h2>
+      <p id="bannerDelivSub">Eco-friendly local producers at your doorstep</p>
       <div style="margin-top: 1.5rem; max-width: 400px; margin-left: auto; margin-right: auto; position: relative;">
-        <input type="text" placeholder="Enter your address"
+        <input type="text" placeholder="Enter your address" id="bannerDelivInput"
           style="width: 100%; padding: 1rem; border-radius: 2rem; border: none; outline: none;">
-        <button
+        <button id="bannerDelivBtn"
           style="position: absolute; right: 5px; top: 5px; bottom: 5px; background: var(--color-primary-dark); color: white; padding: 0 1.5rem; border-radius: 2rem; font-weight: 600;">Check</button>
       </div>
     </div>
@@ -137,8 +162,8 @@
     <div class="container">
       <div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: space-between;">
         <div>
-          <h3 style="color: white; margin-bottom: 1rem;">OA Kyrgyz Organic</h3>
-          <p>Connecting you with the best<br>organic producers in Kyrgyzstan.</p>
+          <h3 style="color: white; margin-bottom: 1rem;" id="footAboutTitle">OA Kyrgyz Organic</h3>
+          <p id="footAboutText">Connecting you with the best<br>organic producers in Kyrgyzstan.</p>
         </div>
         <div>
           <h4 style="color: white; margin-bottom: 0.5rem;">Contact</h4>
@@ -148,7 +173,7 @@
         </div>
       </div>
       <div style="margin-top: 2rem; border-top: 1px solid #444; padding-top: 1rem; font-size: 0.8rem;">
-        <p>© 2025 OA Kyrgyz Organic. All rights reserved. | <a href="admin.html"
+        <p>© 2025 OA Kyrgyz Organic. All rights reserved. | <a href="admin/admin.html"
             style="color: #666; text-decoration: none;">Admin Login</a></p>
       </div>
     </div>
@@ -167,7 +192,18 @@
     </div>
   </div>
 
-  <script type="module" src="script.js?v=1.2"></script>
+  <!-- Categories Dialog Modal -->
+  <div id="categoriesModal" class="modal-overlay" style="display:none;">
+    <div class="modal-container">
+      <button class="close-categories-modal">&times;</button>
+      <h2 class="section-title" style="margin-top: 0; margin-bottom: 2rem;">All Categories</h2>
+      <div id="categoriesModalGrid" class="categories-grid">
+        <!-- Categories injected here -->
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="home.js"></script>
 </body>
 
 </html>

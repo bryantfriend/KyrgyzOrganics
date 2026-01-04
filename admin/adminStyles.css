@@ -1,0 +1,326 @@
+body {
+  background: #f0f2f5;
+  font-family: system-ui, sans-serif;
+}
+
+.admin-header {
+  background: #333;
+  color: white;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#logoutBtn {
+  background: #e53935;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+#logoutBtn:hover {
+  background: #c62828;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.tabs {
+  display: flex;
+  gap: 1rem;
+  border-bottom: 2px solid #ddd;
+  margin: 1rem;
+}
+
+.tabs button {
+  background: none;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #666;
+}
+
+.tabs button.active {
+  color: var(--color-primary, #7cb342);
+  border-bottom: 3px solid var(--color-primary, #7cb342);
+}
+
+.tab-content {
+  display: none;
+  padding: 1rem;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.admin-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f9f9f9;
+  padding: 0.75rem;
+  border-radius: 6px;
+}
+
+.preview-img {
+  width: 120px;
+  height: 60px;
+  object-fit: contain;
+  background: #000;
+  border-radius: 4px;
+}
+
+.sortable .list-item {
+  cursor: grab;
+}
+
+.banner-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.toggle {
+  transform: scale(1.2);
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.mobile-frame {
+  width: 360px;
+  aspect-ratio: 16 / 9;
+  background: black;
+  padding: 0.5rem;
+}
+
+.mobile-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Form Styles */
+.form-row {
+  margin-bottom: 1rem;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.form-group {
+  flex: 1;
+  min-width: 200px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group input[type="datetime-local"],
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: all 0.2s;
+  background: #fff;
+  box-sizing: border-box;
+  /* Fix width issues */
+}
+
+/* Color Picker Styling */
+.color-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff;
+  border: 1px solid #ddd;
+  padding: 0.4rem;
+  border-radius: 6px;
+}
+
+input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  background: none;
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+  border: 1px solid #eee;
+}
+
+.color-val {
+  font-family: monospace;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Focus States */
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: #7cb342;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(124, 179, 66, 0.15);
+}
+
+.form-group textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+button[type="submit"] {
+  background: #7cb342;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button[type="submit"]:hover {
+  background: #689f38;
+}
+
+.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
+  border: 1px solid #ccc;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  display: inline-block;
+  /* Ensure it works for labels too */
+}
+
+.btn-secondary:hover {
+  background: #d5d5d5;
+  border-color: #bbb;
+}
+
+/* Auth Screen */
+.login-box {
+  background: white;
+  padding: 3rem 2rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+}
+
+.login-box h2 {
+  margin-top: 0;
+  margin-bottom: 2rem;
+  color: #2e7d32;
+  font-size: 1.8rem;
+}
+
+.login-box input {
+  width: 100%;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #f9f9f9;
+  box-sizing: border-box;
+  /* Ensure padding doesn't overflow width */
+}
+
+.login-box input:focus {
+  border-color: #43a047;
+  background: white;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(67, 160, 71, 0.2);
+}
+
+.login-box button {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(to right, #43a047, #2e7d32);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.2s;
+  margin-top: 1rem;
+}
+
+.login-box button:hover {
+  box-shadow: 0 5px 15px rgba(46, 125, 50, 0.3);
+  transform: translateY(-1px);
+}
+
+.login-box button:active {
+  transform: translateY(0);
+}
+
+#authScreen {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #a8e063 0%, #56ab2f 100%);
+  /* Green Organic Gradient */
+}
