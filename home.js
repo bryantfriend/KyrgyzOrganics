@@ -270,8 +270,10 @@ window.filterByCategory = (catId) => {
 function setupEventListeners(closeMenuFn) {
     if (filterList) {
         filterList.addEventListener('click', (e) => {
-            if (e.target.classList.contains('filter-pill')) {
-                filterByCategory(e.target.dataset.category);
+            const btn = e.target.closest('.filter-pill');
+            if (btn) {
+                e.preventDefault();
+                filterByCategory(btn.dataset.category);
             }
         });
     }
