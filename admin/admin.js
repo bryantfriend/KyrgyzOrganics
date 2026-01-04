@@ -40,6 +40,26 @@ onAuthStateChanged(auth, user => {
 document.getElementById('logoutBtn')
   .addEventListener('click', () => signOut(auth));
 
+/* ---------- LOGIN FORM ---------- */
+const loginForm = document.getElementById('loginForm');
+if (loginForm) {
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const pwd = document.getElementById('loginPwd').value;
+    const errorP = document.getElementById('loginError');
+
+    try {
+      await signInWithEmailAndPassword(auth, email, pwd);
+      loginForm.reset();
+      if (errorP) errorP.textContent = '';
+    } catch (err) {
+      console.error(err);
+      if (errorP) errorP.textContent = "Login Failed: " + err.message;
+    }
+  });
+}
+
 /* ---------- HELPERS ---------- */
 
 async function uploadImage(file) {
