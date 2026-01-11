@@ -38,10 +38,15 @@
       <button data-tab="categories">Categories</button>
       <button data-tab="banners">Banners</button>
       <button data-tab="content">Content Pages</button>
+      <button class="nav-btn" data-tab="inventory">Daily Inventory</button>
+      <button class="nav-btn" data-tab="settings">Payment Settings</button>
+      <button class="nav-btn" data-tab="orders">Orders & Verifications</button>
+      <button class="nav-btn" data-tab="audit">Audit Logs</button>
+      <button class="nav-btn" data-tab="analytics">Analytics</button>
     </nav>
 
     <!-- PRODUCTS -->
-    <section id="products" class="tab-content" style="display:block;">
+    <section id="products" class="tab-content active">
       <div class="admin-card">
         <h3 id="prodFormTitle" style="margin-bottom:1.5rem;">Add Product</h3>
         <form id="productForm">
@@ -326,6 +331,164 @@
       <div class="admin-card">
         <h3>Current Banners</h3>
         <div id="bannerList" class="item-list sortable"></div>
+      </div>
+    </section>
+
+    <!-- INVENTORY -->
+    <section id="inventory" class="tab-content" style="display:none;">
+      <div class="admin-card">
+        <h3>Daily Stock Management</h3>
+        <div class="form-row" style="align-items: flex-end; margin-bottom: 1rem;">
+          <div class="form-group">
+            <label>Select Date</label>
+            <input type="date" id="invDate" style="padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+          </div>
+          <button id="loadInvBtn" class="btn-secondary">Load Inventory</button>
+        </div>
+        <div id="invStatus"
+          style="margin-bottom: 1rem; padding: 0.5rem; background: #e3f2fd; color: #0d47a1; border-radius: 4px; display: none;">
+        </div>
+
+        <!-- Template & Quick Actions -->
+        <div class="admin-card"
+          style="margin-bottom: 1rem; background: #fffde7; border: 1px solid #fff59d; padding: 1rem;">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <strong>Templates:</strong>
+            <select id="templateSelect" style="padding:6px; border-radius:4px; border:1px solid #ccc; min-width:150px;">
+              <option value="">-- Loading... --</option>
+            </select>
+            <button id="btnLoadTemplate" class="btn-secondary" title="Load selected template">📂 Load</button>
+            <button id="btnSaveTemplate" class="btn-secondary" title="Save current items as template">💾 Save as
+              New</button>
+
+            <div style="width:1px; height:20px; background:#ccc; margin:0 5px;"></div>
+
+            <strong>Copy Date:</strong>
+            <input type="date" id="copyFromDate" style="padding:5px; border:1px solid #ccc; border-radius:4px;">
+            <button id="btnCopyDate" class="btn-secondary">📋 Copy</button>
+
+            <div style="flex:1;"></div>
+            <button id="btnClearInventory" class="btn-secondary" style="color:#c62828;">❌ Clear All</button>
+          </div>
+        </div>
+
+        <div class="inventory-container">
+          <!-- LEFT: CATALOG (ACCORDION) -->
+          <div class="inv-col-left">
+            <h4 style="margin-top:0; margin-bottom:1rem;">1. Select Products</h4>
+            <div id="catalogAccordion">
+              <!-- Accordion Items Injected Here -->
+            </div>
+          </div>
+
+          <!-- RIGHT: TODAY'S MENU -->
+          <div class="inv-col-right">
+            <h4 style="margin-top:0; margin-bottom:1rem;">2. Today's Menu</h4>
+            <p style="font-size:0.85rem; color:#666;">Only checked items appear here.</p>
+
+            <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+              <thead>
+                <tr style="text-align: left; background: #f9f9f9; border-bottom: 2px solid #eee;">
+                  <th style="padding: 8px;">Product</th>
+                  <th style="padding: 8px; width: 80px;">Qty</th>
+                  <th style="padding: 8px; width: 60px;">Sold</th>
+                </tr>
+              </thead>
+              <tbody id="todayMenuList">
+                <!-- Selected Rows Injected Here -->
+              </tbody>
+            </table>
+
+            <div style="margin-top: 2rem; border-top: 1px solid #eee; padding-top: 1rem; text-align: right;">
+              <button id="saveInvBtn" class="btn-primary">💾 Save Inventory</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS (PAYMENTS) -->
+    <section id="settings" class="tab-content" style="display:none;">
+      <div class="admin-card">
+        <h3>Payment Methods</h3>
+        <p style="color:#666; margin-bottom:1rem;">Manage the banks and QR codes displayed to customers.</p>
+
+        <form id="paymentForm" class="admin-form"
+          style="background:#f9f9f9; padding:1rem; border-radius:8px; margin-bottom:2rem;">
+          <input type="hidden" id="editMethodId">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Bank Name</label>
+              <input type="text" id="methodBank" placeholder="e.g. MBANK" required>
+            </div>
+            <div class="form-group">
+              <label>Account Name</label>
+              <input type="text" id="methodAccountName" placeholder="e.g. John Doe">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Account Number / Phone</label>
+              <input type="text" id="methodNumber" placeholder="e.g. +996 555 123 456">
+            </div>
+            <div class="form-group">
+              <label>QR Code Image</label>
+              <input type="file" id="methodQrImg" accept="image/*">
+              <div id="methodQrPreview" style="margin-top:5px; height:100px;"></div>
+            </div>
+          </div>
+          <button type="submit">Save Payment Method</button>
+          <button type="button" id="cancelMethodEdit" class="btn-secondary" style="display:none;">Cancel</button>
+        </form>
+
+        <div id="methodsList" class="item-list">
+          <!-- Injected -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ORDERS TAB -->
+    <section id="orders" class="tab-content" style="display:none;">
+      <div class="admin-card">
+        <h3>Order Management</h3>
+        <div class="toolbar" style="margin-bottom:1rem; display:flex; gap:10px;">
+          <button id="btnRefreshOrders" class="btn-secondary">🔄 Refresh</button>
+          <button id="btnReleaseExpired" class="btn-danger" title="Release stock for orders older than 15 mins">Release
+            Expired</button>
+          <select id="orderFilterStatus" style="padding:8px; border-radius:4px;">
+            <option value="all">All Statuses</option>
+            <option value="pending_verification" selected>Pending Verification</option>
+            <option value="paid">Paid / Verified</option>
+            <option value="reserved">Reserved (Unpaid)</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        <div id="ordersList" class="item-list">
+          <!-- Injected -->
+        </div>
+      </div>
+    </section>
+
+    <!-- AUDIT TAB -->
+    <section id="audit" class="tab-content" style="display:none;">
+      <div class="admin-card">
+        <h3>Audit Logs</h3>
+        <button id="btnRefreshAudit" class="btn-secondary" style="margin-bottom:1rem;">🔄 Refresh Logs</button>
+        <div id="auditList" class="item-list">
+          <!-- Injected -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ANALYTICS TAB -->
+    <section id="analytics" class="tab-content" style="display:none;">
+      <div class="admin-card">
+        <h3>Daily Sales Report</h3>
+        <button id="btnRefreshAnalytics" class="btn-secondary">🔄 Refresh Report</button>
+        <div id="analyticsReport">
+          <!-- Injected -->
+        </div>
       </div>
     </section>
 

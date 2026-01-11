@@ -251,6 +251,22 @@ button[type="submit"]:hover {
   /* Ensure it works for labels too */
 }
 
+.btn-primary {
+  background: #7cb342;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary:hover {
+  background: #689f38;
+}
+
 .btn-secondary:hover {
   background: #d5d5d5;
   border-color: #bbb;
@@ -323,4 +339,71 @@ button[type="submit"]:hover {
   align-items: center;
   background: linear-gradient(135deg, #a8e063 0%, #56ab2f 100%);
   /* Green Organic Gradient */
+}
+
+/* Inventory Layout */
+.inventory-container {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.inv-col-left {
+  flex: 1;
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 8px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.inv-col-right {
+  flex: 1;
+  background: white;
+  border: 1px solid #ddd;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.accordion-item {
+  margin-bottom: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  overflow: hidden;
+}
+
+.accordion-header {
+  padding: 0.75rem;
+  background: #fff;
+  cursor: pointer;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.accordion-header:hover {
+  background: #f1f1f1;
+}
+
+.accordion-content {
+  display: none;
+  padding: 0.5rem;
+  border-top: 1px solid #ddd;
+}
+
+.accordion-content.active {
+  display: block;
+}
+
+.cat-product-row {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.cat-product-row:last-child {
+  border-bottom: none;
 }

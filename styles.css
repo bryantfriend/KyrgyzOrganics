@@ -441,10 +441,12 @@ button {
     text-align: center;
     color: white;
     /* Default text color on image */
+    border-radius: 24px;
+    overflow: hidden;
 }
 
 .hero-overlay {
-    background: rgba(0, 0, 0, 0.4);
+    background: transparent;
     /* Dark overlay for text readability */
     padding: 2rem;
     border-radius: 8px;
@@ -707,8 +709,10 @@ button {
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 6;
-    background: #000;
+    background: transparent;
     overflow: hidden;
+    border-radius: 24px;
+    margin-bottom: 3rem;
 }
 
 .carousel-slide {
@@ -731,7 +735,8 @@ button {
     height: 100%;
     object-fit: contain;
     /* 🔥 NO CROPPING */
-    background: #000;
+    background: transparent;
+    border-radius: 24px;
 }
 
 .carousel-dots {

@@ -1,5 +1,7 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, getDocs, query, where, orderBy, doc, getDoc, runTransaction, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+import { storage } from './firebase-config.js';
 import { Carousel } from './carousel.js';
 import { $, $$, t, loc, setupLanguage, currentLang, initMobileMenu } from './common.js';
 
@@ -8,6 +10,10 @@ let products = [];
 let bannerData = [];
 let categories = [];
 let categoriesMap = {}; // ID -> Data
+let dailyInventory = {}; // { prodId: { available, sold } }
+let todayStr = "";
+let paymentMethods = [];
+let pendingOrder = null; // { orderId, prodId, expiresAt, timerInterval }
 
 // --- DOM ELEMENTS ---
 const productGrid = $('productGrid');
@@ -43,11 +49,27 @@ async function init() {
 
 async function loadData() {
     try {
-        const [pRes, cRes, bRes] = await Promise.all([
+        const [pRes, cRes, bRes, pmRes] = await Promise.all([
             getDocs(query(collection(db, "products"), where("active", "==", true))),
             getDocs(query(collection(db, "categories"), where("active", "==", true))),
-            getDocs(collection(db, "banners"))
+            getDocs(collection(db, "banners")),
+            getDocs(query(collection(db, "payment_methods"), where("active", "==", true)))
         ]);
+
+        // Calc Today YYYY-MM-DD (Local)
+        const localNow = new Date();
+        const y = localNow.getFullYear();
+        const m = String(localNow.getMonth() + 1).padStart(2, '0');
+        const d = String(localNow.getDate()).padStart(2, '0');
+        todayStr = `${y}-${m}-${d}`;
+
+        // Fetch Inventory
+        const invSnap = await getDoc(doc(db, 'inventory', todayStr));
+        if (invSnap.exists()) {
+            dailyInventory = invSnap.data();
+        } else {
+            dailyInventory = {};
+        }
 
         products = pRes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -81,6 +103,9 @@ async function loadData() {
             })
             .sort((a, b) => (a.order || 0) - (b.order || 0));
 
+        // Payment Methods
+        paymentMethods = pmRes.docs.map(d => ({ id: d.id, ...d.data() }));
+
     } catch (e) {
         console.error("Error loading data:", e);
         if (e.code === 'permission-denied' || e.code === 'failed-precondition') {
@@ -94,7 +119,7 @@ function renderAll() {
     renderBanner();
     renderFeatured();
     renderProducts(products);
-    renderRecommended();
+    // renderRecommended();
     updateStaticUI();
 }
 
@@ -102,7 +127,7 @@ function updateStaticUI() {
     const sectionTitles = document.querySelectorAll('.section-title');
     if (sectionTitles[0]) sectionTitles[0].textContent = t('hits');
     if (sectionTitles[1]) sectionTitles[1].textContent = t('full_catalog');
-    if (sectionTitles[2]) sectionTitles[2].textContent = t('recommended');
+    // if (sectionTitles[2]) sectionTitles[2].textContent = t('recommended');
 
     const ctaTitle = document.querySelector('.cta-title');
     if (ctaTitle) ctaTitle.textContent = t('invest_title');
@@ -171,10 +196,26 @@ function renderProducts(data) {
 function createCard(product, tag = '') {
     const categoryName = categoriesMap[product.categoryId] ? loc(categoriesMap[product.categoryId], 'name') : (product.category || 'Other');
 
+    // Inventory Badge Logic
+    const inv = dailyInventory[product.id];
+    const avail = inv ? (inv.available || 0) : 0;
+
+    let badgeHtml = '';
+
+    if (avail === 0) {
+        badgeHtml = `<div class="delivery-badge" style="background:#e53935;">${t('sold_out') || 'Sold Out'}</div>`;
+    } else if (avail < 5) {
+        badgeHtml = `<div class="delivery-badge" style="background:#fb8c00;">${t('only_left') || 'Only'} ${avail}</div>`;
+    } else if (tag) {
+        badgeHtml = `<div class="delivery-badge">${tag}</div>`;
+    }
+
     const card = document.createElement('div');
     card.className = 'product-card';
+    if (avail === 0) card.classList.add('sold-out'); // Optional CSS styling
+
     card.innerHTML = `
-        ${tag ? `<div class="delivery-badge">${tag}</div>` : ''}
+        ${badgeHtml}
         <div class="product-image">
             <img src="${product.imageUrl || 'https://placehold.co/400x300'}" alt="${loc(product, 'name')}">
         </div>
@@ -191,15 +232,7 @@ function createCard(product, tag = '') {
     return card;
 }
 
-function renderRecommended() {
-    if (!recommendedGrid) return;
-    recommendedGrid.innerHTML = '';
-    const recs = products.slice(0, 4);
-    recs.forEach(product => {
-        const card = createCard(product, '');
-        recommendedGrid.appendChild(card);
-    });
-}
+
 
 
 function renderCategories() {
@@ -307,6 +340,17 @@ function openModal(product) {
     const imgPack = product.imageUrl || 'https://placehold.co/400x300?text=Packaging';
     const imgContent = product.imageNoPackagingUrl || 'https://placehold.co/400x300?text=No+Packaging';
 
+    // Inventory Info
+    const inv = dailyInventory[product.id];
+    const avail = inv ? (inv.available || 0) : 0;
+
+    let btnHtml = '';
+    if (avail > 0) {
+        btnHtml = `<button id="buyBtn" class="cta-btn" style="width:100%; margin-top:1rem;">${t('buy_now') || 'Buy Now'}</button>`;
+    } else {
+        btnHtml = `<button disabled class="cta-btn" style="width:100%; margin-top:1rem; background:#ccc; cursor:not-allowed;">${t('sold_out') || 'Sold Out'}</button>`;
+    }
+
     modalContent.innerHTML = `
         <div class="modal-body">
             <!-- Left: Image Section -->
@@ -334,13 +378,21 @@ function openModal(product) {
                     <span class="modal-price">${product.price} ${t('price_currency')}</span>
                     <span class="modal-weight">/ ${product.weight}</span>
                 </div>
+                
+                <!-- Stock Status -->
+                <div style="margin-bottom:1rem; font-weight:600; color: ${avail > 0 ? '#2e7d32' : '#d32f2f'};">
+                    ${avail > 0 ? `In Stock: ${avail}` : 'Sold Out'}
+                </div>
 
                 <div class="modal-description">
                     ${loc(product, 'description') || 'No description available.'}
                 </div>
+                
+                ${btnHtml}
+                <div id="buyStatus" style="margin-top:0.5rem; font-size:0.9rem;"></div>
 
                 <!-- Product Details Table -->
-                <h3 style="font-size:1.1rem; margin-bottom:0.5rem; font-weight:700;">Product Details</h3>
+                <h3 style="font-size:1.1rem; margin-top:1.5rem; margin-bottom:0.5rem; font-weight:700;">Product Details</h3>
                 <div class="modal-meta-box">
                     ${product.ingredients ? `
                     <div class="modal-meta-item">
@@ -363,6 +415,207 @@ function openModal(product) {
     `;
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
+
+    // Attach Listener
+    const buyBtn = document.getElementById('buyBtn');
+    if (buyBtn) {
+        buyBtn.addEventListener('click', () => handleBuy(product));
+    }
+}
+
+async function handleBuy(product) {
+    const buyBtn = document.getElementById('buyBtn');
+    const statusDiv = document.getElementById('buyStatus');
+    if (buyBtn) buyBtn.disabled = true;
+    if (statusDiv) statusDiv.innerHTML = '<span style="color:#666;">Checking stock...</span>';
+
+    try {
+        // Call Cloud Function to Reserve Stock & Create Order
+        const reserveOrder = httpsCallable(functions, 'reserveOrder');
+        const result = await reserveOrder({
+            productId: product.id,
+            dateStr: todayStr
+        });
+
+        const orderId = result.data.orderId;
+
+        // Optimistic UI Update
+        if (dailyInventory[product.id]) {
+            dailyInventory[product.id].available--;
+            dailyInventory[product.id].sold++;
+        }
+
+        // Open Payment Modal
+        closeModalFn(); // Close product modal
+        setupPaymentModal(product, orderId);
+
+    } catch (e) {
+        console.error("Buy Error:", e);
+        if (buyBtn) buyBtn.disabled = false;
+        if (statusDiv) statusDiv.innerHTML = `<span style="color:red;">Error: ${e.message || e}</span>`;
+    }
+}
+
+// --- PAYMENT MODAL LOGIC ---
+function setupPaymentModal(product, orderId) {
+    const payModal = document.getElementById('paymentModal');
+    const methodsContainer = document.getElementById('paymentMethodsContainer');
+    const contentDiv = document.getElementById('paymentContent');
+    const timerEl = document.getElementById('paymentTimer');
+    const btnConfirm = document.getElementById('btnConfirmPayment');
+    const btnCancel = document.getElementById('btnCancelPayment');
+
+    if (!payModal) return;
+
+    // Reset State
+    let timeLeft = 600; // 10 mins
+    if (pendingOrder && pendingOrder.timerInterval) clearInterval(pendingOrder.timerInterval);
+
+    pendingOrder = { orderId, prodId: product.id, interval: null };
+
+    // Render Methods Tabs
+    if (paymentMethods.length === 0) {
+        methodsContainer.innerHTML = '<p style="color:red;">No payment methods available. Contact Admin.</p>';
+    } else {
+        methodsContainer.innerHTML = '';
+        const tabsDiv = document.createElement('div');
+        tabsDiv.style.display = 'flex';
+        tabsDiv.style.gap = '5px';
+        tabsDiv.style.marginBottom = '10px';
+        tabsDiv.style.justifyContent = 'center';
+
+        paymentMethods.forEach((pm, idx) => {
+            const btn = document.createElement('button');
+            btn.textContent = pm.name;
+            btn.className = 'filter-pill'; // Reuse styled pill
+            if (idx === 0) btn.classList.add('active');
+            btn.onclick = () => showPaymentDetails(pm, contentDiv);
+            tabsDiv.appendChild(btn);
+        });
+        methodsContainer.appendChild(tabsDiv);
+
+        // Show first method
+        showPaymentDetails(paymentMethods[0], contentDiv);
+    }
+
+    // Start Timer
+    updateTimerDisplay(timeLeft, timerEl);
+    pendingOrder.timerInterval = setInterval(() => {
+        timeLeft--;
+        updateTimerDisplay(timeLeft, timerEl);
+        if (timeLeft <= 0) {
+            cancelPayment(true); // Auto cancel on timeout
+        }
+    }, 1000);
+
+    // Bind Buttons
+    btnConfirm.onclick = () => confirmPayment();
+    btnCancel.onclick = () => cancelPayment(false);
+
+    payModal.style.display = 'flex';
+}
+
+function showPaymentDetails(pm, container) {
+    container.innerHTML = `
+        <div style="margin-bottom:1rem;">
+             ${pm.qrUrl ? `<img src="${pm.qrUrl}" style="max-width:200px; border:1px solid #ccc; padding:5px;">` : ''}
+        </div>
+        <div style="font-size:1.1rem; font-weight: bold;">${pm.number || ''}</div>
+        <div>${pm.accountName || ''}</div>
+        <div style="font-size:0.9rem; color:#666; margin-top:5px;">${t('payment_instructions') || 'Scan QR code to pay'}</div>
+    `;
+    // Update active tab style
+    const tabs = document.getElementById('paymentMethodsContainer').querySelectorAll('button');
+    tabs.forEach(t => {
+        if (t.textContent === pm.name) t.classList.add('active');
+        else t.classList.remove('active');
+    });
+}
+
+function updateTimerDisplay(seconds, el) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    el.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+async function confirmPayment() {
+    const btn = document.getElementById('btnConfirmPayment');
+    const fileInput = document.getElementById('paymentProof');
+
+    if (!fileInput.files[0]) return alert("Please upload a payment receipt screenshot.");
+
+    btn.disabled = true;
+    btn.innerText = "Verifying...";
+
+    try {
+        const file = fileInput.files[0];
+        const storageRef = ref(storage, `receipts/${todayStr}/${pendingOrder.orderId}_${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(snapshot.ref);
+
+        // Update Order
+        await updateDoc(doc(db, 'orders', pendingOrder.orderId), {
+            status: 'pending_verification', // or 'paid' if we trust them 100%
+            receiptUrl: url,
+            paidAt: serverTimestamp()
+        });
+
+        clearInterval(pendingOrder.timerInterval);
+        document.getElementById('paymentModal').style.display = 'none';
+        alert("Payment Submitted! We will verify and process your order.");
+        renderAll();
+
+    } catch (e) {
+        console.error(e);
+        alert("Error: " + e.message);
+        btn.disabled = false;
+        btn.innerText = "Confirm Paid";
+    }
+}
+
+async function cancelPayment(isTimeout = false) {
+    if (!pendingOrder) return;
+
+    if (!isTimeout && !confirm("Cancel purchase and release stock?")) return;
+
+    const { orderId, prodId } = pendingOrder;
+    clearInterval(pendingOrder.timerInterval);
+    document.getElementById('paymentModal').style.display = 'none';
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const invRef = doc(db, 'inventory', todayStr);
+            const invDoc = await transaction.get(invRef);
+            if (!invDoc.exists()) return;
+
+            // Release Stock
+            const currentAvail = invDoc.data()[prodId]?.available || 0;
+            const currentSold = invDoc.data()[prodId]?.sold || 0;
+
+            transaction.update(invRef, {
+                [`${prodId}.available`]: currentAvail + 1,
+                [`${prodId}.sold`]: Math.max(0, currentSold - 1)
+            });
+
+            transaction.update(doc(db, 'orders', orderId), {
+                status: 'cancelled',
+                cancelledAt: serverTimestamp(),
+                reason: isTimeout ? 'timeout' : 'user_cancelled'
+            });
+
+            // Revert local state
+            if (dailyInventory[prodId]) {
+                dailyInventory[prodId].available++;
+                dailyInventory[prodId].sold--;
+            }
+        });
+
+        if (isTimeout) alert("Order expired. Stock released.");
+        renderAll();
+
+    } catch (e) {
+        console.error("Cancel Error:", e);
+    }
 }
 
 window.switchModalImage = (btn, src) => {
