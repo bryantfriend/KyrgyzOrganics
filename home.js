@@ -71,6 +71,13 @@ async function loadData() {
         renderBanner(); // Render immediately when ready
     }).catch(e => console.error("Banners failed:", e));
 
+    // Calc Today YYYY-MM-DD (Local)
+    const localNow = new Date();
+    const y = localNow.getFullYear();
+    const m = String(localNow.getMonth() + 1).padStart(2, '0');
+    const d = String(localNow.getDate()).padStart(2, '0');
+    todayStr = `${y}-${m}-${d}`;
+
     try {
         // 2. Load Rest of Data
         const results = await Promise.allSettled([
