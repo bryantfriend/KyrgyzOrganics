@@ -636,7 +636,7 @@ window.switchModalImage = (btn, src) => {
     document.getElementById('modalMainImage').src = src;
     document.querySelectorAll('.thumb-btn, .photo-toggle-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-}
+};
 
 // Start
 init();
