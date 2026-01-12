@@ -2,7 +2,6 @@ import { db } from './firebase-config.js';
 import { collection, getDocs, query, where, orderBy, doc, getDoc, runTransaction, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { storage } from './firebase-config.js';
-import { Carousel } from './carousel.js';
 import { $, $$, t, loc, setupLanguage, currentLang, initMobileMenu } from './common.js';
 
 // --- STATE ---
@@ -166,7 +165,22 @@ function renderBanner() {
         </div>
     `;
 
-    new Carousel(heroCarousel, { interval: 5000 });
+    // Simple Carousel Logic
+    let currentSlide = 0;
+    const slides = heroCarousel.querySelectorAll('.carousel-slide');
+    const dots = heroCarousel.querySelectorAll('.dot');
+
+    if (slides.length > 1) {
+        setInterval(() => {
+            slides[currentSlide].classList.remove('is-active');
+            if (dots[currentSlide]) dots[currentSlide].classList.remove('is-active');
+
+            currentSlide = (currentSlide + 1) % slides.length;
+
+            slides[currentSlide].classList.add('is-active');
+            if (dots[currentSlide]) dots[currentSlide].classList.add('is-active');
+        }, 5000);
+    }
 }
 
 function renderFeatured() {
