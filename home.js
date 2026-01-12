@@ -47,20 +47,43 @@ async function init() {
 }
 
 async function loadData() {
+    // 1. Load Banners Separately & Immediately
+    getDocs(collection(db, "banners")).then(snap => {
+        const now = new Date();
+        bannerData = snap.docs
+            .map(d => d.data())
+            .filter(b => {
+                if (!b.active) return false;
+                let start = b.startAt;
+                if (start && typeof start.toDate === 'function') start = start.toDate();
+                else if (start && !(start instanceof Date)) start = new Date(start);
+
+                let end = b.endAt;
+                if (end && typeof end.toDate === 'function') end = end.toDate();
+                else if (end && !(end instanceof Date)) end = new Date(end);
+
+                if (start && start > now) return false;
+                if (end && end < now) return false;
+                return true;
+            })
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        renderBanner(); // Render immediately when ready
+    }).catch(e => console.error("Banners failed:", e));
+
     try {
-        const [pRes, cRes, bRes, pmRes] = await Promise.all([
+        // 2. Load Rest of Data
+        const results = await Promise.allSettled([
             getDocs(query(collection(db, "products"), where("active", "==", true))),
             getDocs(query(collection(db, "categories"), where("active", "==", true))),
-            getDocs(collection(db, "banners")),
             getDocs(query(collection(db, "payment_methods"), where("active", "==", true)))
         ]);
 
-        // Calc Today YYYY-MM-DD (Local)
-        const localNow = new Date();
-        const y = localNow.getFullYear();
-        const m = String(localNow.getMonth() + 1).padStart(2, '0');
-        const d = String(localNow.getDate()).padStart(2, '0');
-        todayStr = `${y}-${m}-${d}`;
+        const pRes = results[0].status === 'fulfilled' ? results[0].value : { docs: [] };
+        const cRes = results[1].status === 'fulfilled' ? results[1].value : { docs: [] };
+        // Banners removed from here
+        const pmRes = results[2].status === 'fulfilled' ? results[2].value : { docs: [] };
+
 
         // Fetch Inventory
         const invSnap = await getDoc(doc(db, 'inventory', todayStr));
@@ -81,26 +104,7 @@ async function loadData() {
 
         categories.sort((a, b) => loc(a, 'name').localeCompare(loc(b, 'name')));
 
-        const now = new Date();
-
-        bannerData = bRes.docs
-            .map(d => d.data())
-            .filter(b => {
-                if (!b.active) return false;
-                let start = b.startAt;
-                if (start && typeof start.toDate === 'function') start = start.toDate();
-                else if (start && !(start instanceof Date)) start = new Date(start);
-
-                let end = b.endAt;
-                if (end && typeof end.toDate === 'function') end = end.toDate();
-                else if (end && !(end instanceof Date)) end = new Date(end);
-
-                if (start && start > now) return false;
-                if (end && end < now) return false;
-
-                return true;
-            })
-            .sort((a, b) => (a.order || 0) - (b.order || 0));
+        // Banner processing moved to top of function for lazy loading
 
         // Payment Methods
         paymentMethods = pmRes.docs.map(d => ({ id: d.id, ...d.data() }));
