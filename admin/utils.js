@@ -7,7 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
  * @param {string} pathPrefix - Folder path in storage (e.g. 'banners', 'products')
  * @returns {Promise<string>} Download URL
  */
-export async function uploadImage(file, pathPrefix = 'uploads') {
+export async function uploadImage(file, pathPrefix = 'products') {
     if (!file) return null;
     const storageRef = ref(storage, `${pathPrefix}/${Date.now()}_${file.name}`);
     await uploadBytes(storageRef, file);

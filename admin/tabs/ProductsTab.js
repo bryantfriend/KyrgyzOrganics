@@ -159,8 +159,8 @@ export class ProductsTab extends BaseTab {
             let imageUrl = null;
             let imageNoPackagingUrl = null;
 
-            if (filePack) imageUrl = await uploadImage(filePack);
-            if (fileContent) imageNoPackagingUrl = await uploadImage(fileContent);
+            if (filePack) imageUrl = await uploadImage(filePack, 'products');
+            if (fileContent) imageNoPackagingUrl = await uploadImage(fileContent, 'products');
 
             const data = {
                 name_ru: document.getElementById('pNameRU').value,

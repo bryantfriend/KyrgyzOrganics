@@ -72,7 +72,7 @@ export class SettingsTab extends BaseTab {
             const file = document.getElementById('methodQrImg').files[0];
             let qrUrl = "";
             if (file) {
-                qrUrl = await uploadImage(file, 'payment_qrs');
+                qrUrl = await uploadImage(file, 'brand');
             }
 
             await addDoc(collection(db, 'payment_methods'), {
