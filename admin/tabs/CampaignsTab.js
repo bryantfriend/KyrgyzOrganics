@@ -1,5 +1,5 @@
 import { db } from '../../firebase-config.js';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { uploadImage } from '../utils.js';
 
 export class CampaignsTab {
@@ -174,7 +174,7 @@ export class CampaignsTab {
     if (this.section) this.section.style.display = 'block';
     
     await this.loadCampaign();
-    await this.loadStats();
+    this.initStatsListener(); // Real-time stats
     this.initSharing();
   }
 
@@ -190,13 +190,23 @@ export class CampaignsTab {
     }
   }
 
-  async loadStats() {
+  initStatsListener() {
     if (!this.statClicks) return;
+    
+    // Cleanup previous listener if any
+    if (this.statsUnsubscribe) this.statsUnsubscribe();
+
     try {
-      const q = query(collection(db, "campaign_events"), where("campaignId", "==", "prime-mun"), where("actionType", "==", "click_glovo"));
-      const snap = await getDocs(q);
-      this.statClicks.textContent = snap.size;
-    } catch(err) { console.error("Stats error:", err); }
+      const q = query(
+        collection(db, "campaign_events"), 
+        where("campaignId", "==", "prime-mun"), 
+        where("actionType", "==", "click_glovo")
+      );
+
+      this.statsUnsubscribe = onSnapshot(q, (snap) => {
+        this.statClicks.textContent = snap.size;
+      });
+    } catch(err) { console.error("Real-time Stats error:", err); }
   }
 
   async loadCampaign() {
