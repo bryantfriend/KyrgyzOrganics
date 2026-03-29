@@ -23,7 +23,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    overflow: hidden; /* No scrolling for full screen app feel */
+    /* Removed overflow: hidden to allow scrolling on mobile if content is too tall */
 }
 
 /* Fallback message hidden by default */
@@ -49,7 +49,7 @@ body {
 .landing-container {
     width: 100%;
     max-width: 480px;
-    height: 100vh;
+    min-height: 100vh; /* Changed from height: 100vh */
     display: flex;
     flex-direction: column;
     justify-content: space-between;
