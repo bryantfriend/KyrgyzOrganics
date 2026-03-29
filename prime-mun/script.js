@@ -96,6 +96,14 @@ async function initCampaign() {
             productImage.src = config.imageUrl;
         }
 
+        const brandLogo = document.getElementById('brandLogo');
+        if (config.logoUrl) {
+            brandLogo.src = config.logoUrl;
+        } else {
+            // Default Fallback Logo (placeholder or generic brand)
+            brandLogo.src = "https://via.placeholder.com/150x60?text=KYRGYZ+ORGANIC";
+        }
+
         const optionalLine = document.getElementById('optionalLine');
         if (config.optionalLine) {
             optionalLine.textContent = config.optionalLine;
