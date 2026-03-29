@@ -43,6 +43,7 @@
       <button class="nav-btn" data-tab="orders">Orders & Verifications</button>
       <button class="nav-btn" data-tab="audit">Audit Logs</button>
       <button class="nav-btn" data-tab="analytics">Analytics</button>
+      <button class="nav-btn" data-tab="campaigns" style="background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8b00ff); color: white; border-radius: 50px; border: none; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); padding: 8px 20px;">Campaigns</button>
     </nav>
 
     <!-- PRODUCTS -->
@@ -489,6 +490,67 @@
         <div id="analyticsReport">
           <!-- Injected -->
         </div>
+      </div>
+    </section>
+
+    <!-- CAMPAIGNS TAB -->
+    <section id="campaigns" class="tab-content" style="display:none;">
+      <div class="admin-card">
+        <h3>Campaign Management (PRIME MUN)</h3>
+        <p style="color:#666; margin-bottom:1rem;">Manage the text, links, and status of the PRIME MUN landing page.</p>
+
+        <form id="campaignForm" class="admin-form" style="background:#f9f9f9; padding:1rem; border-radius:8px; margin-bottom:2rem;">
+          <div class="form-row">
+            <label style="cursor:pointer; margin-bottom:1rem; display:inline-block; width: 100%;">
+              <input type="checkbox" id="campActive" style="width:auto; margin-right:8px;" />
+              <strong>Campaign Active</strong>
+            </label>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Headline</label>
+              <input type="text" id="campHeadline" required placeholder="e.g. PRIME MUN Box">
+            </div>
+            <div class="form-group">
+              <label>Subheadline</label>
+              <input type="text" id="campSubheadline" required placeholder="e.g. Limited for 3 days">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group" style="flex:0 0 100%;">
+              <label>Image URL</label>
+              <input type="url" id="campImage" required placeholder="https://...">
+            </div>
+          </div>
+
+            <div class="form-group">
+              <label>Glovo Target Link</label>
+              <input type="url" id="campGlovo" required placeholder="https://glovoapp.com/...">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group" style="flex:0 0 100%;">
+              <label>Optional Small Line</label>
+              <input type="text" id="campOptional" placeholder="e.g. 🎁 Free dessert included">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Start Date</label>
+              <input type="datetime-local" id="campStart" required>
+            </div>
+            <div class="form-group">
+              <label>End Date</label>
+              <input type="datetime-local" id="campEnd" required>
+            </div>
+          </div>
+
+          <button type="submit">Save Campaign Settings</button>
+        </form>
       </div>
     </section>
 

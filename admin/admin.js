@@ -9,6 +9,7 @@ import { SettingsTab } from './tabs/SettingsTab.js';
 import { OrdersTab } from './tabs/OrdersTab.js';
 import { AuditTab } from './tabs/AuditTab.js';
 import { AnalyticsTab } from './tabs/AnalyticsTab.js';
+import { CampaignsTab } from './tabs/CampaignsTab.js';
 
 class AdminApp {
   constructor() {
@@ -78,6 +79,7 @@ class AdminApp {
     this.tabs['orders'] = new OrdersTab();
     this.tabs['audit'] = new AuditTab();
     this.tabs['analytics'] = new AnalyticsTab();
+    this.tabs['campaigns'] = new CampaignsTab();
 
     // Listeners for Tab Switching
     // Support both .tabs button and .nav-btn
