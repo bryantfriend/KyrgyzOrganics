@@ -35,6 +35,7 @@ export class CampaignsTab {
 
     // 4. Appearance
     this.bgColor = get('bgColor');
+    this.textColor = get('textColor');
     this.bgTexture = get('bgTexture');
     this.entranceAnim = get('entranceAnim');
     this.bgParticles = get('bgParticles');
@@ -77,7 +78,7 @@ export class CampaignsTab {
     // Unified Live Preview Trigger
     const allInputs = [
       this.headline, this.headlineEN, this.headlineKG, this.subheadline, this.optionalLine,
-      this.logoWidth, this.imgScale, this.bgColor, this.bgTexture, 
+      this.logoWidth, this.imgScale, this.bgColor, this.textColor, this.bgTexture, 
       this.headlineFont, this.headlineSize, this.btnColor, this.btnPulse
     ].filter(el => el !== null); // Only bind to existing elements
     
@@ -137,11 +138,17 @@ export class CampaignsTab {
       this.mockHeadline.textContent = this.headline.value || 'Headline';
       if (this.headlineFont) this.mockHeadline.style.fontFamily = this.headlineFont.value;
       if (this.headlineSize) this.mockHeadline.style.fontSize = `${this.headlineSize.value}rem`;
-      this.mockHeadline.style.color = '#d4af37';
+      if (this.textColor) this.mockHeadline.style.color = this.textColor.value;
     }
 
-    if (this.mockSubheadline && this.subheadline) this.mockSubheadline.textContent = this.subheadline.value || 'Subheadline';
-    if (this.mockOptional && this.optionalLine) this.mockOptional.textContent = this.optionalLine.value || 'Optional Line';
+    if (this.mockSubheadline && this.subheadline) {
+        this.mockSubheadline.textContent = this.subheadline.value || 'Subheadline';
+        if (this.textColor) this.mockSubheadline.style.color = this.textColor.value;
+    }
+    if (this.mockOptional && this.optionalLine) {
+        this.mockOptional.textContent = this.optionalLine.value || 'Optional Line';
+        if (this.textColor) this.mockOptional.style.color = this.textColor.value;
+    }
 
     // Scaling
     if (this.mockLogo && this.logoWidth) this.mockLogo.style.width = `${this.logoWidth.value}px`;
@@ -236,6 +243,7 @@ export class CampaignsTab {
         if (this.logoWidth) this.logoWidth.value = s.logoWidth || 120;
         if (this.imgScale) this.imgScale.value = s.imgScale || 100;
         if (this.bgColor) this.bgColor.value = s.bgColor || '#0c0b0a';
+        if (this.textColor) this.textColor.value = s.textColor || '#f9e29f';
         if (this.bgTexture) this.bgTexture.value = s.bgTexture || 'none';
         if (this.entranceAnim) this.entranceAnim.value = s.entranceAnim || 'fadeUp';
         if (this.bgParticles) this.bgParticles.value = s.bgParticles || 'none';
@@ -284,6 +292,7 @@ export class CampaignsTab {
           logoWidth: this.logoWidth ? parseInt(this.logoWidth.value) : 120,
           imgScale: this.imgScale ? parseInt(this.imgScale.value) : 100,
           bgColor: this.bgColor ? this.bgColor.value : '#0c0b0a',
+          textColor: this.textColor ? this.textColor.value : '#f9e29f',
           bgTexture: this.bgTexture ? this.bgTexture.value : 'none',
           entranceAnim: this.entranceAnim ? this.entranceAnim.value : 'fadeUp',
           bgParticles: this.bgParticles ? this.bgParticles.value : 'none',

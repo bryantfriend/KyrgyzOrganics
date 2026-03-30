@@ -42,9 +42,12 @@ async function logEvent(actionType, actionValue = '') {
     } catch (error) { console.error("Tracking error:", error); }
 }
 
-function spawnParticles(type) {
-    if (type === 'none') return;
+function spawnParticles(type, color) {
+    if (!type || type === 'none') return;
     const container = document.getElementById('particleBg');
+    if (!container) return;
+    container.innerHTML = ''; // Clear previous
+    
     const count = 30;
     const icons = {
         sparkles: '✨',
@@ -60,8 +63,10 @@ function spawnParticles(type) {
         p.style.left = Math.random() * 100 + 'vw';
         p.style.top = '110vh';
         p.style.fontSize = (Math.random() * 1.5 + 0.5) + 'rem';
+        p.style.color = color || '#f9e29f';
         p.style.opacity = '0';
-        p.style.animation = `float ${Math.random() * 5 + 5}s linear infinite`;
+        p.style.pointerEvents = 'none';
+        p.style.animation = `float ${Math.random() * 5 + 8}s linear infinite`;
         p.style.animationDelay = Math.random() * 10 + 's';
         container.appendChild(p);
     }
@@ -96,11 +101,17 @@ async function initCampaign() {
         }
 
         // Apply Global Styles
+        const bodyColor = s.textColor || '#f9e29f';
         document.body.style.backgroundColor = s.bgColor || '#0c0b0a';
+        document.body.style.color = bodyColor;
+        
+        // Remove old textures
+        document.body.classList.remove('texture-noise', 'texture-luxury', 'texture-stars', 'texture-dots', 'texture-carbon');
         if (s.bgTexture && s.bgTexture !== 'none') {
             document.body.classList.add(`texture-${s.bgTexture}`);
         }
-        spawnParticles(s.bgParticles);
+        
+        spawnParticles(s.bgParticles, bodyColor);
 
         // Language Resolution
         let headlineText = config.headline; // Default RU
@@ -109,48 +120,69 @@ async function initCampaign() {
 
         // Typography
         const h1 = document.getElementById('headline');
-        h1.textContent = headlineText;
-        h1.style.fontFamily = s.headlineFont || "'Playfair Display', serif";
-        h1.style.fontSize = (s.headlineSize || 2.25) + 'rem';
+        if (h1) {
+            h1.textContent = headlineText;
+            h1.style.fontFamily = s.headlineFont || "'Playfair Display', serif";
+            h1.style.fontSize = (s.headlineSize || 2.25) + 'rem';
+            h1.style.color = bodyColor;
+        }
         
-        document.getElementById('subheadline').textContent = config.subheadline;
+        const subH = document.getElementById('subheadline');
+        if (subH) {
+            subH.textContent = config.subheadline;
+            subH.style.color = bodyColor;
+        }
+
         const optionalLine = document.getElementById('optionalLine');
-        if (config.optionalLine) {
-            optionalLine.textContent = config.optionalLine;
-        } else {
-            optionalLine.style.display = 'none';
+        if (optionalLine) {
+            if (config.optionalLine) {
+                optionalLine.textContent = config.optionalLine;
+                optionalLine.style.color = bodyColor;
+            } else {
+                optionalLine.style.display = 'none';
+            }
         }
 
         // Assets
         const brandLogo = document.getElementById('brandLogo');
-        brandLogo.src = config.logoUrl || "https://via.placeholder.com/150x60?text=KYRGYZ+ORGANIC";
-        brandLogo.style.width = (s.logoWidth || 120) + 'px';
+        if (brandLogo) {
+            brandLogo.src = config.logoUrl || "https://via.placeholder.com/150x60?text=KYRGYZ+ORGANIC";
+            brandLogo.style.width = (s.logoWidth || 120) + 'px';
+        }
 
         const productImage = document.getElementById('productImage');
-        productImage.src = config.imageUrl;
-        productImage.style.transform = `scale(${ (s.imgScale || 100) / 100 })`;
+        if (productImage) {
+            productImage.src = config.imageUrl;
+            productImage.style.transform = `scale(${ (s.imgScale || 100) / 100 })`;
+        }
 
         // CTA
-        ctaButton.style.background = s.btnColor || '#00c3a5';
-        if (s.btnPulse) ctaButton.classList.add('pulse-btn');
-        ctaButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            logEvent('click_glovo', config.glovoLink).then(() => {
-                window.location.href = config.glovoLink;
+        if (ctaButton) {
+            ctaButton.style.background = s.btnColor || '#00c3a5';
+            ctaButton.classList.remove('pulse-btn');
+            if (s.btnPulse) ctaButton.classList.add('pulse-btn');
+            
+            ctaButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                logEvent('click_glovo', config.glovoLink).then(() => {
+                    window.location.href = config.glovoLink;
+                });
             });
-        });
+        }
 
         // Animations
-        const animClass = `anim-${s.entranceAnim || 'fadeUp'}`;
-        mainContainer.classList.add(animClass);
-        setTimeout(() => { mainContainer.style.opacity = '1'; }, 10);
+        if (mainContainer) {
+            const animClass = `anim-${s.entranceAnim || 'fadeUp'}`;
+            mainContainer.classList.add(animClass);
+            setTimeout(() => { mainContainer.style.opacity = '1'; }, 10);
+        }
 
         logEvent('page_view', window.location.search);
 
     } catch (error) {
         console.error("Campaign init error:", error);
-        fallbackMessage.style.display = 'block';
-        mainContainer.style.display = 'none';
+        if (fallbackMessage) fallbackMessage.style.display = 'block';
+        if (mainContainer) mainContainer.style.display = 'none';
     }
 }
 
