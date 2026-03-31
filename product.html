@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product | OA Kyrgyz Organic</title>
+  <meta name="description" content="Explore organic products from Kyrgyz Organic.">
+  <link rel="stylesheet" href="styles.css?v=1.5">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <header class="header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo">OA Kyrgyz Organic</a>
+      <nav class="nav-links">
+        <a href="index.html" id="navHome">Home</a>
+        <a href="about.html" id="navAbout">About</a>
+        <a href="contact.html" id="navContact">Contact</a>
+      </nav>
+
+      <button class="hamburger-btn" aria-label="Menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <div class="mobile-menu">
+        <button class="close-menu">&times;</button>
+        <nav class="mobile-nav-links">
+          <a href="index.html" id="mobHome">Home</a>
+          <a href="about.html" id="mobAbout">About</a>
+          <a href="contact.html" id="mobContact">Contact</a>
+        </nav>
+      </div>
+
+      <div class="lang-dropdown">
+        <button class="lang-btn" aria-label="Language" style="font-size: 1.5rem;">🌐</button>
+        <div class="lang-menu">
+          <a href="#" onclick="setLang('en')"><img src="https://flagcdn.com/20x15/us.png" alt="USA" width="20" height="15"> English</a>
+          <a href="#" onclick="setLang('ru')"><img src="https://flagcdn.com/20x15/ru.png" alt="RU" width="20" height="15"> Русский</a>
+          <a href="#" onclick="setLang('kg')"><img src="https://flagcdn.com/20x15/kg.png" alt="KG" width="20" height="15"> Кыргызча</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="container">
+      <div id="productPageRoot" class="product-page-shell">
+        <p>Loading product...</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: space-between;">
+        <div>
+          <h3 style="color: white; margin-bottom: 1rem;" id="footAboutTitle">OA Kyrgyz Organic</h3>
+          <p id="footAboutText">Connecting you with the best<br>organic producers in Kyrgyzstan.</p>
+        </div>
+        <div>
+          <h4 style="color: white; margin-bottom: 0.5rem;" id="footContactsTitle">Contact</h4>
+          <p>info@kyrgyzorganic.kg</p>
+          <p>+996 555 123 456</p>
+          <p id="footAddress">Bishkek, Kyrgyzstan</p>
+        </div>
+      </div>
+      <div style="margin-top: 2rem; border-top: 1px solid #444; padding-top: 1rem; font-size: 0.8rem;">
+        <p id="footCopyright">© 2025 OA Kyrgyz Organic. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="product-page.js?v=1.0"></script>
+</body>
+
+</html>

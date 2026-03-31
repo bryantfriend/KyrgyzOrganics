@@ -3,6 +3,7 @@ import { collection, getDocs, query, where, orderBy, doc, getDoc, runTransaction
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { storage } from './firebase-config.js';
 import { $, $$, t, loc, setupLanguage, currentLang, initMobileMenu } from './common.js';
+import { buildProductPageUrl } from './product-utils.js';
 
 // --- STATE ---
 let products = [];
@@ -220,6 +221,7 @@ function renderProducts(data) {
 
 function createCard(product, tag = '') {
     const categoryName = categoriesMap[product.categoryId] ? loc(categoriesMap[product.categoryId], 'name') : (product.category || 'Other');
+    const productPageUrl = buildProductPageUrl(product);
 
     // Inventory Badge Logic
     const inv = dailyInventory[product.id];
@@ -251,9 +253,18 @@ function createCard(product, tag = '') {
                 <span class="product-weight">${product.weight}</span>
                 <span class="product-price">${product.price} ${t('price_currency')}</span>
             </div>
+            <div class="product-card-actions">
+                <a class="text-link-inline" href="${productPageUrl}">${t('view_product_page')}</a>
+            </div>
         </div>
     `;
     card.addEventListener('click', () => openModal(product));
+    const pageLink = card.querySelector('a');
+    if (pageLink) {
+        pageLink.addEventListener('click', (event) => {
+            event.stopPropagation();
+        });
+    }
     return card;
 }
 
@@ -360,6 +371,7 @@ function closeModalFn() {
 
 function openModal(product) {
     const categoryName = categoriesMap[product.categoryId] ? loc(categoriesMap[product.categoryId], 'name') : (product.category || 'Other');
+    const productPageUrl = buildProductPageUrl(product);
 
     // Default Images
     const imgPack = product.imageUrl || 'https://placehold.co/400x300?text=Packaging';
@@ -412,6 +424,12 @@ function openModal(product) {
                 <div class="modal-description">
                     ${loc(product, 'description') || 'No description available.'}
                 </div>
+
+                <div class="product-page-actions" style="margin-bottom:1rem;">
+                    <a href="${productPageUrl}" class="cta-btn">${t('view_product_page')}</a>
+                    <button id="copyProductLink" type="button" class="secondary-pill">${t('copy_link')}</button>
+                </div>
+                <div id="copyStatus" class="product-share-status"></div>
                 
                 ${btnHtml}
                 <div id="buyStatus" style="margin-top:0.5rem; font-size:0.9rem;"></div>
@@ -445,6 +463,21 @@ function openModal(product) {
     const buyBtn = document.getElementById('buyBtn');
     if (buyBtn) {
         buyBtn.addEventListener('click', () => handleBuy(product));
+    }
+
+    const copyBtn = document.getElementById('copyProductLink');
+    const copyStatus = document.getElementById('copyStatus');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+            const shareUrl = new URL(productPageUrl, window.location.href).toString();
+
+            try {
+                await navigator.clipboard.writeText(shareUrl);
+                if (copyStatus) copyStatus.textContent = t('link_copied');
+            } catch (error) {
+                if (copyStatus) copyStatus.textContent = shareUrl;
+            }
+        });
     }
 }
 

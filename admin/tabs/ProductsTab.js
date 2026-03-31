@@ -1,6 +1,7 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { uploadImage, logAudit } from '../utils.js';
+import { buildProductPageUrl, getPreferredProductName, slugifyProductName } from '../../product-utils.js';
 import {
     collection, addDoc, updateDoc, deleteDoc, doc, query, onSnapshot, getDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -15,6 +16,7 @@ export class ProductsTab extends BaseTab {
         this.cancelBtn = document.getElementById('pCancelBtn');
         this.formTitle = document.getElementById('prodFormTitle');
         this.pId = document.getElementById('pId');
+        this.pSlug = document.getElementById('pSlug');
 
         // Image UI
         this.pPreviewPack = document.getElementById('pPreviewPack');
@@ -27,6 +29,7 @@ export class ProductsTab extends BaseTab {
         this.fileContent = document.getElementById('pImgContent');
 
         this.allProductsCache = [];
+        this.slugTouched = false;
     }
 
     async init() {
@@ -45,6 +48,7 @@ export class ProductsTab extends BaseTab {
         // File Previews
         this.handleFileSelect(this.filePack, this.pPreviewPack, this.previewContainerPack, this.fNamePack);
         this.handleFileSelect(this.fileContent, this.pPreviewContent, this.previewContainerContent, this.fNameContent);
+        this.bindSlugGeneration();
 
         // Filter
         const filterSelect = document.getElementById('filterCategory');
@@ -69,6 +73,53 @@ export class ProductsTab extends BaseTab {
                 nameSpan.textContent = 'No file chosen';
             }
         });
+    }
+
+    bindSlugGeneration() {
+        if (!this.pSlug) return;
+
+        this.pSlug.addEventListener('input', () => {
+            this.slugTouched = true;
+        });
+
+        ['pNameEN', 'pNameRU', 'pNameKG'].forEach((id) => {
+            const input = document.getElementById(id);
+            if (!input) return;
+
+            input.addEventListener('input', () => {
+                if (!this.slugTouched || !this.pSlug.value.trim()) {
+                    this.pSlug.value = this.generateUniqueSlugFromForm(this.pId.value);
+                    this.slugTouched = false;
+                }
+            });
+        });
+    }
+
+    generateUniqueSlug(baseSlug, currentId = '') {
+        const cleanBase = slugifyProductName(baseSlug) || `product-${Date.now()}`;
+        const existing = new Set(
+            this.allProductsCache
+                .filter((p) => p.id !== currentId)
+                .map((p) => (p.slug || '').trim())
+                .filter(Boolean)
+        );
+
+        if (!existing.has(cleanBase)) return cleanBase;
+
+        let attempt = 2;
+        while (existing.has(`${cleanBase}-${attempt}`)) {
+            attempt += 1;
+        }
+
+        return `${cleanBase}-${attempt}`;
+    }
+
+    generateUniqueSlugFromForm(currentId = '') {
+        const name = document.getElementById('pNameEN').value
+            || document.getElementById('pNameRU').value
+            || document.getElementById('pNameKG').value;
+
+        return this.generateUniqueSlug(name, currentId);
     }
 
     async loadCategories() {
@@ -130,13 +181,15 @@ export class ProductsTab extends BaseTab {
             : this.allProductsCache.filter(p => p.categoryId === filterVal);
 
         filtered.forEach(p => {
+            const pageUrl = `../${buildProductPageUrl(p)}`;
             const el = document.createElement('div');
             el.className = 'list-item';
             el.innerHTML = `
                 <img src="${p.imageUrl}" class="preview-img">
                 <div style="flex:1; margin-left:1rem;">
                     <strong>${p.name_ru || 'No Name'}</strong><br>
-                    ${p.price} som | ${p.weight}
+                    ${p.price} som | ${p.weight}<br>
+                    <a href="${pageUrl}" target="_blank" rel="noopener" style="font-size:0.85rem; color:#2e7d32;">${pageUrl}</a>
                 </div>
                 <div style="display:flex; gap:0.5rem;">
                     <button class="btn-secondary" title="Edit" onclick="editProduct('${p.id}')">✏️</button>
@@ -172,6 +225,14 @@ export class ProductsTab extends BaseTab {
                 description_ru: document.getElementById('pDescRU').value,
                 description_en: document.getElementById('pDescEN').value,
                 description_kg: document.getElementById('pDescKG').value,
+                slug: this.generateUniqueSlug(
+                    this.pSlug.value || getPreferredProductName({
+                        name_en: document.getElementById('pNameEN').value,
+                        name_ru: document.getElementById('pNameRU').value,
+                        name_kg: document.getElementById('pNameKG').value
+                    }),
+                    this.pId.value
+                ),
             };
 
             if (imageUrl) data.imageUrl = imageUrl;
@@ -210,6 +271,8 @@ export class ProductsTab extends BaseTab {
         this.pPreviewContent.src = '';
         this.fNamePack.textContent = 'No file chosen';
         this.fNameContent.textContent = 'No file chosen';
+        if (this.pSlug) this.pSlug.value = '';
+        this.slugTouched = false;
     }
 
     async editProduct(id) {
@@ -226,6 +289,8 @@ export class ProductsTab extends BaseTab {
         document.getElementById('pDescRU').value = p.description_ru || '';
         document.getElementById('pDescEN').value = p.description_en || '';
         document.getElementById('pDescKG').value = p.description_kg || '';
+        if (this.pSlug) this.pSlug.value = p.slug || this.generateUniqueSlug(getPreferredProductName(p), id);
+        this.slugTouched = !!p.slug;
 
         // Show Images
         if (p.imageUrl) {
