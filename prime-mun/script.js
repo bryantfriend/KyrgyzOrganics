@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, getDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB2azgMx3VRCqKTVj4zhdqv51o6w1cAtxI",
@@ -27,6 +27,18 @@ const urlParams = new URLSearchParams(window.location.search);
 const sourceParam = urlParams.get('src') || 'unknown';
 const langParam = urlParams.get('lang') || localStorage.getItem('selectedLang') || 'ru';
 let countdownTimer = null;
+
+async function getConversionCount() {
+    const eventsQuery = query(
+        collection(db, 'campaign_events'),
+        where('campaignId', '==', 'prime-mun')
+    );
+    const snap = await getDocs(eventsQuery);
+    return snap.docs.filter((docSnap) => {
+        const actionType = docSnap.data().actionType;
+        return actionType === 'cta_click' || actionType === 'click_whatsapp' || actionType === 'click_glovo';
+    }).length;
+}
 
 async function logEvent(actionType, actionValue = '') {
     try {
@@ -60,7 +72,13 @@ function buildWhatsAppUrl(config, headlineText) {
     return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
 
-function startCountdown(endDate) {
+function applyCountdownVariant(variant = 'classic') {
+    const countdownCard = document.getElementById('countdownCard');
+    if (!countdownCard) return;
+    countdownCard.className = `countdown-card variant-${variant}`;
+}
+
+function startCountdown(endDate, variant = 'classic') {
     const countdownCard = document.getElementById('countdownCard');
     const daysEl = document.getElementById('countdownDays');
     const hoursEl = document.getElementById('countdownHours');
@@ -72,6 +90,8 @@ function startCountdown(endDate) {
         clearInterval(countdownTimer);
         countdownTimer = null;
     }
+
+    applyCountdownVariant(variant);
 
     const updateCountdown = () => {
         const remaining = endDate.getTime() - Date.now();
@@ -100,6 +120,23 @@ function startCountdown(endDate) {
     countdownCard.hidden = false;
     updateCountdown();
     countdownTimer = window.setInterval(updateCountdown, 1000);
+}
+
+function renderContentElement({ textEl, imageEl, useImage, imageUrl, textValue }) {
+    if (!textEl || !imageEl) return;
+
+    if (useImage && imageUrl) {
+        imageEl.src = imageUrl;
+        imageEl.hidden = false;
+        textEl.hidden = true;
+        return;
+    }
+
+    textEl.hidden = false;
+    imageEl.hidden = true;
+    if ('textContent' in textEl) {
+        textEl.textContent = textValue || '';
+    }
 }
 
 function spawnParticles(type, color) {
@@ -136,6 +173,8 @@ async function initCampaign() {
     const mainContainer = document.getElementById('mainContainer');
     const fallbackMessage = document.getElementById('fallbackMessage');
     const ctaButton = document.getElementById('ctaButton');
+    const deliveryInfo = document.querySelector('.delivery-info');
+    const countdownCard = document.getElementById('countdownCard');
 
     try {
         const campaignRef = doc(db, 'campaigns', 'prime-mun');
@@ -144,6 +183,7 @@ async function initCampaign() {
         if (!campaignSnap.exists()) throw new Error("No campaign config");
         const config = campaignSnap.data();
         const s = config.styles || {};
+        const totalConversions = await getConversionCount();
 
         // Active Range Check
         const now = new Date();
@@ -162,6 +202,8 @@ async function initCampaign() {
             mainContainer.style.display = 'none';
             return;
         }
+
+        const salesLimitReached = Boolean(config.limitSalesEnabled && config.maxSales > 0 && totalConversions >= config.maxSales);
 
         // Apply Global Styles
         const bodyColor = s.textColor || '#f9e29f';
@@ -183,31 +225,62 @@ async function initCampaign() {
 
         // Typography
         const h1 = document.getElementById('headline');
+        const headlineImage = document.getElementById('headlineImage');
         if (h1) {
-            h1.textContent = headlineText;
             h1.style.fontFamily = s.headlineFont || "'Playfair Display', serif";
             h1.style.fontSize = (s.headlineSize || 2.25) + 'rem';
             h1.style.color = bodyColor;
         }
+        renderContentElement({
+            textEl: h1,
+            imageEl: headlineImage,
+            useImage: !!config.headlineUseImage,
+            imageUrl: config.headlineImageUrl || '',
+            textValue: headlineText
+        });
         
         const subH = document.getElementById('subheadline');
+        const subheadlineImage = document.getElementById('subheadlineImage');
         if (subH) {
-            subH.textContent = config.subheadline;
             subH.style.color = bodyColor;
         }
+        renderContentElement({
+            textEl: subH,
+            imageEl: subheadlineImage,
+            useImage: !!config.subheadlineUseImage,
+            imageUrl: config.subheadlineImageUrl || '',
+            textValue: config.subheadline
+        });
 
-        if (endDate && endDate.getTime() > Date.now()) {
-            startCountdown(endDate);
+        if (countdownCard) {
+            countdownCard.hidden = true;
+        }
+
+        if (config.showCountdown !== false && endDate && endDate.getTime() > Date.now()) {
+            startCountdown(endDate, config.countdownVariant || 'classic');
         }
 
         const optionalLine = document.getElementById('optionalLine');
+        const optionalLineImage = document.getElementById('optionalLineImage');
         if (optionalLine) {
-            if (config.optionalLine) {
-                optionalLine.textContent = config.optionalLine;
+            if (config.optionalLine || config.optionalImageUrl) {
                 optionalLine.style.color = bodyColor;
             } else {
                 optionalLine.style.display = 'none';
             }
+        }
+        if (optionalLineImage) {
+            optionalLineImage.hidden = true;
+        }
+        if (optionalLine && (config.optionalLine || config.optionalImageUrl)) {
+            optionalLine.style.display = '';
+            renderContentElement({
+                textEl: optionalLine,
+                imageEl: optionalLineImage,
+                useImage: !!config.optionalUseImage,
+                imageUrl: config.optionalImageUrl || '',
+                textValue: config.optionalLine
+            });
         }
 
         // Assets
@@ -215,6 +288,7 @@ async function initCampaign() {
         if (brandLogo) {
             brandLogo.src = config.logoUrl || "https://via.placeholder.com/150x60?text=KYRGYZ+ORGANIC";
             brandLogo.style.width = (s.logoWidth || 120) + 'px';
+            brandLogo.style.height = 'auto';
         }
 
         const productImage = document.getElementById('productImage');
@@ -229,19 +303,38 @@ async function initCampaign() {
             ctaButton.classList.remove('pulse-btn');
             if (s.btnPulse) ctaButton.classList.add('pulse-btn');
             const whatsappUrl = buildWhatsAppUrl(config, headlineText);
-            ctaButton.disabled = !whatsappUrl;
-            ctaButton.textContent = whatsappUrl ? 'Order on WhatsApp' : 'WhatsApp unavailable';
+            ctaButton.disabled = !whatsappUrl || salesLimitReached;
+            ctaButton.textContent = salesLimitReached ? 'Sold Out' : (whatsappUrl ? 'Order on WhatsApp' : 'WhatsApp unavailable');
             const dot = document.createElement('span');
             dot.className = 'location-dot';
             ctaButton.appendChild(dot);
 
             ctaButton.addEventListener('click', (e) => {
                 e.preventDefault();
-                if (!whatsappUrl) return;
+                if (!whatsappUrl || salesLimitReached) return;
                 logEvent('cta_click', whatsappUrl).then(() => {
                     window.location.href = whatsappUrl;
                 });
             });
+        }
+
+        if (deliveryInfo && salesLimitReached) {
+            deliveryInfo.innerHTML = `
+                <span class="bolt">•</span>
+                <span>This campaign has reached its order limit.</span>
+                <div class="decor-lines"></div>
+            `;
+        } else if (deliveryInfo) {
+            const shouldShowDeliveryInfo = !!config.showDeliveryInfo;
+            const deliveryText = config.deliveryInfoText || 'Delivery in under 60 minutes';
+            deliveryInfo.style.display = shouldShowDeliveryInfo ? '' : 'none';
+            if (shouldShowDeliveryInfo) {
+                deliveryInfo.innerHTML = `
+                    <span class="bolt">⚡</span>
+                    <span>${deliveryText}</span>
+                    <div class="decor-lines"></div>
+                `;
+            }
         }
 
         // Animations

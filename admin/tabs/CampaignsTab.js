@@ -19,6 +19,12 @@ export class CampaignsTab {
     this.whatsappNumber = get('campWhatsapp');
     this.startDate = get('campStart');
     this.endDate = get('campEnd');
+    this.limitEnabled = get('campLimitEnabled');
+    this.maxSales = get('campMaxSales');
+    this.showCountdown = get('campShowCountdown');
+    this.countdownVariant = get('campCountdownVariant');
+    this.showDeliveryInfo = get('campShowDeliveryInfo');
+    this.deliveryInfoText = get('campDeliveryInfoText');
 
     // 2. Content & Multi-Lang
     this.headline = get('campHeadline');
@@ -26,6 +32,15 @@ export class CampaignsTab {
     this.headlineKG = get('campHeadlineKG');
     this.subheadline = get('campSubheadline');
     this.optionalLine = get('campOptional');
+    this.headlineUseImage = get('campHeadlineUseImage');
+    this.headlineImageFile = get('campHeadlineImageFile');
+    this.headlineImagePreview = get('campHeadlineImagePreview');
+    this.subheadlineUseImage = get('campSubheadlineUseImage');
+    this.subheadlineImageFile = get('campSubheadlineImageFile');
+    this.subheadlineImagePreview = get('campSubheadlineImagePreview');
+    this.optionalUseImage = get('campOptionalUseImage');
+    this.optionalImageFile = get('campOptionalImageFile');
+    this.optionalImagePreview = get('campOptionalImagePreview');
 
     // 3. Assets
     this.logoFile = get('campLogoFile');
@@ -56,15 +71,22 @@ export class CampaignsTab {
     this.mockLanding = get('mockLanding');
     this.mockLogo = get('mockLogo');
     this.mockHeadline = get('mockHeadline');
+    this.mockHeadlineImage = get('mockHeadlineImage');
     this.mockSubheadline = get('mockSubheadline');
+    this.mockSubheadlineImage = get('mockSubheadlineImage');
     this.mockImage = get('mockImage');
     this.mockOptional = get('mockOptional');
+    this.mockOptionalImage = get('mockOptionalImage');
     this.mockBtn = get('mockBtn');
     
     this.currentImageUrl = '';
     this.currentLogoUrl = '';
+    this.currentHeadlineImageUrl = '';
+    this.currentSubheadlineImageUrl = '';
+    this.currentOptionalImageUrl = '';
     
     this.bindEvents();
+    this.updateFieldStates();
   }
 
   bindEvents() {
@@ -79,7 +101,10 @@ export class CampaignsTab {
     const allInputs = [
       this.headline, this.headlineEN, this.headlineKG, this.subheadline, this.optionalLine,
       this.logoWidth, this.imgScale, this.bgColor, this.textColor, this.bgTexture, 
-      this.headlineFont, this.headlineSize, this.btnColor, this.btnPulse
+      this.headlineFont, this.headlineSize, this.btnColor, this.btnPulse,
+      this.limitEnabled, this.maxSales, this.showCountdown, this.countdownVariant,
+      this.headlineUseImage, this.subheadlineUseImage, this.optionalUseImage,
+      this.showDeliveryInfo, this.deliveryInfoText
     ].filter(el => el !== null); // Only bind to existing elements
     
     allInputs.forEach(input => {
@@ -120,6 +145,10 @@ export class CampaignsTab {
       });
     }
 
+    this.bindContentImagePreview(this.headlineImageFile, this.headlineImagePreview, this.mockHeadlineImage);
+    this.bindContentImagePreview(this.subheadlineImageFile, this.subheadlineImagePreview, this.mockSubheadlineImage);
+    this.bindContentImagePreview(this.optionalImageFile, this.optionalImagePreview, this.mockOptionalImage);
+
     if (this.copyBtn && this.urlLink) {
       this.copyBtn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -129,6 +158,57 @@ export class CampaignsTab {
           setTimeout(() => this.copyBtn.textContent = originalText, 2000);
         });
       });
+    }
+
+    if (this.limitEnabled) {
+      this.limitEnabled.addEventListener('change', () => this.updateFieldStates());
+    }
+
+    if (this.showCountdown) {
+      this.showCountdown.addEventListener('change', () => this.updateFieldStates());
+    }
+
+    if (this.showDeliveryInfo) {
+      this.showDeliveryInfo.addEventListener('change', () => this.updateFieldStates());
+    }
+  }
+
+  bindContentImagePreview(fileInput, previewEl, mockEl) {
+    if (!fileInput) return;
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (previewEl) previewEl.src = ev.target.result;
+        if (mockEl) mockEl.src = ev.target.result;
+        this.updateLivePreview();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  updateFieldStates() {
+    if (this.maxSales) {
+      this.maxSales.disabled = !this.limitEnabled?.checked;
+    }
+
+    if (this.countdownVariant) {
+      this.countdownVariant.disabled = !this.showCountdown?.checked;
+    }
+
+    if (this.deliveryInfoText) {
+      this.deliveryInfoText.disabled = !this.showDeliveryInfo?.checked;
+    }
+
+    if (this.headlineImageFile) {
+      this.headlineImageFile.disabled = !this.headlineUseImage?.checked;
+    }
+    if (this.subheadlineImageFile) {
+      this.subheadlineImageFile.disabled = !this.subheadlineUseImage?.checked;
+    }
+    if (this.optionalImageFile) {
+      this.optionalImageFile.disabled = !this.optionalUseImage?.checked;
     }
   }
 
@@ -140,18 +220,45 @@ export class CampaignsTab {
       if (this.headlineSize) this.mockHeadline.style.fontSize = `${this.headlineSize.value}rem`;
       if (this.textColor) this.mockHeadline.style.color = this.textColor.value;
     }
+    if (this.mockHeadline && this.mockHeadlineImage) {
+      const useHeadlineImage = !!this.headlineUseImage?.checked && !!(this.headlineImageFile?.files[0] || this.currentHeadlineImageUrl || this.headlineImagePreview?.src);
+      this.mockHeadline.style.display = useHeadlineImage ? 'none' : 'block';
+      this.mockHeadlineImage.style.display = useHeadlineImage ? 'block' : 'none';
+      if (useHeadlineImage && !this.mockHeadlineImage.src) {
+        this.mockHeadlineImage.src = this.currentHeadlineImageUrl || this.headlineImagePreview?.src || '';
+      }
+    }
 
     if (this.mockSubheadline && this.subheadline) {
         this.mockSubheadline.textContent = this.subheadline.value || 'Subheadline';
         if (this.textColor) this.mockSubheadline.style.color = this.textColor.value;
     }
+    if (this.mockSubheadline && this.mockSubheadlineImage) {
+        const useSubheadlineImage = !!this.subheadlineUseImage?.checked && !!(this.subheadlineImageFile?.files[0] || this.currentSubheadlineImageUrl || this.subheadlineImagePreview?.src);
+        this.mockSubheadline.style.display = useSubheadlineImage ? 'none' : 'block';
+        this.mockSubheadlineImage.style.display = useSubheadlineImage ? 'block' : 'none';
+        if (useSubheadlineImage && !this.mockSubheadlineImage.src) {
+          this.mockSubheadlineImage.src = this.currentSubheadlineImageUrl || this.subheadlineImagePreview?.src || '';
+        }
+    }
     if (this.mockOptional && this.optionalLine) {
         this.mockOptional.textContent = this.optionalLine.value || 'Optional Line';
         if (this.textColor) this.mockOptional.style.color = this.textColor.value;
     }
+    if (this.mockOptional && this.mockOptionalImage) {
+        const useOptionalImage = !!this.optionalUseImage?.checked && !!(this.optionalImageFile?.files[0] || this.currentOptionalImageUrl || this.optionalImagePreview?.src);
+        this.mockOptional.style.display = useOptionalImage ? 'none' : 'block';
+        this.mockOptionalImage.style.display = useOptionalImage ? 'block' : 'none';
+        if (useOptionalImage && !this.mockOptionalImage.src) {
+          this.mockOptionalImage.src = this.currentOptionalImageUrl || this.optionalImagePreview?.src || '';
+        }
+    }
 
     // Scaling
-    if (this.mockLogo && this.logoWidth) this.mockLogo.style.width = `${this.logoWidth.value}px`;
+    if (this.mockLogo && this.logoWidth) {
+      this.mockLogo.style.width = `${this.logoWidth.value}px`;
+      this.mockLogo.style.height = 'auto';
+    }
     if (this.mockImage && this.imgScale) this.mockImage.style.transform = `scale(${this.imgScale.value / 100})`;
 
     // Backgrounds
@@ -181,6 +288,7 @@ export class CampaignsTab {
     if (this.section) this.section.style.display = 'block';
     
     await this.loadCampaign();
+    this.updateFieldStates();
     this.initStatsListener(); // Real-time stats
     this.initSharing();
   }
@@ -229,6 +337,15 @@ export class CampaignsTab {
 
         if (this.isActive) this.isActive.checked = data.isActive;
         if (this.whatsappNumber) this.whatsappNumber.value = data.whatsappNumber || '';
+        if (this.limitEnabled) this.limitEnabled.checked = !!data.limitSalesEnabled;
+        if (this.maxSales) this.maxSales.value = data.maxSales || 50;
+        if (this.showCountdown) this.showCountdown.checked = data.showCountdown !== false;
+        if (this.countdownVariant) this.countdownVariant.value = data.countdownVariant || 'classic';
+        if (this.showDeliveryInfo) this.showDeliveryInfo.checked = !!data.showDeliveryInfo;
+        if (this.deliveryInfoText) this.deliveryInfoText.value = data.deliveryInfoText || 'Delivery in under 60 minutes';
+        if (this.headlineUseImage) this.headlineUseImage.checked = !!data.headlineUseImage;
+        if (this.subheadlineUseImage) this.subheadlineUseImage.checked = !!data.subheadlineUseImage;
+        if (this.optionalUseImage) this.optionalUseImage.checked = !!data.optionalUseImage;
         if (this.headline) this.headline.value = data.headline || '';
         if (this.headlineEN) this.headlineEN.value = data.headlineEN || '';
         if (this.headlineKG) this.headlineKG.value = data.headlineKG || '';
@@ -237,10 +354,19 @@ export class CampaignsTab {
         
         this.currentImageUrl = data.imageUrl || '';
         this.currentLogoUrl = data.logoUrl || '';
+        this.currentHeadlineImageUrl = data.headlineImageUrl || '';
+        this.currentSubheadlineImageUrl = data.subheadlineImageUrl || '';
+        this.currentOptionalImageUrl = data.optionalImageUrl || '';
         if (this.imagePreview) this.imagePreview.src = this.currentImageUrl;
         if (this.mockImage) this.mockImage.src = this.currentImageUrl;
         if (this.logoPreview) this.logoPreview.src = this.currentLogoUrl;
         if (this.mockLogo) this.mockLogo.src = this.currentLogoUrl;
+        if (this.headlineImagePreview) this.headlineImagePreview.src = this.currentHeadlineImageUrl;
+        if (this.mockHeadlineImage) this.mockHeadlineImage.src = this.currentHeadlineImageUrl;
+        if (this.subheadlineImagePreview) this.subheadlineImagePreview.src = this.currentSubheadlineImageUrl;
+        if (this.mockSubheadlineImage) this.mockSubheadlineImage.src = this.currentSubheadlineImageUrl;
+        if (this.optionalImagePreview) this.optionalImagePreview.src = this.currentOptionalImageUrl;
+        if (this.mockOptionalImage) this.mockOptionalImage.src = this.currentOptionalImageUrl;
 
         // Apply Styles
         if (this.logoWidth) this.logoWidth.value = s.logoWidth || 120;
@@ -258,6 +384,7 @@ export class CampaignsTab {
         if (data.startDate && this.startDate) this.startDate.value = data.startDate.toDate().toISOString().slice(0, 16);
         if (data.endDate && this.endDate) this.endDate.value = data.endDate.toDate().toISOString().slice(0, 16);
 
+        this.updateFieldStates();
         this.updateLivePreview();
       }
     } catch (err) { console.error("Load error:", err); }
@@ -275,9 +402,15 @@ export class CampaignsTab {
     try {
       let finalImageUrl = this.currentImageUrl;
       let finalLogoUrl = this.currentLogoUrl;
+      let finalHeadlineImageUrl = this.currentHeadlineImageUrl;
+      let finalSubheadlineImageUrl = this.currentSubheadlineImageUrl;
+      let finalOptionalImageUrl = this.currentOptionalImageUrl;
 
       if (this.imageFile && this.imageFile.files[0]) finalImageUrl = await uploadImage(this.imageFile.files[0], 'campaigns');
       if (this.logoFile && this.logoFile.files[0]) finalLogoUrl = await uploadImage(this.logoFile.files[0], 'campaigns');
+      if (this.headlineImageFile && this.headlineImageFile.files[0]) finalHeadlineImageUrl = await uploadImage(this.headlineImageFile.files[0], 'campaigns');
+      if (this.subheadlineImageFile && this.subheadlineImageFile.files[0]) finalSubheadlineImageUrl = await uploadImage(this.subheadlineImageFile.files[0], 'campaigns');
+      if (this.optionalImageFile && this.optionalImageFile.files[0]) finalOptionalImageUrl = await uploadImage(this.optionalImageFile.files[0], 'campaigns');
 
       const data = {
         isActive: this.isActive ? this.isActive.checked : false,
@@ -285,10 +418,22 @@ export class CampaignsTab {
         headlineEN: this.headlineEN ? this.headlineEN.value : '',
         headlineKG: this.headlineKG ? this.headlineKG.value : '',
         subheadline: this.subheadline ? this.subheadline.value : '',
+        headlineUseImage: this.headlineUseImage ? this.headlineUseImage.checked : false,
+        headlineImageUrl: finalHeadlineImageUrl,
+        subheadlineUseImage: this.subheadlineUseImage ? this.subheadlineUseImage.checked : false,
+        subheadlineImageUrl: finalSubheadlineImageUrl,
         imageUrl: finalImageUrl,
         logoUrl: finalLogoUrl,
         whatsappNumber: this.whatsappNumber ? this.whatsappNumber.value.trim() : '',
+        limitSalesEnabled: this.limitEnabled ? this.limitEnabled.checked : false,
+        maxSales: this.maxSales ? parseInt(this.maxSales.value, 10) || 0 : 0,
+        showCountdown: this.showCountdown ? this.showCountdown.checked : true,
+        countdownVariant: this.countdownVariant ? this.countdownVariant.value : 'classic',
+        showDeliveryInfo: this.showDeliveryInfo ? this.showDeliveryInfo.checked : false,
+        deliveryInfoText: this.deliveryInfoText ? this.deliveryInfoText.value.trim() : '',
         optionalLine: this.optionalLine ? this.optionalLine.value : '',
+        optionalUseImage: this.optionalUseImage ? this.optionalUseImage.checked : false,
+        optionalImageUrl: finalOptionalImageUrl,
         startDate: (this.startDate && this.startDate.value) ? new Date(this.startDate.value) : null,
         endDate: (this.endDate && this.endDate.value) ? new Date(this.endDate.value) : null,
         styles: {
@@ -309,6 +454,10 @@ export class CampaignsTab {
       await setDoc(doc(db, 'campaigns', 'prime-mun'), data);
       this.currentImageUrl = finalImageUrl;
       this.currentLogoUrl = finalLogoUrl;
+      this.currentHeadlineImageUrl = finalHeadlineImageUrl;
+      this.currentSubheadlineImageUrl = finalSubheadlineImageUrl;
+      this.currentOptionalImageUrl = finalOptionalImageUrl;
+      this.updateFieldStates();
 
       btn.textContent = "Live Update Successful!";
       setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
