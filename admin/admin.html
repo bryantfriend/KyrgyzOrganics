@@ -547,6 +547,7 @@
              <div class="stat-card" style="text-align: center; background: #f1f8e9; padding: 0.5rem 1.5rem; border-radius: 8px; border: 1px solid #c5e1a5;">
                <span style="display: block; font-size: 0.75rem; color: #558b2f; font-weight: bold; text-transform: uppercase;">Total Conversions</span>
                <span id="statClicks" style="font-size: 1.5rem; font-weight: 800; color: #33691e;">0</span>
+               <button type="button" id="campResetConversionsBtn" class="btn-secondary" style="margin-top:0.5rem; font-size:0.75rem; padding:0.35rem 0.7rem;">Reset</button>
              </div>
              <div class="stat-card" style="text-align: center; background: #fff8e1; padding: 0.5rem 1.5rem; border-radius: 8px; border: 1px solid #f0cf7a;">
                <span style="display: block; font-size: 0.75rem; color: #a66a00; font-weight: bold; text-transform: uppercase;">Items Sold</span>
@@ -707,18 +708,30 @@
             <div class="stylist-group" style="background: #fff; border: 1px solid #ddd; padding: 1.25rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                <h4 style="margin: 0 0 1rem 0; border-bottom: 1px solid #eee; padding-bottom: 0.5rem;">3. Assets & Scaling</h4>
                <div class="form-row">
-                 <div class="form-group">
-                   <label>Event Logo</label>
-                   <input type="file" id="campLogoFile" accept="image/*" style="display:none;">
-                   <button type="button" onclick="document.getElementById('campLogoFile').click()" class="btn-secondary" style="width: 100%;">Upload Logo</button>
-                   <div style="display:flex; align-items:center; gap: 1rem; margin-top: 0.5rem;">
-                     <img id="campLogoPreview" style="height: 40px; background: #555; border-radius: 4px; padding: 4px;">
-                     <div style="flex: 1;">
-                       <label style="font-size: 0.75rem;">Logo Width (px)</label>
-                       <input type="range" id="logoWidth" min="40" max="250" value="120" style="width: 100%;">
-                     </div>
-                   </div>
-                 </div>
+                <div class="form-group">
+                  <label>Event Logos</label>
+                  <div style="display:flex; flex-direction:column; gap:0.75rem;">
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                      <input type="file" id="campLogoFile" accept="image/*" style="display:none;">
+                      <button type="button" id="campLogoBtn" class="btn-secondary" style="flex:1;">Upload Logo</button>
+                      <button type="button" id="campAddLogoBtn" class="btn-secondary" title="Add second logo" style="width:44px; font-size:1.2rem; padding:0.55rem 0;">+</button>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.75rem;">
+                      <img id="campLogoPreview" style="height: 40px; min-width:40px; background: #555; border-radius: 4px; padding: 4px; object-fit:contain;">
+                      <button type="button" id="campDeleteLogoBtn" class="btn-secondary" title="Delete first logo" style="width:44px; padding:0.55rem 0;">🗑</button>
+                    </div>
+                    <div id="campSecondLogoRow" style="display:none; align-items:center; gap:0.75rem;">
+                      <input type="file" id="campLogoFile2" accept="image/*" style="display:none;">
+                      <button type="button" id="campLogoBtn2" class="btn-secondary" style="flex:1;">Upload 2nd Logo</button>
+                      <img id="campLogoPreview2" style="height: 40px; min-width:40px; background: #555; border-radius: 4px; padding: 4px; object-fit:contain;">
+                      <button type="button" id="campDeleteLogoBtn2" class="btn-secondary" title="Delete second logo" style="width:44px; padding:0.55rem 0;">🗑</button>
+                    </div>
+                    <div>
+                      <label style="font-size: 0.75rem;">Logo Width (px)</label>
+                      <input type="range" id="logoWidth" min="40" max="250" value="120" style="width: 100%;">
+                    </div>
+                  </div>
+                </div>
                </div>
                <div class="form-row" style="margin-top: 1rem;">
                  <div class="form-group">
@@ -816,7 +829,10 @@
                <!-- Dynamic Mock -->
                 <div id="mockLanding" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 2rem 1.25rem; text-align: center; position: relative; overflow: hidden;">
                   <div id="mockParticleBg" style="position:absolute; inset:0; pointer-events:none; overflow:hidden;"></div>
-                  <header id="mockHeader"><img id="mockLogo" style="height: auto; max-height: 40px; width: auto; margin: auto; transition: width 0.3s, height 0.3s;"></header>
+                  <header id="mockHeader" style="display:flex; justify-content:center; align-items:center; gap:0.6rem;">
+                    <img id="mockLogo" style="display:none; height: auto; max-height: 40px; width: auto; transition: width 0.3s, height 0.3s;">
+                    <img id="mockLogo2" style="display:none; height: auto; max-height: 40px; width: auto; transition: width 0.3s, height 0.3s;">
+                  </header>
                  <main style="margin: 1rem 0;">
                    <h1 id="mockHeadline" style="line-height: 1.2; margin-bottom: 0.5rem; transition: all 0.3s;">Headline</h1>
                    <img id="mockHeadlineImage" style="display:none; width: 100%; max-height: 90px; object-fit: contain; margin-bottom: 0.5rem;">

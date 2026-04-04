@@ -50,6 +50,13 @@ export class CampaignsTab {
 
     // 3. Assets
     this.logoFile = get('campLogoFile');
+    this.logoFile2 = get('campLogoFile2');
+    this.logoBtn = get('campLogoBtn');
+    this.logoBtn2 = get('campLogoBtn2');
+    this.addLogoBtn = get('campAddLogoBtn');
+    this.deleteLogoBtn = get('campDeleteLogoBtn');
+    this.deleteLogoBtn2 = get('campDeleteLogoBtn2');
+    this.secondLogoRow = get('campSecondLogoRow');
     this.logoWidth = get('logoWidth');
     this.imageFile = get('campImage');
     this.imgScale = get('imgScale');
@@ -69,7 +76,9 @@ export class CampaignsTab {
     this.statClicks = get('statClicks');
     this.statSold = get('statSold');
     this.statLeft = get('statLeft');
+    this.resetConversionsBtn = get('campResetConversionsBtn');
     this.logoPreview = get('campLogoPreview');
+    this.logoPreview2 = get('campLogoPreview2');
     this.imagePreview = get('campPreview');
     this.qrImg = get('campQR');
     this.urlLink = get('campUrlLink');
@@ -79,6 +88,7 @@ export class CampaignsTab {
     this.mockLanding = get('mockLanding');
     this.mockParticleBg = get('mockParticleBg');
     this.mockLogo = get('mockLogo');
+    this.mockLogo2 = get('mockLogo2');
     this.mockHeadline = get('mockHeadline');
     this.mockHeadlineImage = get('mockHeadlineImage');
     this.mockSubheadline = get('mockSubheadline');
@@ -92,10 +102,13 @@ export class CampaignsTab {
     
     this.currentImageUrl = '';
     this.currentLogoUrl = '';
+    this.currentLogoUrl2 = '';
     this.currentHeadlineImageUrl = '';
     this.currentSubheadlineImageUrl = '';
     this.currentOptionalImageUrl = '';
     this.currentSoldCount = 0;
+    this.currentConversionCount = 0;
+    this.currentConversionOffset = 0;
     this.campaignUnsubscribe = null;
     this.isHydratingCampaign = false;
     this.mockParticleAnimations = [];
@@ -140,9 +153,78 @@ export class CampaignsTab {
           reader.onload = (ev) => {
             if (this.logoPreview) this.logoPreview.src = ev.target.result;
             if (this.mockLogo) this.mockLogo.src = ev.target.result;
+            if (this.secondLogoRow) this.secondLogoRow.style.display = this.currentLogoUrl2 || this.logoFile2?.files[0] ? 'flex' : this.secondLogoRow.style.display;
+            this.updateLogoDisplays();
           };
           reader.readAsDataURL(file);
         }
+      });
+    }
+
+    if (this.logoFile2) {
+      this.logoFile2.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            if (this.logoPreview2) this.logoPreview2.src = ev.target.result;
+            if (this.mockLogo2) this.mockLogo2.src = ev.target.result;
+            if (this.secondLogoRow) this.secondLogoRow.style.display = 'flex';
+            this.updateLogoDisplays();
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+    }
+
+    if (this.logoBtn && this.logoFile) {
+      this.logoBtn.addEventListener('click', () => this.logoFile.click());
+    }
+
+    if (this.logoBtn2 && this.logoFile2) {
+      this.logoBtn2.addEventListener('click', () => this.logoFile2.click());
+    }
+
+    if (this.addLogoBtn) {
+      this.addLogoBtn.addEventListener('click', () => {
+        if (this.secondLogoRow) this.secondLogoRow.style.display = 'flex';
+        if (this.logoFile2) this.logoFile2.click();
+        this.updateLogoDisplays();
+      });
+    }
+
+    if (this.deleteLogoBtn) {
+      this.deleteLogoBtn.addEventListener('click', () => {
+        const secondaryLogoSrc = this.logoFile2?.files[0] ? this.logoPreview2?.src : this.currentLogoUrl2 || '';
+
+        if (secondaryLogoSrc) {
+          this.currentLogoUrl = this.currentLogoUrl2 || '';
+          this.currentLogoUrl2 = '';
+          if (this.logoPreview) this.logoPreview.src = secondaryLogoSrc;
+          if (this.mockLogo) this.mockLogo.src = secondaryLogoSrc;
+          if (this.logoFile) this.logoFile.value = '';
+          if (this.logoPreview2) this.logoPreview2.removeAttribute('src');
+          if (this.mockLogo2) this.mockLogo2.removeAttribute('src');
+          if (this.logoFile2) this.logoFile2.value = '';
+          if (this.secondLogoRow) this.secondLogoRow.style.display = 'none';
+        } else {
+          this.currentLogoUrl = '';
+          if (this.logoFile) this.logoFile.value = '';
+          if (this.logoPreview) this.logoPreview.removeAttribute('src');
+          if (this.mockLogo) this.mockLogo.removeAttribute('src');
+        }
+        this.updateLogoDisplays();
+      });
+    }
+
+    if (this.deleteLogoBtn2) {
+      this.deleteLogoBtn2.addEventListener('click', () => {
+        this.currentLogoUrl2 = '';
+        if (this.logoFile2) this.logoFile2.value = '';
+        if (this.logoPreview2) this.logoPreview2.removeAttribute('src');
+        if (this.mockLogo2) this.mockLogo2.removeAttribute('src');
+        if (this.secondLogoRow) this.secondLogoRow.style.display = 'none';
+        this.updateLogoDisplays();
       });
     }
 
@@ -213,6 +295,12 @@ export class CampaignsTab {
         await this.adjustSoldCount(-1);
       });
     }
+
+    if (this.resetConversionsBtn) {
+      this.resetConversionsBtn.addEventListener('click', async () => {
+        await this.resetConversions();
+      });
+    }
   }
 
   bindContentImagePreview(fileInput, previewEl, mockEl) {
@@ -242,6 +330,42 @@ export class CampaignsTab {
 
       fileInput.click();
     });
+  }
+
+  updateLogoDisplays() {
+    const primaryLogoSrc = this.logoFile?.files[0] ? this.logoPreview?.src : this.currentLogoUrl || this.logoPreview?.src || '';
+    const secondaryLogoSrc = this.logoFile2?.files[0] ? this.logoPreview2?.src : this.currentLogoUrl2 || this.logoPreview2?.src || '';
+    const logoWidth = `${this.logoWidth?.value || 120}px`;
+
+    if (this.mockLogo) {
+      this.mockLogo.src = primaryLogoSrc || '';
+      this.mockLogo.style.display = primaryLogoSrc ? 'block' : 'none';
+      this.mockLogo.style.width = logoWidth;
+      this.mockLogo.style.height = 'auto';
+    }
+
+    if (this.mockLogo2) {
+      this.mockLogo2.src = secondaryLogoSrc || '';
+      this.mockLogo2.style.display = secondaryLogoSrc ? 'block' : 'none';
+      this.mockLogo2.style.width = logoWidth;
+      this.mockLogo2.style.height = 'auto';
+    }
+
+    if (this.logoPreview) {
+      this.logoPreview.style.visibility = primaryLogoSrc ? 'visible' : 'hidden';
+    }
+
+    if (this.logoPreview2) {
+      this.logoPreview2.style.visibility = secondaryLogoSrc ? 'visible' : 'hidden';
+    }
+
+    if (this.secondLogoRow) {
+      this.secondLogoRow.style.display = secondaryLogoSrc || this.logoFile2?.files[0] ? 'flex' : this.secondLogoRow.style.display === 'flex' ? 'flex' : 'none';
+    }
+
+    if (this.addLogoBtn) {
+      this.addLogoBtn.disabled = Boolean(secondaryLogoSrc || this.logoFile2?.files[0]);
+    }
   }
 
   updateFieldStates() {
@@ -284,6 +408,37 @@ export class CampaignsTab {
 
     if (this.statLeft) {
       this.statLeft.textContent = left === null ? '-' : String(left);
+    }
+  }
+
+  updateConversionStats(totalConversions = this.currentConversionCount, conversionOffset = this.currentConversionOffset) {
+    this.currentConversionCount = Math.max(0, Number(totalConversions) || 0);
+    this.currentConversionOffset = Math.max(0, Number(conversionOffset) || 0);
+    const visibleConversions = Math.max(0, this.currentConversionCount - this.currentConversionOffset);
+
+    if (this.statClicks) {
+      this.statClicks.textContent = String(visibleConversions);
+    }
+  }
+
+  async resetConversions() {
+    const visibleConversions = Math.max(0, this.currentConversionCount - this.currentConversionOffset);
+    if (visibleConversions <= 0) {
+      alert('Conversions are already at 0.');
+      return;
+    }
+
+    const confirmed = window.confirm('Reset the Total Conversions counter to 0? This keeps the old click history, but the displayed counter will restart from zero.');
+    if (!confirmed) return;
+
+    try {
+      await setDoc(doc(db, 'campaigns', 'prime-mun'), {
+        conversionOffset: this.currentConversionCount
+      }, { merge: true });
+
+      this.updateConversionStats(this.currentConversionCount, this.currentConversionCount);
+    } catch (error) {
+      alert(`Could not reset conversions: ${error.message}`);
     }
   }
 
@@ -475,10 +630,7 @@ export class CampaignsTab {
     }
 
     // Scaling
-    if (this.mockLogo && this.logoWidth) {
-      this.mockLogo.style.width = `${this.logoWidth.value}px`;
-      this.mockLogo.style.height = 'auto';
-    }
+    this.updateLogoDisplays();
     if (this.mockImage && this.imgScale) this.mockImage.style.transform = `scale(${this.imgScale.value / 100})`;
 
     // Backgrounds
@@ -543,9 +695,11 @@ export class CampaignsTab {
         const data = snap.data();
         const savedMaxSales = Number(data.maxSales || 0);
         const savedSoldCount = Number(data.soldCount || 0);
+        const savedConversionOffset = Number(data.conversionOffset || 0);
 
         this.currentSoldCount = Math.max(0, savedSoldCount);
         this.updateSalesStats(this.currentSoldCount, savedMaxSales);
+        this.updateConversionStats(this.currentConversionCount, savedConversionOffset);
 
         if (this.mockItemsLeft) {
           this.updateLivePreview();
@@ -585,7 +739,7 @@ export class CampaignsTab {
           const actionType = docSnap.data().actionType;
           return actionType === 'cta_click' || actionType === 'click_whatsapp' || actionType === 'click_glovo';
         }).length;
-        this.statClicks.textContent = totalClicks;
+        this.updateConversionStats(totalClicks, this.currentConversionOffset);
       });
     } catch(err) { console.error("Real-time Stats error:", err); }
   }
@@ -604,6 +758,7 @@ export class CampaignsTab {
         if (this.limitEnabled) this.limitEnabled.checked = !!data.limitSalesEnabled;
         if (this.maxSales) this.maxSales.value = data.maxSales || 50;
         this.updateSalesStats(Number(data.soldCount || 0), Number(data.maxSales || 50));
+        this.updateConversionStats(this.currentConversionCount, Number(data.conversionOffset || 0));
         if (this.showCountdown) this.showCountdown.checked = data.showCountdown !== false;
         if (this.countdownVariant) this.countdownVariant.value = data.countdownVariant || 'classic';
         if (this.showItemsLeft) this.showItemsLeft.checked = !!data.showItemsLeft;
@@ -620,6 +775,7 @@ export class CampaignsTab {
         
         this.currentImageUrl = data.imageUrl || '';
         this.currentLogoUrl = data.logoUrl || '';
+        this.currentLogoUrl2 = data.logoUrl2 || '';
         this.currentHeadlineImageUrl = data.headlineImageUrl || '';
         this.currentSubheadlineImageUrl = data.subheadlineImageUrl || '';
         this.currentOptionalImageUrl = data.optionalImageUrl || '';
@@ -627,6 +783,9 @@ export class CampaignsTab {
         if (this.mockImage) this.mockImage.src = this.currentImageUrl;
         if (this.logoPreview) this.logoPreview.src = this.currentLogoUrl;
         if (this.mockLogo) this.mockLogo.src = this.currentLogoUrl;
+        if (this.logoPreview2) this.logoPreview2.src = this.currentLogoUrl2;
+        if (this.mockLogo2) this.mockLogo2.src = this.currentLogoUrl2;
+        if (this.secondLogoRow) this.secondLogoRow.style.display = this.currentLogoUrl2 ? 'flex' : 'none';
         if (this.headlineImagePreview) this.headlineImagePreview.src = this.currentHeadlineImageUrl;
         if (this.mockHeadlineImage) this.mockHeadlineImage.src = this.currentHeadlineImageUrl;
         if (this.subheadlineImagePreview) this.subheadlineImagePreview.src = this.currentSubheadlineImageUrl;
@@ -671,15 +830,22 @@ export class CampaignsTab {
     try {
       let finalImageUrl = this.currentImageUrl;
       let finalLogoUrl = this.currentLogoUrl;
+      let finalLogoUrl2 = this.currentLogoUrl2;
       let finalHeadlineImageUrl = this.currentHeadlineImageUrl;
       let finalSubheadlineImageUrl = this.currentSubheadlineImageUrl;
       let finalOptionalImageUrl = this.currentOptionalImageUrl;
 
       if (this.imageFile && this.imageFile.files[0]) finalImageUrl = await uploadImage(this.imageFile.files[0], 'campaigns');
       if (this.logoFile && this.logoFile.files[0]) finalLogoUrl = await uploadImage(this.logoFile.files[0], 'campaigns');
+      if (this.logoFile2 && this.logoFile2.files[0]) finalLogoUrl2 = await uploadImage(this.logoFile2.files[0], 'campaigns');
       if (this.headlineImageFile && this.headlineImageFile.files[0]) finalHeadlineImageUrl = await uploadImage(this.headlineImageFile.files[0], 'campaigns');
       if (this.subheadlineImageFile && this.subheadlineImageFile.files[0]) finalSubheadlineImageUrl = await uploadImage(this.subheadlineImageFile.files[0], 'campaigns');
       if (this.optionalImageFile && this.optionalImageFile.files[0]) finalOptionalImageUrl = await uploadImage(this.optionalImageFile.files[0], 'campaigns');
+
+      if (!finalLogoUrl && finalLogoUrl2) {
+        finalLogoUrl = finalLogoUrl2;
+        finalLogoUrl2 = '';
+      }
 
       const data = {
         isActive: this.isActive ? this.isActive.checked : false,
@@ -693,7 +859,9 @@ export class CampaignsTab {
         subheadlineImageUrl: finalSubheadlineImageUrl,
         imageUrl: finalImageUrl,
         logoUrl: finalLogoUrl,
+        logoUrl2: finalLogoUrl2 || '',
         whatsappNumber: this.whatsappNumber ? this.whatsappNumber.value.trim() : '',
+        conversionOffset: this.currentConversionOffset || 0,
         limitSalesEnabled: this.limitEnabled ? this.limitEnabled.checked : false,
         maxSales: this.maxSales ? parseInt(this.maxSales.value, 10) || 0 : 0,
         soldCount: this.currentSoldCount || 0,
@@ -725,10 +893,12 @@ export class CampaignsTab {
       await setDoc(doc(db, 'campaigns', 'prime-mun'), data);
       this.currentImageUrl = finalImageUrl;
       this.currentLogoUrl = finalLogoUrl;
+      this.currentLogoUrl2 = finalLogoUrl2 || '';
       this.currentHeadlineImageUrl = finalHeadlineImageUrl;
       this.currentSubheadlineImageUrl = finalSubheadlineImageUrl;
       this.currentOptionalImageUrl = finalOptionalImageUrl;
       this.updateFieldStates();
+      this.updateLivePreview();
 
       btn.textContent = "Live Update Successful!";
       setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);

@@ -127,6 +127,27 @@ function renderItemsLeftBadge(config) {
     }
 }
 
+function renderLogos(config, styles = {}) {
+    const logoWidth = `${styles.logoWidth || 120}px`;
+    const logos = [
+        { el: document.getElementById('brandLogo'), url: config.logoUrl || '' },
+        { el: document.getElementById('brandLogo2'), url: config.logoUrl2 || '' }
+    ];
+
+    logos.forEach(({ el, url }) => {
+        if (!el) return;
+        if (url) {
+            el.src = url;
+            el.style.display = 'block';
+            el.style.width = logoWidth;
+            el.style.height = 'auto';
+        } else {
+            el.removeAttribute('src');
+            el.style.display = 'none';
+        }
+    });
+}
+
 function renderContentElement({ textEl, imageEl, useImage, imageUrl, textValue }) {
     if (!textEl || !imageEl) return;
 
@@ -303,12 +324,7 @@ async function initCampaign() {
                 });
             }
 
-            const brandLogo = document.getElementById('brandLogo');
-            if (brandLogo) {
-                brandLogo.src = config.logoUrl || "https://via.placeholder.com/150x60?text=KYRGYZ+ORGANIC";
-                brandLogo.style.width = (s.logoWidth || 120) + 'px';
-                brandLogo.style.height = 'auto';
-            }
+            renderLogos(config, s);
 
             const productImage = document.getElementById('productImage');
             if (productImage) {
