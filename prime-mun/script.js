@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, getDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, collection, addDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB2azgMx3VRCqKTVj4zhdqv51o6w1cAtxI",
@@ -27,6 +27,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const sourceParam = urlParams.get('src') || 'unknown';
 const langParam = urlParams.get('lang') || localStorage.getItem('selectedLang') || 'ru';
 let countdownTimer = null;
+let campaignUnsubscribe = null;
 
 async function logEvent(actionType, actionValue = '') {
     try {
@@ -119,7 +120,7 @@ function renderItemsLeftBadge(config) {
     const left = Math.max(0, maxSales - soldCount);
 
     if (config.showItemsLeft && config.limitSalesEnabled && maxSales > 0) {
-        badge.textContent = `${left} items left`;
+        badge.textContent = `ОСТАЛОСЬ ${left} ШТ.`;
         badge.hidden = false;
     } else {
         badge.hidden = true;
@@ -194,170 +195,176 @@ async function initCampaign() {
 
     try {
         const campaignRef = doc(db, 'campaigns', 'prime-mun');
-        const campaignSnap = await getDoc(campaignRef);
+        let hasLoggedPageView = false;
+        campaignUnsubscribe?.();
+        campaignUnsubscribe = onSnapshot(campaignRef, (campaignSnap) => {
+            if (!campaignSnap.exists()) throw new Error("No campaign config");
+            const config = campaignSnap.data();
+            const s = config.styles || {};
+            const soldCount = Number(config.soldCount || 0);
 
-        if (!campaignSnap.exists()) throw new Error("No campaign config");
-        const config = campaignSnap.data();
-        const s = config.styles || {};
-        const soldCount = Number(config.soldCount || 0);
-
-        // Active Range Check
-        const now = new Date();
-        let isActive = config.isActive;
-        let endDate = null;
-        if (isActive && config.startDate && config.endDate) {
-            const start = config.startDate.toDate();
-            endDate = config.endDate.toDate();
-            if (now < start || now > endDate) isActive = false;
-        } else if (config.endDate) {
-            endDate = config.endDate.toDate();
-        }
-
-        if (!isActive) {
-            fallbackMessage.style.display = 'block';
-            mainContainer.style.display = 'none';
-            return;
-        }
-
-        const salesLimitReached = Boolean(config.limitSalesEnabled && config.maxSales > 0 && soldCount >= config.maxSales);
-
-        // Apply Global Styles
-        const bodyColor = s.textColor || '#f9e29f';
-        document.body.style.backgroundColor = s.bgColor || '#0c0b0a';
-        document.body.style.color = bodyColor;
-        
-        // Remove old textures
-        document.body.classList.remove('texture-noise', 'texture-luxury', 'texture-stars', 'texture-dots', 'texture-carbon');
-        if (s.bgTexture && s.bgTexture !== 'none') {
-            document.body.classList.add(`texture-${s.bgTexture}`);
-        }
-        
-        spawnParticles(s.bgParticles, bodyColor);
-
-        // Language Resolution
-        let headlineText = config.headline; // Default RU
-        if (langParam === 'en' && config.headlineEN) headlineText = config.headlineEN;
-        if (langParam === 'kg' && config.headlineKG) headlineText = config.headlineKG;
-
-        // Typography
-        const h1 = document.getElementById('headline');
-        const headlineImage = document.getElementById('headlineImage');
-        if (h1) {
-            h1.style.fontFamily = s.headlineFont || "'Playfair Display', serif";
-            h1.style.fontSize = (s.headlineSize || 2.25) + 'rem';
-            h1.style.color = bodyColor;
-        }
-        renderContentElement({
-            textEl: h1,
-            imageEl: headlineImage,
-            useImage: !!config.headlineUseImage,
-            imageUrl: config.headlineImageUrl || '',
-            textValue: headlineText
-        });
-        
-        const subH = document.getElementById('subheadline');
-        const subheadlineImage = document.getElementById('subheadlineImage');
-        if (subH) {
-            subH.style.color = bodyColor;
-        }
-        renderContentElement({
-            textEl: subH,
-            imageEl: subheadlineImage,
-            useImage: !!config.subheadlineUseImage,
-            imageUrl: config.subheadlineImageUrl || '',
-            textValue: config.subheadline
-        });
-
-        if (countdownCard) {
-            countdownCard.hidden = true;
-        }
-
-        if (config.showCountdown !== false && endDate && endDate.getTime() > Date.now()) {
-            startCountdown(endDate, config.countdownVariant || 'classic');
-        }
-        renderItemsLeftBadge(config);
-
-        const optionalLine = document.getElementById('optionalLine');
-        const optionalLineImage = document.getElementById('optionalLineImage');
-        if (optionalLine) {
-            if (config.optionalLine || config.optionalImageUrl) {
-                optionalLine.style.color = bodyColor;
-            } else {
-                optionalLine.style.display = 'none';
+            const now = new Date();
+            let isActive = config.isActive;
+            let endDate = null;
+            if (isActive && config.startDate && config.endDate) {
+                const start = config.startDate.toDate();
+                endDate = config.endDate.toDate();
+                if (now < start || now > endDate) isActive = false;
+            } else if (config.endDate) {
+                endDate = config.endDate.toDate();
             }
-        }
-        if (optionalLineImage) {
-            optionalLineImage.hidden = true;
-        }
-        if (optionalLine && (config.optionalLine || config.optionalImageUrl)) {
-            optionalLine.style.display = '';
+
+            if (!isActive) {
+                fallbackMessage.style.display = 'block';
+                mainContainer.style.display = 'none';
+                return;
+            }
+
+            fallbackMessage.style.display = 'none';
+            mainContainer.style.display = '';
+
+            const salesLimitReached = Boolean(config.limitSalesEnabled && config.maxSales > 0 && soldCount >= config.maxSales);
+
+            const bodyColor = s.textColor || '#f9e29f';
+            document.body.style.backgroundColor = s.bgColor || '#0c0b0a';
+            document.body.style.color = bodyColor;
+
+            document.body.classList.remove('texture-noise', 'texture-luxury', 'texture-stars', 'texture-dots', 'texture-carbon');
+            if (s.bgTexture && s.bgTexture !== 'none') {
+                document.body.classList.add(`texture-${s.bgTexture}`);
+            }
+
+            spawnParticles(s.bgParticles, bodyColor);
+
+            let headlineText = config.headline;
+            if (langParam === 'en' && config.headlineEN) headlineText = config.headlineEN;
+            if (langParam === 'kg' && config.headlineKG) headlineText = config.headlineKG;
+
+            const h1 = document.getElementById('headline');
+            const headlineImage = document.getElementById('headlineImage');
+            if (h1) {
+                h1.style.fontFamily = s.headlineFont || "'Playfair Display', serif";
+                h1.style.fontSize = (s.headlineSize || 2.25) + 'rem';
+                h1.style.color = bodyColor;
+            }
             renderContentElement({
-                textEl: optionalLine,
-                imageEl: optionalLineImage,
-                useImage: !!config.optionalUseImage,
-                imageUrl: config.optionalImageUrl || '',
-                textValue: config.optionalLine
+                textEl: h1,
+                imageEl: headlineImage,
+                useImage: !!config.headlineUseImage,
+                imageUrl: config.headlineImageUrl || '',
+                textValue: headlineText
             });
-        }
 
-        // Assets
-        const brandLogo = document.getElementById('brandLogo');
-        if (brandLogo) {
-            brandLogo.src = config.logoUrl || "https://via.placeholder.com/150x60?text=KYRGYZ+ORGANIC";
-            brandLogo.style.width = (s.logoWidth || 120) + 'px';
-            brandLogo.style.height = 'auto';
-        }
-
-        const productImage = document.getElementById('productImage');
-        if (productImage) {
-            productImage.src = config.imageUrl;
-            productImage.style.transform = `scale(${ (s.imgScale || 100) / 100 })`;
-        }
-
-        // CTA
-        if (ctaButton) {
-            ctaButton.style.background = s.btnColor || '#00c3a5';
-            ctaButton.classList.remove('pulse-btn');
-            if (s.btnPulse) ctaButton.classList.add('pulse-btn');
-            const whatsappUrl = buildWhatsAppUrl(config, headlineText);
-            ctaButton.disabled = !whatsappUrl || salesLimitReached;
-            ctaButton.textContent = salesLimitReached ? 'Sold Out' : (whatsappUrl ? 'Order on WhatsApp' : 'WhatsApp unavailable');
-            const dot = document.createElement('span');
-            dot.className = 'location-dot';
-            ctaButton.appendChild(dot);
-
-            ctaButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (!whatsappUrl || salesLimitReached) return;
-                logEvent('cta_click', whatsappUrl).then(() => {
-                    window.location.href = whatsappUrl;
-                });
-            });
-        }
-
-        if (deliveryInfo && salesLimitReached) {
-            deliveryInfo.innerHTML = `
-                <span>This campaign has reached its order limit.</span>
-            `;
-        } else if (deliveryInfo) {
-            const shouldShowDeliveryInfo = !!config.showDeliveryInfo;
-            const deliveryText = config.deliveryInfoText || 'Delivery in under 60 minutes';
-            deliveryInfo.style.display = shouldShowDeliveryInfo ? '' : 'none';
-            if (shouldShowDeliveryInfo) {
-                deliveryInfo.innerHTML = `
-                    <span>${deliveryText}</span>
-                `;
+            const subH = document.getElementById('subheadline');
+            const subheadlineImage = document.getElementById('subheadlineImage');
+            if (subH) {
+                subH.style.color = bodyColor;
             }
-        }
+            renderContentElement({
+                textEl: subH,
+                imageEl: subheadlineImage,
+                useImage: !!config.subheadlineUseImage,
+                imageUrl: config.subheadlineImageUrl || '',
+                textValue: config.subheadline
+            });
 
-        // Animations
-        if (mainContainer) {
-            applyEntranceAnimation(mainContainer, s.entranceAnim || 'fadeUp');
-            mainContainer.classList.add('loaded');
-            setTimeout(() => { mainContainer.style.opacity = '1'; }, 10);
-        }
+            if (countdownCard) {
+                countdownCard.hidden = true;
+            }
 
-        logEvent('page_view', window.location.search);
+            if (config.showCountdown !== false && endDate && endDate.getTime() > Date.now()) {
+                startCountdown(endDate, config.countdownVariant || 'classic');
+            } else if (countdownTimer) {
+                clearInterval(countdownTimer);
+                countdownTimer = null;
+            }
+            renderItemsLeftBadge(config);
+
+            const optionalLine = document.getElementById('optionalLine');
+            const optionalLineImage = document.getElementById('optionalLineImage');
+            if (optionalLine) {
+                if (config.optionalLine || config.optionalImageUrl) {
+                    optionalLine.style.color = bodyColor;
+                } else {
+                    optionalLine.style.display = 'none';
+                }
+            }
+            if (optionalLineImage) {
+                optionalLineImage.hidden = true;
+            }
+            if (optionalLine && (config.optionalLine || config.optionalImageUrl)) {
+                optionalLine.style.display = '';
+                renderContentElement({
+                    textEl: optionalLine,
+                    imageEl: optionalLineImage,
+                    useImage: !!config.optionalUseImage,
+                    imageUrl: config.optionalImageUrl || '',
+                    textValue: config.optionalLine
+                });
+            }
+
+            const brandLogo = document.getElementById('brandLogo');
+            if (brandLogo) {
+                brandLogo.src = config.logoUrl || "https://via.placeholder.com/150x60?text=KYRGYZ+ORGANIC";
+                brandLogo.style.width = (s.logoWidth || 120) + 'px';
+                brandLogo.style.height = 'auto';
+            }
+
+            const productImage = document.getElementById('productImage');
+            if (productImage) {
+                productImage.src = config.imageUrl;
+                productImage.style.transform = `scale(${(s.imgScale || 100) / 100})`;
+            }
+
+            if (ctaButton) {
+                ctaButton.style.background = s.btnColor || '#00c3a5';
+                ctaButton.classList.remove('pulse-btn');
+                if (s.btnPulse) ctaButton.classList.add('pulse-btn');
+                const whatsappUrl = buildWhatsAppUrl(config, headlineText);
+                ctaButton.disabled = !whatsappUrl || salesLimitReached;
+                ctaButton.textContent = salesLimitReached ? 'Sold Out' : (whatsappUrl ? 'Order on WhatsApp' : 'WhatsApp unavailable');
+                const dot = document.createElement('span');
+                dot.className = 'location-dot';
+                ctaButton.appendChild(dot);
+                ctaButton.onclick = (e) => {
+                    e.preventDefault();
+                    if (!whatsappUrl || salesLimitReached) return;
+                    logEvent('cta_click', whatsappUrl).then(() => {
+                        window.location.href = whatsappUrl;
+                    });
+                };
+            }
+
+            if (deliveryInfo && salesLimitReached) {
+                deliveryInfo.innerHTML = `
+                    <span>This campaign has reached its order limit.</span>
+                `;
+            } else if (deliveryInfo) {
+                const shouldShowDeliveryInfo = !!config.showDeliveryInfo;
+                const deliveryText = config.deliveryInfoText || 'Delivery in under 60 minutes';
+                deliveryInfo.style.display = shouldShowDeliveryInfo ? '' : 'none';
+                if (shouldShowDeliveryInfo) {
+                    deliveryInfo.innerHTML = `
+                        <span>${deliveryText}</span>
+                    `;
+                }
+            }
+
+            if (mainContainer) {
+                applyEntranceAnimation(mainContainer, s.entranceAnim || 'fadeUp');
+                mainContainer.classList.add('loaded');
+                setTimeout(() => { mainContainer.style.opacity = '1'; }, 10);
+            }
+
+            if (!hasLoggedPageView) {
+                hasLoggedPageView = true;
+                logEvent('page_view', window.location.search);
+            }
+        }, (error) => {
+            console.error("Campaign subscription error:", error);
+            if (fallbackMessage) fallbackMessage.style.display = 'block';
+            if (mainContainer) mainContainer.style.display = 'none';
+        });
 
     } catch (error) {
         console.error("Campaign init error:", error);
