@@ -96,6 +96,8 @@ export class CampaignsTab {
     this.currentSubheadlineImageUrl = '';
     this.currentOptionalImageUrl = '';
     this.currentSoldCount = 0;
+    this.campaignUnsubscribe = null;
+    this.isHydratingCampaign = false;
     this.mockParticleAnimations = [];
     this.mockEntranceAnimation = null;
     
@@ -525,8 +527,33 @@ export class CampaignsTab {
     
     await this.loadCampaign();
     this.updateFieldStates();
+    this.initCampaignListener();
     this.initStatsListener(); // Real-time stats
     this.initSharing();
+  }
+
+  initCampaignListener() {
+    if (this.campaignUnsubscribe) this.campaignUnsubscribe();
+
+    try {
+      const docRef = doc(db, 'campaigns', 'prime-mun');
+      this.campaignUnsubscribe = onSnapshot(docRef, (snap) => {
+        if (!snap.exists() || this.isHydratingCampaign) return;
+
+        const data = snap.data();
+        const savedMaxSales = Number(data.maxSales || 0);
+        const savedSoldCount = Number(data.soldCount || 0);
+
+        this.currentSoldCount = Math.max(0, savedSoldCount);
+        this.updateSalesStats(this.currentSoldCount, savedMaxSales);
+
+        if (this.mockItemsLeft) {
+          this.updateLivePreview();
+        }
+      });
+    } catch (err) {
+      console.error("Campaign listener error:", err);
+    }
   }
 
   initSharing() {
@@ -565,6 +592,7 @@ export class CampaignsTab {
 
   async loadCampaign() {
     try {
+      this.isHydratingCampaign = true;
       const docRef = doc(db, 'campaigns', 'prime-mun');
       const snap = await getDoc(docRef);
       if (snap.exists()) {
@@ -626,6 +654,9 @@ export class CampaignsTab {
         this.updateLivePreview();
       }
     } catch (err) { console.error("Load error:", err); }
+    finally {
+      this.isHydratingCampaign = false;
+    }
   }
 
   async saveCampaign() {
