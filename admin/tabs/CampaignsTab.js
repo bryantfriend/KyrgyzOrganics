@@ -673,11 +673,10 @@ export class CampaignsTab {
 
     if (this.mockItemsLeft) {
       const maxSales = Number.parseInt(this.maxSales?.value || '0', 10) || 0;
-      const left = this.limitEnabled?.checked && maxSales > 0
-        ? Math.max(0, maxSales - this.currentSoldCount)
-        : 12;
-      this.mockItemsLeft.textContent = `${left} items left`;
-      this.mockItemsLeft.style.display = this.showItemsLeft?.checked ? 'inline-flex' : 'none';
+      const shouldShowItemsLeft = !!this.showItemsLeft?.checked && !!this.limitEnabled?.checked && maxSales > 0;
+      const left = Math.max(0, maxSales - this.currentSoldCount);
+      this.mockItemsLeft.textContent = `ОСТАЛОСЬ ${left} ШТ.`;
+      this.mockItemsLeft.style.display = shouldShowItemsLeft ? 'inline-flex' : 'none';
     }
 
     // Button
