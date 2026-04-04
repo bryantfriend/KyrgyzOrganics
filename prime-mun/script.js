@@ -337,9 +337,7 @@ async function initCampaign() {
 
         if (deliveryInfo && salesLimitReached) {
             deliveryInfo.innerHTML = `
-                <span class="bolt">•</span>
                 <span>This campaign has reached its order limit.</span>
-                <div class="decor-lines"></div>
             `;
         } else if (deliveryInfo) {
             const shouldShowDeliveryInfo = !!config.showDeliveryInfo;
@@ -347,9 +345,7 @@ async function initCampaign() {
             deliveryInfo.style.display = shouldShowDeliveryInfo ? '' : 'none';
             if (shouldShowDeliveryInfo) {
                 deliveryInfo.innerHTML = `
-                    <span class="bolt">⚡</span>
                     <span>${deliveryText}</span>
-                    <div class="decor-lines"></div>
                 `;
             }
         }

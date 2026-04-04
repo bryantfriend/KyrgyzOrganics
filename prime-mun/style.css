@@ -383,10 +383,6 @@ h1 {
     max-height: 84px;
 }
 
-.dessert-icon {
-    color: var(--color-gold);
-}
-
 .btn-glovo {
     position: relative;
     width: 100%;
@@ -429,21 +425,9 @@ h1 {
 .delivery-info {
     font-size: 0.875rem;
     color: rgba(255, 255, 255, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
+    display: block;
+    text-align: center;
     width: 100%;
-}
-
-.decor-lines {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(to left, var(--color-gold), transparent);
-}
-
-.delivery-info .bolt {
-    color: #FFC107;
 }
 
 @media (max-height: 700px) {
@@ -462,16 +446,21 @@ h1 {
         min-height: auto;
     }
 
-    .countdown-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .countdown-card {
-        padding: 0.85rem;
+        padding: 0.85rem 0.7rem;
     }
 
     .countdown-unit span {
-        font-size: 1.15rem;
+        font-size: 1rem;
+    }
+
+    .countdown-unit {
+        padding: 0.7rem 0.2rem;
+    }
+
+    .countdown-unit small {
+        font-size: 0.62rem;
+        letter-spacing: 0.05em;
     }
 
     .headline-image {
@@ -506,14 +495,9 @@ h1 {
         padding: 1rem;
     }
 
-    .delivery-info {
-        flex-wrap: wrap;
-        gap: 0.35rem;
-        justify-content: center;
-    }
-
-    .decor-lines {
-        min-width: 72px;
+    .items-left-badge {
+        font-size: 0.72rem;
+        padding: 0.5rem 0.7rem;
     }
 }
 
@@ -529,5 +513,17 @@ h1 {
     .landing-container {
         padding-left: 0.8rem;
         padding-right: 0.8rem;
+    }
+
+    .countdown-grid {
+        gap: 0.4rem;
+    }
+
+    .countdown-unit span {
+        font-size: 0.92rem;
+    }
+
+    .countdown-unit small {
+        font-size: 0.56rem;
     }
 }
