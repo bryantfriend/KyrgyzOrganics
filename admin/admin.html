@@ -453,6 +453,21 @@
         <div id="methodsList" class="item-list">
           <!-- Injected -->
         </div>
+
+        <div style="margin-top:2rem; padding-top:1.5rem; border-top:1px solid #eee;">
+          <h3 style="margin-bottom:1rem;">Checkout Settings</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="checkoutDeliveryFee">Delivery Fee (som)</label>
+              <input type="number" id="checkoutDeliveryFee" min="0" value="200">
+            </div>
+            <div class="form-group">
+              <label for="checkoutFreeThreshold">Free Delivery Threshold (som)</label>
+              <input type="number" id="checkoutFreeThreshold" min="0" value="3000">
+            </div>
+          </div>
+          <button type="button" id="saveCheckoutSettings" class="btn-secondary">Save Checkout Settings</button>
+        </div>
       </div>
     </section>
 
@@ -466,9 +481,12 @@
             Expired</button>
           <select id="orderFilterStatus" style="padding:8px; border-radius:4px;">
             <option value="all">All Statuses</option>
+            <option value="pending_payment">Pending Payment</option>
             <option value="pending_verification" selected>Pending Verification</option>
             <option value="paid">Paid / Verified</option>
-            <option value="reserved">Reserved (Unpaid)</option>
+            <option value="preparing">Preparing</option>
+            <option value="delivered">Delivered</option>
+            <option value="reserved">Legacy Reserved</option>
             <option value="cancelled">Cancelled</option>
           </select>
         </div>

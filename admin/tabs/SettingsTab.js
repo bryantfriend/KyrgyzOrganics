@@ -2,7 +2,7 @@ import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { uploadImage } from '../utils.js';
 import {
-    collection, addDoc, deleteDoc, doc, query, orderBy, getDocs, serverTimestamp
+    collection, addDoc, deleteDoc, doc, query, orderBy, getDocs, getDoc, setDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 export class SettingsTab extends BaseTab {
@@ -10,18 +10,24 @@ export class SettingsTab extends BaseTab {
         super('settings');
         this.list = document.getElementById('methodsList');
         this.form = document.getElementById('paymentForm');
+        this.deliveryFee = document.getElementById('checkoutDeliveryFee');
+        this.freeThreshold = document.getElementById('checkoutFreeThreshold');
+        this.saveCheckoutBtn = document.getElementById('saveCheckoutSettings');
     }
 
     async init() {
         window.deletePaymentMethod = this.deletePaymentMethod.bind(this);
 
         if (this.form) this.form.addEventListener('submit', (e) => this.handleSubmit(e));
+        if (this.saveCheckoutBtn) this.saveCheckoutBtn.addEventListener('click', () => this.saveCheckoutSettings());
         this.loadMethods();
+        this.loadCheckoutSettings();
     }
 
     // Refresh on tab switch
     onShow() {
         this.loadMethods();
+        this.loadCheckoutSettings();
     }
 
     async loadMethods() {
@@ -99,6 +105,33 @@ export class SettingsTab extends BaseTab {
         if (confirm("Delete?")) {
             await deleteDoc(doc(db, 'payment_methods', id));
             this.loadMethods();
+        }
+    }
+
+    async loadCheckoutSettings() {
+        try {
+            const snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
+            const data = snap.exists() ? snap.data() : {};
+
+            if (this.deliveryFee) this.deliveryFee.value = data.deliveryFee ?? 200;
+            if (this.freeThreshold) this.freeThreshold.value = data.freeDeliveryThreshold ?? 3000;
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    async saveCheckoutSettings() {
+        try {
+            await setDoc(doc(db, 'shop_settings', 'checkout'), {
+                deliveryFee: Number(this.deliveryFee?.value || 0),
+                freeDeliveryThreshold: Number(this.freeThreshold?.value || 0),
+                pickupEnabled: true,
+                updatedAt: serverTimestamp()
+            }, { merge: true });
+
+            alert('Checkout settings saved');
+        } catch (error) {
+            alert(error.message);
         }
     }
 }

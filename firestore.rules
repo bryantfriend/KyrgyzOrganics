@@ -1,0 +1,69 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isActive() {
+      return resource.data.active == true;
+    }
+
+    match /products/{productId} {
+      allow read: if isActive();
+      allow write: if isSignedIn();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isActive();
+      allow write: if isSignedIn();
+    }
+
+    match /banners/{bannerId} {
+      allow read: if isActive();
+      allow write: if isSignedIn();
+    }
+
+    match /payment_methods/{methodId} {
+      allow read: if isActive();
+      allow write: if isSignedIn();
+    }
+
+    match /inventory/{dateId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /pages/{pageId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /shop_settings/{docId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /campaigns/{campaignId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /inventory_templates/{templateId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /orders/{orderId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /audit_logs/{logId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

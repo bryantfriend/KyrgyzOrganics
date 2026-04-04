@@ -1,9 +1,10 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
-import { formatDate } from '../utils.js';
 import {
-    collection, query, where, orderBy, getDocs, doc, updateDoc, runTransaction, serverTimestamp, getDoc
+    collection, query, where, orderBy, getDocs, doc, updateDoc, runTransaction, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { storage } from '../../firebase-config.js';
+import { ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
 export class OrdersTab extends BaseTab {
     constructor() {
@@ -12,6 +13,7 @@ export class OrdersTab extends BaseTab {
         this.filterSelect = document.getElementById('orderFilterStatus');
         this.btnRefresh = document.getElementById('btnRefreshOrders');
         this.btnReleaseExpired = document.getElementById('btnReleaseExpired');
+        this.receiptUrlCache = new Map();
     }
 
     async init() {
@@ -22,6 +24,9 @@ export class OrdersTab extends BaseTab {
         // Expose global actions
         window.verifyOrder = this.verifyOrder.bind(this);
         window.rejectOrder = this.rejectOrder.bind(this);
+        window.markOrderPreparing = this.markOrderPreparing.bind(this);
+        window.markOrderDelivered = this.markOrderDelivered.bind(this);
+        window.cancelOrderAdmin = this.cancelOrderAdmin.bind(this);
 
         this.loadOrders();
     }
@@ -45,7 +50,7 @@ export class OrdersTab extends BaseTab {
             }
 
             const snap = await getDocs(q);
-            this.renderList(snap.docs);
+            await this.renderList(snap.docs);
         } catch (e) {
             console.error("Load Orders Error:", e);
             this.list.innerHTML = `<p style="color:red">Error: ${e.message}</p>`;
@@ -56,23 +61,28 @@ export class OrdersTab extends BaseTab {
                 // Fallback: client side filter
                 const allSnap = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc')));
                 const filtered = allSnap.docs.filter(d => statusFilter === 'all' || d.data().status === statusFilter);
-                this.renderList(filtered);
+                await this.renderList(filtered);
             }
         }
     }
 
-    renderList(docs) {
+    async renderList(docs) {
         if (docs.length === 0) {
             this.list.innerHTML = '<p style="color:#666; padding:1rem;">No orders found.</p>';
             return;
         }
 
         this.list.innerHTML = '';
-        docs.forEach(d => {
+        for (const d of docs) {
             const order = d.data();
             const id = d.id;
             const date = order.createdAt ? new Date(order.createdAt.toDate()) : new Date();
             const timeAgo = Math.floor((new Date() - date) / 60000); // mins
+            const isExpired = order.expiresAt?.toDate ? order.expiresAt.toDate() < new Date() : timeAgo > 15;
+            const receiptUrl = await this.getReceiptUrl(order);
+            const orderItems = Array.isArray(order.items) && order.items.length
+                ? order.items.map(item => `${item.quantity} x ${item.name_en || item.name_ru || item.name_kg || item.productName || item.productId}`).join('<br>')
+                : `${order.productName || order.productId || 'Unknown Product'}`;
 
             let actions = '';
 
@@ -83,13 +93,28 @@ export class OrdersTab extends BaseTab {
                         <button onclick="rejectOrder('${id}')" class="btn-danger" style="padding:5px 10px; border-radius:4px; cursor:pointer;">Reject (Release Stock)</button>
                     </div>
                  `;
-            } else if (order.status === 'reserved') {
-                const isExpired = timeAgo > 15; // 15 mins buffer
-                if (isExpired) {
-                    actions = `<div style="color:red; font-size:0.8rem; margin-top:5px;">Expired (${timeAgo}m ago)</div>`;
-                } else {
-                    actions = `<div style="color orange; font-size:0.8rem; margin-top:5px;">Reserved (${timeAgo}m ago)</div>`;
-                }
+            } else if (['pending_payment', 'reserved'].includes(order.status)) {
+                actions = `
+                    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <div style="font-size:0.85rem; color:${isExpired ? '#d32f2f' : '#e65100'};">
+                            ${isExpired ? `Expired (${timeAgo}m ago)` : `Awaiting payment (${timeAgo}m ago)`}
+                        </div>
+                        <button onclick="cancelOrderAdmin('${id}')" class="btn-danger" style="padding:5px 10px; border-radius:4px; cursor:pointer;">Cancel & Release</button>
+                    </div>
+                `;
+            } else if (order.status === 'paid') {
+                actions = `
+                    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <button onclick="markOrderPreparing('${id}')" class="btn-secondary" style="padding:5px 10px; border-radius:4px; cursor:pointer;">Mark Preparing</button>
+                        <button onclick="cancelOrderAdmin('${id}')" class="btn-danger" style="padding:5px 10px; border-radius:4px; cursor:pointer;">Cancel & Release</button>
+                    </div>
+                `;
+            } else if (order.status === 'preparing') {
+                actions = `
+                    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <button onclick="markOrderDelivered('${id}')" class="btn-primary" style="background:#1565c0; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">Mark Delivered</button>
+                    </div>
+                `;
             }
 
             const el = document.createElement('div');
@@ -100,7 +125,7 @@ export class OrdersTab extends BaseTab {
             el.innerHTML = `
                 <div style="display:flex; justify-content:space-between; width:100%;">
                     <div>
-                        <strong>${order.productName}</strong> <span style="color:#666;">(${order.price} som)</span>
+                        <strong>Order #${id}</strong> <span style="color:#666;">(${date.toLocaleString()})</span>
                         <div style="font-size:0.85rem; color:#888;">Order ID: ${id} • ${date.toLocaleString()}</div>
                     </div>
                     <div style="text-align:right;">
@@ -110,12 +135,32 @@ export class OrdersTab extends BaseTab {
                         </span>
                     </div>
                 </div>
+
+                <div style="margin-top:10px; width:100%; display:grid; gap:10px; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));">
+                    <div>
+                        <div style="font-size:0.8rem; color:#777; font-weight:700;">Items</div>
+                        <div>${orderItems}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.8rem; color:#777; font-weight:700;">Customer</div>
+                        <div>${order.customerName || 'Guest'}</div>
+                        <div>${order.customerPhone || ''}</div>
+                        <div>${order.customerAddress || ''}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:0.8rem; color:#777; font-weight:700;">Totals</div>
+                        <div>Subtotal: ${order.subtotal ?? order.price ?? 0} som</div>
+                        <div>Delivery: ${order.deliveryFee ?? 0} som</div>
+                        <div><strong>Total: ${order.total ?? order.price ?? 0} som</strong></div>
+                        <div>${order.deliveryMethod || 'delivery'}</div>
+                    </div>
+                </div>
                 
-                ${order.receiptUrl ? `
+                ${receiptUrl ? `
                     <div style="margin-top:10px; border:1px solid #eee; padding:5px;">
                         <span style="font-size:0.8rem; font-weight:bold;">Receipt:</span><br>
-                        <a href="${order.receiptUrl}" target="_blank">
-                            <img src="${order.receiptUrl}" style="max-height:100px; max-width:100%; object-fit:contain;">
+                        <a href="${receiptUrl}" target="_blank">
+                            <img src="${receiptUrl}" style="max-height:100px; max-width:100%; object-fit:contain;">
                         </a>
                     </div>
                 ` : ''}
@@ -123,16 +168,34 @@ export class OrdersTab extends BaseTab {
                 ${actions}
             `;
             this.list.appendChild(el);
-        });
+        }
     }
 
     getStatusColor(status) {
         switch (status) {
             case 'paid': return '#2e7d32'; // Green
+            case 'preparing': return '#6a1b9a';
+            case 'delivered': return '#1565c0';
             case 'pending_verification': return '#ff9800'; // Orange
+            case 'pending_payment':
             case 'reserved': return '#2196f3'; // Blue
             case 'cancelled': return '#f44336'; // Red
             default: return '#9e9e9e';
+        }
+    }
+
+    async getReceiptUrl(order) {
+        if (order.receiptUrl) return order.receiptUrl;
+        if (!order.receiptPath) return '';
+        if (this.receiptUrlCache.has(order.receiptPath)) return this.receiptUrlCache.get(order.receiptPath);
+
+        try {
+            const url = await getDownloadURL(ref(storage, order.receiptPath));
+            this.receiptUrlCache.set(order.receiptPath, url);
+            return url;
+        } catch (error) {
+            console.warn('Receipt URL unavailable:', error);
+            return '';
         }
     }
 
@@ -141,7 +204,9 @@ export class OrdersTab extends BaseTab {
         try {
             await updateDoc(doc(db, 'orders', orderId), {
                 status: 'paid',
-                verifiedAt: serverTimestamp()
+                paymentStatus: 'paid',
+                verifiedAt: serverTimestamp(),
+                paidAt: serverTimestamp()
             });
             alert("Order Verified!");
             this.loadOrders();
@@ -157,6 +222,34 @@ export class OrdersTab extends BaseTab {
         } catch (e) { alert(e.message); }
     }
 
+    async markOrderPreparing(orderId) {
+        try {
+            await updateDoc(doc(db, 'orders', orderId), {
+                status: 'preparing',
+                preparingAt: serverTimestamp()
+            });
+            this.loadOrders();
+        } catch (e) { alert(e.message); }
+    }
+
+    async markOrderDelivered(orderId) {
+        try {
+            await updateDoc(doc(db, 'orders', orderId), {
+                status: 'delivered',
+                deliveredAt: serverTimestamp()
+            });
+            this.loadOrders();
+        } catch (e) { alert(e.message); }
+    }
+
+    async cancelOrderAdmin(orderId) {
+        if (!confirm("Cancel this order and release stock?")) return;
+        try {
+            await this.cancelAndRelease(orderId, 'admin_cancelled');
+            this.loadOrders();
+        } catch (e) { alert(e.message); }
+    }
+
     async releaseExpiredOrders() {
         if (!confirm("Release stock for ALL expired reservations (>15 mins)?")) return;
 
@@ -167,8 +260,8 @@ export class OrdersTab extends BaseTab {
             // Find expired reserved orders
             const q = query(
                 collection(db, 'orders'),
-                where('status', '==', 'reserved'),
-                where('createdAt', '<', cutoff) // Requires Composite Index usually
+                where('status', '==', 'pending_payment'),
+                where('createdAt', '<', cutoff)
             );
 
             let snap;
@@ -176,7 +269,7 @@ export class OrdersTab extends BaseTab {
                 snap = await getDocs(q);
             } catch (e) {
                 // Client-side fallback if index missing
-                const all = await getDocs(query(collection(db, 'orders'), where('status', '==', 'reserved')));
+                const all = await getDocs(query(collection(db, 'orders'), where('status', '==', 'pending_payment')));
                 snap = { docs: all.docs.filter(d => d.data().createdAt.toDate() < cutoff) };
             }
 
@@ -202,30 +295,37 @@ export class OrdersTab extends BaseTab {
             if (!orderSnap.exists()) throw "Order not found";
 
             const order = orderSnap.data();
-            if (['cancelled', 'paid'].includes(order.status)) throw "Order already finalized";
+            if (['cancelled', 'delivered'].includes(order.status)) throw "Order already finalized";
 
             // Release Stock
             const dateStr = order.date; // e.g. "2025-01-11"
-            const prodId = order.productId;
+            const items = Array.isArray(order.items) && order.items.length
+                ? order.items.map(item => ({ productId: item.productId, quantity: Number(item.quantity || 1) }))
+                : (order.productId ? [{ productId: order.productId, quantity: 1 }] : []);
 
-            if (dateStr && prodId) {
+            if (dateStr && items.length) {
                 const invRef = doc(db, 'inventory', dateStr);
                 const invSnap = await transaction.get(invRef);
 
                 if (invSnap.exists()) {
                     const invData = invSnap.data();
-                    const currentAvail = invData[prodId]?.available || 0;
-                    const currentSold = invData[prodId]?.sold || 0;
+                    const updates = {};
 
-                    transaction.update(invRef, {
-                        [`${prodId}.available`]: currentAvail + 1,
-                        [`${prodId}.sold`]: Math.max(0, currentSold - 1)
+                    items.forEach(item => {
+                        const currentAvail = invData[item.productId]?.available || 0;
+                        const currentSold = invData[item.productId]?.sold || 0;
+
+                        updates[`${item.productId}.available`] = currentAvail + item.quantity;
+                        updates[`${item.productId}.sold`] = Math.max(0, currentSold - item.quantity);
                     });
+
+                    transaction.update(invRef, updates);
                 }
             }
 
             transaction.update(orderRef, {
                 status: 'cancelled',
+                paymentStatus: 'cancelled',
                 cancelledAt: serverTimestamp(),
                 reason: reason
             });

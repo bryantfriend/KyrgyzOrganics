@@ -1,9 +1,20 @@
-import { db } from './firebase-config.js';
-import { collection, getDocs, query, where, orderBy, doc, getDoc, runTransaction, serverTimestamp, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-import { storage } from './firebase-config.js';
-import { $, $$, t, loc, setupLanguage, currentLang, initMobileMenu } from './common.js';
+import { db, storage, functions, httpsCallable } from './firebase-config.js';
+import { collection, getDocs, query, where, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+import { $, $$, t, loc, setupLanguage, initMobileMenu } from './common.js';
 import { buildProductPageUrl } from './product-utils.js';
+import {
+    DEFAULT_CHECKOUT_SETTINGS,
+    addCartItem,
+    calculateCartTotals,
+    clearCart,
+    formatPrice,
+    getCartItemCount,
+    loadCart,
+    removeCartItem,
+    saveCart,
+    updateCartItemQuantity
+} from './shop-utils.js';
 
 // --- STATE ---
 let products = [];
@@ -13,7 +24,9 @@ let categoriesMap = {}; // ID -> Data
 let dailyInventory = {}; // { prodId: { available, sold } }
 let todayStr = "";
 let paymentMethods = [];
-let pendingOrder = null; // { orderId, prodId, expiresAt, timerInterval }
+let pendingOrder = null; // { orderId, orderToken, expiresAtMillis, total, items, timerInterval }
+let cart = loadCart();
+let checkoutSettings = { ...DEFAULT_CHECKOUT_SETTINGS };
 
 // --- DOM ELEMENTS ---
 const productGrid = $('productGrid');
@@ -26,11 +39,28 @@ const modal = $('productModal');
 const modalContent = $('modalContent');
 const closeModal = $('closeModal');
 const heroCarousel = $$('.hero-carousel');
+const cartButton = $('cartButton');
+const cartCount = $('cartCount');
+const cartModal = $('cartModal');
+const closeCartModal = $('closeCartModal');
+const cartItems = $('cartItems');
+const cartEmptyState = $('cartEmptyState');
+const cartCheckoutForm = $('cartCheckoutForm');
+const cartSubtotal = $('cartSubtotal');
+const cartDeliveryFee = $('cartDeliveryFee');
+const cartTotal = $('cartTotal');
+const checkoutAddressRow = $('checkoutAddressRow');
+const paymentOrderSummary = $('paymentOrderSummary');
+const stickyCartSummary = $('stickyCartSummary');
+const stickyCartButton = $('stickyCartButton');
+const stickyCartTitle = $('stickyCartTitle');
+const stickyCartMeta = $('stickyCartMeta');
+const stickyCartTotal = $('stickyCartTotal');
 
 // --- INIT ---
 async function init() {
     setupLanguage();
-    const closeMenu = initMobileMenu(); // Init shared menu logic
+    initMobileMenu();
 
     // Special handling for Mobile Categories Toggle on Home
     const mobCatBtn = document.getElementById('mobCategories');
@@ -44,7 +74,8 @@ async function init() {
 
     await loadData();
     renderAll();
-    setupEventListeners(closeMenu);
+    setupEventListeners();
+    maybeOpenCartFromUrl();
 }
 
 async function loadData() {
@@ -116,6 +147,8 @@ async function loadData() {
 
         // Payment Methods
         paymentMethods = pmRes.docs.map(d => ({ id: d.id, ...d.data() }));
+        await loadCheckoutSettings();
+        syncCartWithCatalog();
 
     } catch (e) {
         console.error("Error loading data:", e);
@@ -130,25 +163,30 @@ function renderAll() {
     renderBanner();
     renderFeatured();
     renderProducts(products);
-    // renderRecommended();
     updateStaticUI();
+    renderCart();
 }
 
 function updateStaticUI() {
     const sectionTitles = document.querySelectorAll('.section-title');
-    if (sectionTitles[0]) sectionTitles[0].textContent = t('hits');
+    if (sectionTitles[0]) sectionTitles[0].textContent = t('available_today');
     if (sectionTitles[1]) sectionTitles[1].textContent = t('full_catalog');
-    // if (sectionTitles[2]) sectionTitles[2].textContent = t('recommended');
+
+    const availableTodayLabel = document.getElementById('availableTodayLabel');
+    if (availableTodayLabel) availableTodayLabel.textContent = t('available_today_label');
 
     const ctaTitle = document.querySelector('.cta-title');
     if (ctaTitle) ctaTitle.textContent = t('invest_title');
     const ctaText = document.querySelector('.cta-text');
     if (ctaText) ctaText.textContent = t('invest_text');
-    const ctaBtn = document.querySelector('.cta-btn');
+    const ctaBtn = document.querySelector('.investment-cta .cta-btn');
     if (ctaBtn) ctaBtn.textContent = t('learn_more');
 
     const allBtn = document.querySelector('.filter-pill[data-category="all"]');
     if (allBtn) allBtn.textContent = t('all');
+
+    if (cartEmptyState) cartEmptyState.textContent = t('cart_empty');
+    if (stickyCartTitle) stickyCartTitle.textContent = t('cart');
 }
 
 function renderBanner() {
@@ -198,10 +236,22 @@ function renderBanner() {
 function renderFeatured() {
     if (!featuredGrid) return;
     featuredGrid.innerHTML = '';
-    const hits = products.filter(p => p.isFeatured);
-    const itemsToShow = hits.length > 0 ? hits : products.slice(0, 4);
-    itemsToShow.forEach(product => {
-        const card = createCard(product, t('hit'));
+    const availableToday = products
+        .map((product) => ({
+            product,
+            available: Number(dailyInventory[product.id]?.available || 0)
+        }))
+        .filter((item) => item.available > 0)
+        .sort((a, b) => b.available - a.available)
+        .slice(0, 4);
+
+    if (!availableToday.length) {
+        featuredGrid.innerHTML = `<p class="no-results" style="grid-column: 1/-1; text-align: center; color: #777; padding: 2rem;">${t('no_available_today')}</p>`;
+        return;
+    }
+
+    availableToday.forEach(({ product, available }) => {
+        const card = createCard(product, `${t('stock_in')}: ${available}`);
         featuredGrid.appendChild(card);
     });
 }
@@ -217,6 +267,16 @@ function renderProducts(data) {
         const card = createCard(product);
         productGrid.appendChild(card);
     });
+}
+
+function syncCartWithCatalog() {
+    const validIds = new Set(products.map((product) => product.id));
+    const nextCart = cart.filter((item) => validIds.has(item.productId));
+
+    if (nextCart.length !== cart.length) {
+        cart = nextCart;
+        saveCart(cart);
+    }
 }
 
 function createCard(product, tag = '') {
@@ -336,7 +396,7 @@ window.filterByCategory = (catId) => {
     }
 };
 
-function setupEventListeners(closeMenuFn) {
+function setupEventListeners() {
     if (filterList) {
         filterList.addEventListener('click', (e) => {
             const btn = e.target.closest('.filter-pill');
@@ -357,16 +417,172 @@ function setupEventListeners(closeMenuFn) {
         });
     }
 
+    if (cartButton) {
+        cartButton.addEventListener('click', openCartModal);
+    }
+
+    if (closeCartModal && cartModal) {
+        closeCartModal.addEventListener('click', closeCartModalFn);
+    }
+
+    if (stickyCartButton) {
+        stickyCartButton.addEventListener('click', openCartModal);
+    }
+
+    if (cartItems) {
+        cartItems.addEventListener('click', (event) => {
+            const removeBtn = event.target.closest('[data-remove-product]');
+            if (removeBtn) {
+                cart = removeCartItem(cart, removeBtn.dataset.removeProduct);
+                persistCart();
+            }
+        });
+
+        cartItems.addEventListener('input', (event) => {
+            const qtyInput = event.target.closest('[data-product-qty]');
+            if (!qtyInput) return;
+
+            const quantity = Number.parseInt(qtyInput.value, 10);
+            if (!Number.isFinite(quantity)) return;
+
+            cart = updateCartItemQuantity(cart, qtyInput.dataset.productQty, quantity);
+            persistCart();
+        });
+    }
+
+    if (cartCheckoutForm) {
+        cartCheckoutForm.addEventListener('submit', handleCheckoutSubmit);
+        cartCheckoutForm.addEventListener('change', (event) => {
+            if (event.target.name === 'checkoutDeliveryMethod') {
+                renderCart();
+            }
+        });
+    }
+
     if (closeModal && modal) {
         closeModal.addEventListener('click', closeModalFn);
-        window.addEventListener('click', (e) => { if (e.target === modal) closeModalFn(); });
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModalFn(); });
     }
+
+    window.addEventListener('click', (e) => {
+        if (e.target === modal) closeModalFn();
+        if (e.target === cartModal) closeCartModalFn();
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeModalFn();
+            closeCartModalFn();
+        }
+    });
 }
 
 function closeModalFn() {
     if (modal) modal.style.display = 'none';
-    document.body.style.overflow = 'auto';
+    syncBodyScroll();
+}
+
+function openCartModal() {
+    renderCart();
+    if (cartModal) cartModal.style.display = 'flex';
+    syncBodyScroll();
+}
+
+function closeCartModalFn() {
+    if (cartModal) cartModal.style.display = 'none';
+    syncBodyScroll();
+}
+
+function syncBodyScroll() {
+    const paymentModal = document.getElementById('paymentModal');
+    const hasOpenModal = [modal, cartModal, paymentModal].some((el) => el && el.style.display === 'flex');
+    document.body.style.overflow = hasOpenModal ? 'hidden' : 'auto';
+}
+
+function getSelectedDeliveryMethod() {
+    const selected = document.querySelector('input[name="checkoutDeliveryMethod"]:checked');
+    return selected?.value || 'delivery';
+}
+
+function persistCart() {
+    saveCart(cart);
+    renderCart();
+}
+
+function maybeOpenCartFromUrl() {
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get('cart') !== 'open') return;
+
+    openCartModal();
+    url.searchParams.delete('cart');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+}
+
+function renderCart() {
+    if (cartCount) cartCount.textContent = String(getCartItemCount(cart));
+    if (!cartItems) return;
+
+    const deliveryMethod = getSelectedDeliveryMethod();
+    const totals = calculateCartTotals(cart, products, deliveryMethod, checkoutSettings);
+    const itemCount = getCartItemCount(cart);
+
+    if (checkoutAddressRow) {
+        checkoutAddressRow.style.display = deliveryMethod === 'delivery' ? 'flex' : 'none';
+    }
+
+    if (stickyCartSummary) {
+        const hasItems = itemCount > 0;
+        stickyCartSummary.hidden = !hasItems;
+        document.body.classList.toggle('has-sticky-cart', hasItems);
+
+        if (hasItems) {
+            if (stickyCartTitle) stickyCartTitle.textContent = t('cart_ready');
+            if (stickyCartMeta) stickyCartMeta.textContent = `${itemCount} ${t('cart_items_count')}`;
+            if (stickyCartTotal) stickyCartTotal.textContent = `${formatPrice(totals.total)} ${t('price_currency')}`;
+        }
+    }
+
+    if (cartEmptyState) {
+        cartEmptyState.style.display = totals.items.length ? 'none' : 'block';
+    }
+
+    if (!totals.items.length) {
+        cartItems.innerHTML = '';
+    } else {
+        cartItems.innerHTML = totals.items.map((item) => {
+            const available = dailyInventory[item.productId]?.available;
+            const maxQty = available && available > 0 ? available : 99;
+
+            return `
+                <article class="cart-item">
+                    <img src="${item.product.imageUrl || 'https://placehold.co/120x120'}" alt="${loc(item.product, 'name')}">
+                    <div>
+                        <div class="cart-item-title">${loc(item.product, 'name')}</div>
+                        <div class="cart-item-meta">${item.product.weight || ''}</div>
+                        <div class="cart-item-actions">
+                            <label>
+                                ${t('quantity')}
+                                <input type="number" min="1" max="${maxQty}" value="${item.quantity}" data-product-qty="${item.productId}">
+                            </label>
+                            <button type="button" class="secondary-pill" data-remove-product="${item.productId}">${t('remove')}</button>
+                        </div>
+                    </div>
+                    <div class="cart-item-price">${formatPrice(item.lineTotal)} ${t('price_currency')}</div>
+                </article>
+            `;
+        }).join('');
+    }
+
+    if (cartSubtotal) cartSubtotal.textContent = `${formatPrice(totals.subtotal)} ${t('price_currency')}`;
+    if (cartDeliveryFee) {
+        cartDeliveryFee.textContent = totals.deliveryFee === 0
+            ? t('free_delivery')
+            : `${formatPrice(totals.deliveryFee)} ${t('price_currency')}`;
+    }
+    if (cartTotal) cartTotal.textContent = `${formatPrice(totals.total)} ${t('price_currency')}`;
+    if (document.getElementById('cartCheckoutBtn')) {
+        document.getElementById('cartCheckoutBtn').disabled = totals.items.length === 0;
+    }
 }
 
 function openModal(product) {
@@ -383,9 +599,23 @@ function openModal(product) {
 
     let btnHtml = '';
     if (avail > 0) {
-        btnHtml = `<button id="buyBtn" class="cta-btn" style="width:100%; margin-top:1rem;">${t('buy_now') || 'Buy Now'}</button>`;
+        btnHtml = `
+            <div class="modal-quantity-row">
+                <label for="modalQuantity">
+                    ${t('quantity')}
+                </label>
+                <div class="modal-quantity-input">
+                    <input id="modalQuantity" type="number" min="1" max="${Math.max(avail, 1)}" value="1">
+                </div>
+            </div>
+            <div class="product-page-actions modal-buy-actions">
+                <button id="buyNowBtn" type="button" class="cta-btn modal-buy-now">${t('buy_now')}</button>
+                <button id="addToCartBtn" type="button" class="secondary-pill">${t('add_to_cart')}</button>
+                <button id="openCartBtn" type="button" class="secondary-pill">${t('open_cart')}</button>
+            </div>
+        `;
     } else {
-        btnHtml = `<button disabled class="cta-btn" style="width:100%; margin-top:1rem; background:#ccc; cursor:not-allowed;">${t('sold_out') || 'Sold Out'}</button>`;
+        btnHtml = `<button disabled class="cta-btn modal-buy-now" style="width:100%; margin-top:1rem; background:#ccc; cursor:not-allowed;">${t('stock_out')}</button>`;
     }
 
     modalContent.innerHTML = `
@@ -418,24 +648,24 @@ function openModal(product) {
                 
                 <!-- Stock Status -->
                 <div style="margin-bottom:1rem; font-weight:600; color: ${avail > 0 ? '#2e7d32' : '#d32f2f'};">
-                    ${avail > 0 ? `In Stock: ${avail}` : 'Sold Out'}
+                    ${avail > 0 ? `${t('stock_in')}: ${avail}` : t('stock_out')}
                 </div>
 
                 <div class="modal-description">
                     ${loc(product, 'description') || 'No description available.'}
                 </div>
 
-                <div class="product-page-actions" style="margin-bottom:1rem;">
+                <div class="product-page-actions modal-share-actions" style="margin-bottom:1rem;">
                     <a href="${productPageUrl}" class="cta-btn">${t('view_product_page')}</a>
                     <button id="copyProductLink" type="button" class="secondary-pill">${t('copy_link')}</button>
                 </div>
                 <div id="copyStatus" class="product-share-status"></div>
                 
                 ${btnHtml}
-                <div id="buyStatus" style="margin-top:0.5rem; font-size:0.9rem;"></div>
+                <div id="buyStatus" class="product-share-status"></div>
 
                 <!-- Product Details Table -->
-                <h3 style="font-size:1.1rem; margin-top:1.5rem; margin-bottom:0.5rem; font-weight:700;">Product Details</h3>
+                <h3 style="font-size:1.1rem; margin-top:1.5rem; margin-bottom:0.5rem; font-weight:700;">${t('product_details')}</h3>
                 <div class="modal-meta-box">
                     ${product.ingredients ? `
                     <div class="modal-meta-item">
@@ -457,13 +687,7 @@ function openModal(product) {
         </div>
     `;
     modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-
-    // Attach Listener
-    const buyBtn = document.getElementById('buyBtn');
-    if (buyBtn) {
-        buyBtn.addEventListener('click', () => handleBuy(product));
-    }
+    syncBodyScroll();
 
     const copyBtn = document.getElementById('copyProductLink');
     const copyStatus = document.getElementById('copyStatus');
@@ -479,43 +703,100 @@ function openModal(product) {
             }
         });
     }
+
+    const buyNowBtn = document.getElementById('buyNowBtn');
+    const addToCartBtn = document.getElementById('addToCartBtn');
+    const openCartBtn = document.getElementById('openCartBtn');
+    const statusDiv = document.getElementById('buyStatus');
+    const getSelectedQuantity = () => {
+        const quantity = Number.parseInt(document.getElementById('modalQuantity')?.value || '1', 10);
+        return Math.max(1, quantity || 1);
+    };
+
+    if (buyNowBtn) {
+        buyNowBtn.addEventListener('click', () => {
+            cart = addCartItem(cart, product.id, getSelectedQuantity());
+            persistCart();
+            closeModalFn();
+            openCartModal();
+        });
+    }
+
+    if (addToCartBtn) {
+        addToCartBtn.addEventListener('click', () => {
+            cart = addCartItem(cart, product.id, getSelectedQuantity());
+            persistCart();
+            if (statusDiv) statusDiv.textContent = t('added_to_cart');
+        });
+    }
+
+    if (openCartBtn) {
+        openCartBtn.addEventListener('click', () => {
+            closeModalFn();
+            openCartModal();
+        });
+    }
 }
 
-async function handleBuy(product) {
-    const buyBtn = document.getElementById('buyBtn');
-    const statusDiv = document.getElementById('buyStatus');
-    if (buyBtn) buyBtn.disabled = true;
-    if (statusDiv) statusDiv.innerHTML = '<span style="color:#666;">Checking stock...</span>';
+async function handleCheckoutSubmit(event) {
+    event.preventDefault();
+
+    const deliveryMethod = getSelectedDeliveryMethod();
+    const totals = calculateCartTotals(cart, products, deliveryMethod, checkoutSettings);
+    const name = document.getElementById('checkoutName')?.value.trim() || '';
+    const phone = document.getElementById('checkoutPhone')?.value.trim() || '';
+    const address = document.getElementById('checkoutAddress')?.value.trim() || '';
+    const notes = document.getElementById('checkoutNotes')?.value.trim() || '';
+    const submitBtn = document.getElementById('cartCheckoutBtn');
+
+    if (!totals.items.length) return;
+    if (!name) return alert(t('checkout_name_required'));
+    if (!phone) return alert(t('checkout_phone_required'));
+    if (deliveryMethod === 'delivery' && !address) return alert(t('checkout_address_required'));
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating...';
+    }
 
     try {
-        // Call Cloud Function to Reserve Stock & Create Order
-        const reserveOrder = httpsCallable(functions, 'reserveOrder');
-        const result = await reserveOrder({
-            productId: product.id,
-            dateStr: todayStr
+        const createOrder = httpsCallable(functions, 'createOrder');
+        const result = await createOrder({
+            dateStr: todayStr,
+            items: totals.items.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity
+            })),
+            customer: {
+                name,
+                phone,
+                address,
+                notes
+            },
+            fulfillment: {
+                method: deliveryMethod
+            }
         });
 
-        const orderId = result.data.orderId;
-
-        // Optimistic UI Update
-        if (dailyInventory[product.id]) {
-            dailyInventory[product.id].available--;
-            dailyInventory[product.id].sold++;
+        cart = clearCart();
+        renderCart();
+        if (cartCheckoutForm) cartCheckoutForm.reset();
+        closeCartModalFn();
+        closeModalFn();
+        setupPaymentModal(result.data);
+    } catch (error) {
+        console.error('Checkout Error:', error);
+        alert(error.message || error);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = t('place_order');
         }
-
-        // Open Payment Modal
-        closeModalFn(); // Close product modal
-        setupPaymentModal(product, orderId);
-
-    } catch (e) {
-        console.error("Buy Error:", e);
-        if (buyBtn) buyBtn.disabled = false;
-        if (statusDiv) statusDiv.innerHTML = `<span style="color:red;">Error: ${e.message || e}</span>`;
     }
 }
 
 // --- PAYMENT MODAL LOGIC ---
-function setupPaymentModal(product, orderId) {
+function setupPaymentModal(orderData) {
     const payModal = document.getElementById('paymentModal');
     const methodsContainer = document.getElementById('paymentMethodsContainer');
     const contentDiv = document.getElementById('paymentContent');
@@ -525,15 +806,20 @@ function setupPaymentModal(product, orderId) {
 
     if (!payModal) return;
 
-    // Reset State
-    let timeLeft = 600; // 10 mins
     if (pendingOrder && pendingOrder.timerInterval) clearInterval(pendingOrder.timerInterval);
 
-    pendingOrder = { orderId, prodId: product.id, interval: null };
+    pendingOrder = {
+        ...orderData,
+        paymentMethodId: null,
+        timerInterval: null
+    };
+
+    renderPaymentSummary();
 
     // Render Methods Tabs
     if (paymentMethods.length === 0) {
-        methodsContainer.innerHTML = '<p style="color:red;">No payment methods available. Contact Admin.</p>';
+        methodsContainer.innerHTML = `<p style="color:red;">${t('no_payment_methods')}</p>`;
+        btnConfirm.disabled = true;
     } else {
         methodsContainer.innerHTML = '';
         const tabsDiv = document.createElement('div');
@@ -554,14 +840,15 @@ function setupPaymentModal(product, orderId) {
 
         // Show first method
         showPaymentDetails(paymentMethods[0], contentDiv);
+        btnConfirm.disabled = false;
     }
 
     // Start Timer
-    updateTimerDisplay(timeLeft, timerEl);
+    updateTimerDisplay(getSecondsRemaining(), timerEl);
     pendingOrder.timerInterval = setInterval(() => {
-        timeLeft--;
-        updateTimerDisplay(timeLeft, timerEl);
-        if (timeLeft <= 0) {
+        const secondsRemaining = getSecondsRemaining();
+        updateTimerDisplay(secondsRemaining, timerEl);
+        if (secondsRemaining <= 0) {
             cancelPayment(true); // Auto cancel on timeout
         }
     }, 1000);
@@ -571,9 +858,34 @@ function setupPaymentModal(product, orderId) {
     btnCancel.onclick = () => cancelPayment(false);
 
     payModal.style.display = 'flex';
+    syncBodyScroll();
+}
+
+function renderPaymentSummary() {
+    if (!paymentOrderSummary || !pendingOrder) return;
+
+    paymentOrderSummary.innerHTML = `
+        <div class="cart-summary-row">
+            <span>${t('order_summary')}</span>
+            <strong>#${pendingOrder.orderId}</strong>
+        </div>
+        <div class="cart-summary-row">
+            <span>${t('subtotal')}</span>
+            <strong>${formatPrice(pendingOrder.subtotal)} ${t('price_currency')}</strong>
+        </div>
+        <div class="cart-summary-row">
+            <span>${t('delivery_fee')}</span>
+            <strong>${pendingOrder.deliveryFee === 0 ? t('free_delivery') : `${formatPrice(pendingOrder.deliveryFee)} ${t('price_currency')}`}</strong>
+        </div>
+        <div class="cart-summary-row total">
+            <span>${t('total')}</span>
+            <strong>${formatPrice(pendingOrder.total)} ${t('price_currency')}</strong>
+        </div>
+    `;
 }
 
 function showPaymentDetails(pm, container) {
+    if (pendingOrder) pendingOrder.paymentMethodId = pm.id;
     container.innerHTML = `
         <div style="margin-bottom:1rem;">
              ${pm.qrUrl ? `<img src="${pm.qrUrl}" style="max-width:200px; border:1px solid #ccc; padding:5px;">` : ''}
@@ -591,36 +903,42 @@ function showPaymentDetails(pm, container) {
 }
 
 function updateTimerDisplay(seconds, el) {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
+    const safeSeconds = Math.max(0, seconds);
+    const m = Math.floor(safeSeconds / 60);
+    const s = safeSeconds % 60;
     el.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function getSecondsRemaining() {
+    if (!pendingOrder?.expiresAtMillis) return 0;
+    return Math.max(0, Math.floor((pendingOrder.expiresAtMillis - Date.now()) / 1000));
 }
 
 async function confirmPayment() {
     const btn = document.getElementById('btnConfirmPayment');
     const fileInput = document.getElementById('paymentProof');
+    if (!pendingOrder) return;
 
     if (!fileInput.files[0]) return alert("Please upload a payment receipt screenshot.");
 
     btn.disabled = true;
-    btn.innerText = "Verifying...";
+    btn.innerText = "Submitting...";
 
     try {
         const file = fileInput.files[0];
-        const storageRef = ref(storage, `receipts/${todayStr}/${pendingOrder.orderId}_${file.name}`);
-        const snapshot = await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(snapshot.ref);
+        const storageRef = ref(storage, `order_receipts/${pendingOrder.orderId}/${Date.now()}_${file.name}`);
+        await uploadBytes(storageRef, file);
 
-        // Update Order
-        await updateDoc(doc(db, 'orders', pendingOrder.orderId), {
-            status: 'pending_verification', // or 'paid' if we trust them 100%
-            receiptUrl: url,
-            paidAt: serverTimestamp()
+        const submitPaymentProof = httpsCallable(functions, 'submitPaymentProof');
+        await submitPaymentProof({
+            orderId: pendingOrder.orderId,
+            orderToken: pendingOrder.orderToken,
+            paymentMethodId: pendingOrder.paymentMethodId,
+            receiptPath: storageRef.fullPath
         });
 
-        clearInterval(pendingOrder.timerInterval);
-        document.getElementById('paymentModal').style.display = 'none';
-        alert("Payment Submitted! We will verify and process your order.");
+        closePaymentModal();
+        alert(t('payment_submitted'));
         renderAll();
 
     } catch (e) {
@@ -634,46 +952,36 @@ async function confirmPayment() {
 async function cancelPayment(isTimeout = false) {
     if (!pendingOrder) return;
 
-    if (!isTimeout && !confirm("Cancel purchase and release stock?")) return;
-
-    const { orderId, prodId } = pendingOrder;
-    clearInterval(pendingOrder.timerInterval);
-    document.getElementById('paymentModal').style.display = 'none';
+    if (!isTimeout && !confirm("Cancel this order and release the reserved stock?")) return;
 
     try {
-        await runTransaction(db, async (transaction) => {
-            const invRef = doc(db, 'inventory', todayStr);
-            const invDoc = await transaction.get(invRef);
-            if (!invDoc.exists()) return;
-
-            // Release Stock
-            const currentAvail = invDoc.data()[prodId]?.available || 0;
-            const currentSold = invDoc.data()[prodId]?.sold || 0;
-
-            transaction.update(invRef, {
-                [`${prodId}.available`]: currentAvail + 1,
-                [`${prodId}.sold`]: Math.max(0, currentSold - 1)
-            });
-
-            transaction.update(doc(db, 'orders', orderId), {
-                status: 'cancelled',
-                cancelledAt: serverTimestamp(),
-                reason: isTimeout ? 'timeout' : 'user_cancelled'
-            });
-
-            // Revert local state
-            if (dailyInventory[prodId]) {
-                dailyInventory[prodId].available++;
-                dailyInventory[prodId].sold--;
-            }
+        const cancelOrder = httpsCallable(functions, 'cancelOrder');
+        await cancelOrder({
+            orderId: pendingOrder.orderId,
+            orderToken: pendingOrder.orderToken,
+            reason: isTimeout ? 'timeout' : 'user_cancelled'
         });
 
+        closePaymentModal();
         if (isTimeout) alert("Order expired. Stock released.");
         renderAll();
 
     } catch (e) {
         console.error("Cancel Error:", e);
     }
+}
+
+function closePaymentModal() {
+    if (pendingOrder?.timerInterval) {
+        clearInterval(pendingOrder.timerInterval);
+    }
+    pendingOrder = null;
+
+    const paymentModal = document.getElementById('paymentModal');
+    if (paymentModal) paymentModal.style.display = 'none';
+    const proofInput = document.getElementById('paymentProof');
+    if (proofInput) proofInput.value = '';
+    syncBodyScroll();
 }
 
 window.switchModalImage = (btn, src) => {

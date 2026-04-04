@@ -2,6 +2,7 @@ import { db } from './firebase-config.js';
 import { collection, doc, getDoc, getDocs, limit, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl } from './product-utils.js';
+import { addCartItem, loadCart, saveCart } from './shop-utils.js';
 
 const root = document.getElementById('productPageRoot');
 
@@ -86,6 +87,9 @@ function renderProductPage(product) {
     const categoryName = categoriesMap[product.categoryId] ? loc(categoriesMap[product.categoryId], 'name') : '';
     const stock = dailyInventory[product.id]?.available ?? null;
     const isInStock = stock === null ? true : stock > 0;
+    const maxQty = stock !== null && stock > 0 ? stock : 99;
+    const cartUrl = new URL('index.html', window.location.href);
+    cartUrl.searchParams.set('cart', 'open');
     const shareUrl = new URL(buildProductPageUrl(product), window.location.origin + window.location.pathname.replace(/[^/]+$/, '')).toString();
     const imagePack = product.imageUrl || 'https://placehold.co/800x600?text=Packaging';
     const imageContent = product.imageNoPackagingUrl || imagePack;
@@ -125,8 +129,25 @@ function renderProductPage(product) {
                 </div>
                 <p class="product-page-description">${loc(product, 'description') || 'No description available.'}</p>
 
-                <div class="product-page-actions">
-                    <a href="${shareUrl}" class="cta-btn">${t('view_product_page')}</a>
+                ${isInStock ? `
+                <div class="product-order-panel">
+                    <div class="product-quantity-row">
+                        <label for="detailQuantity">${t('quantity')}</label>
+                        <div class="modal-quantity-input">
+                            <input id="detailQuantity" type="number" min="1" max="${maxQty}" value="1">
+                        </div>
+                    </div>
+                    <div class="product-page-actions product-buy-actions">
+                        <button id="detailBuyNow" class="cta-btn modal-buy-now" type="button">${t('buy_now')}</button>
+                        <button id="detailAddToCart" class="secondary-pill" type="button">${t('add_to_cart')}</button>
+                        <a href="${cartUrl.pathname}${cartUrl.search}" class="secondary-pill">${t('open_cart')}</a>
+                    </div>
+                </div>
+                ` : `
+                <button class="cta-btn modal-buy-now" type="button" disabled style="background:#ccc; cursor:not-allowed;">${t('stock_out')}</button>
+                `}
+
+                <div class="product-page-actions product-share-actions">
                     <button id="copyProductLink" class="secondary-pill" type="button">${t('copy_link')}</button>
                 </div>
                 <div id="copyStatus" class="product-share-status"></div>
@@ -154,14 +175,21 @@ function renderProductPage(product) {
         </section>
     `;
 
-    bindPageInteractions(shareUrl);
+    bindPageInteractions(product, shareUrl);
 }
 
-function bindPageInteractions(shareUrl) {
+function bindPageInteractions(product, shareUrl) {
     const copyBtn = document.getElementById('copyProductLink');
     const copyStatus = document.getElementById('copyStatus');
+    const buyNowBtn = document.getElementById('detailBuyNow');
+    const addToCartBtn = document.getElementById('detailAddToCart');
+    const quantityInput = document.getElementById('detailQuantity');
     const imageButtons = root.querySelectorAll('.thumb-btn');
     const mainImage = document.getElementById('detailMainImage');
+    const getSelectedQuantity = () => {
+        const quantity = Number.parseInt(quantityInput?.value || '1', 10);
+        return Math.max(1, quantity || 1);
+    };
 
     imageButtons.forEach((button) => {
         button.addEventListener('click', () => {
@@ -179,6 +207,24 @@ function bindPageInteractions(shareUrl) {
             } catch (error) {
                 copyStatus.textContent = shareUrl;
             }
+        });
+    }
+
+    if (buyNowBtn) {
+        buyNowBtn.addEventListener('click', () => {
+            const cart = addCartItem(loadCart(), product.id, getSelectedQuantity());
+            saveCart(cart);
+            const cartUrl = new URL('index.html', window.location.href);
+            cartUrl.searchParams.set('cart', 'open');
+            window.location.href = cartUrl.toString();
+        });
+    }
+
+    if (addToCartBtn) {
+        addToCartBtn.addEventListener('click', () => {
+            const cart = addCartItem(loadCart(), product.id, getSelectedQuantity());
+            saveCart(cart);
+            copyStatus.textContent = t('added_to_cart');
         });
     }
 }
