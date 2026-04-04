@@ -548,6 +548,14 @@
                <span style="display: block; font-size: 0.75rem; color: #558b2f; font-weight: bold; text-transform: uppercase;">Total Conversions</span>
                <span id="statClicks" style="font-size: 1.5rem; font-weight: 800; color: #33691e;">0</span>
              </div>
+             <div class="stat-card" style="text-align: center; background: #fff8e1; padding: 0.5rem 1.5rem; border-radius: 8px; border: 1px solid #f0cf7a;">
+               <span style="display: block; font-size: 0.75rem; color: #a66a00; font-weight: bold; text-transform: uppercase;">Items Sold</span>
+               <span id="statSold" style="font-size: 1.5rem; font-weight: 800; color: #8d5b00;">0</span>
+             </div>
+             <div class="stat-card" style="text-align: center; background: #eef7ff; padding: 0.5rem 1.5rem; border-radius: 8px; border: 1px solid #b6d7f2;">
+               <span style="display: block; font-size: 0.75rem; color: #2d5f8b; font-weight: bold; text-transform: uppercase;">Left To Sell</span>
+               <span id="statLeft" style="font-size: 1.5rem; font-weight: 800; color: #17466e;">-</span>
+             </div>
              <div id="qrContainer" style="background: white; border: 1px solid #ddd; padding: 8px; border-radius: 4px; display: inline-block;">
                <img id="campQR" style="width: 70px; height: 70px; display: block;" title="QR Code to Campaign">
              </div>
@@ -587,6 +595,16 @@
                 <div class="form-group">
                   <label>Max Orders</label>
                   <input type="number" id="campMaxSales" min="1" value="50" placeholder="50">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Manual Sale Controls</label>
+                  <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+                    <button type="button" id="campSellOneBtn" class="btn-secondary">Record 1 Sale</button>
+                    <button type="button" id="campUndoSaleBtn" class="btn-secondary">Undo 1 Sale</button>
+                  </div>
+                  <small style="display:block; margin-top:0.4rem; color:#666;">This is what now reduces the amount left. Conversions remain just button clicks.</small>
                 </div>
               </div>
               <div class="form-row">

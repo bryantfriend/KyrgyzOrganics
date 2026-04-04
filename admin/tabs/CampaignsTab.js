@@ -1,5 +1,5 @@
 import { db } from '../../firebase-config.js';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { uploadImage } from '../utils.js';
 
 export class CampaignsTab {
@@ -21,6 +21,8 @@ export class CampaignsTab {
     this.endDate = get('campEnd');
     this.limitEnabled = get('campLimitEnabled');
     this.maxSales = get('campMaxSales');
+    this.sellOneBtn = get('campSellOneBtn');
+    this.undoSaleBtn = get('campUndoSaleBtn');
     this.showCountdown = get('campShowCountdown');
     this.countdownVariant = get('campCountdownVariant');
     this.showDeliveryInfo = get('campShowDeliveryInfo');
@@ -64,6 +66,8 @@ export class CampaignsTab {
 
     // UI Elements
     this.statClicks = get('statClicks');
+    this.statSold = get('statSold');
+    this.statLeft = get('statLeft');
     this.logoPreview = get('campLogoPreview');
     this.imagePreview = get('campPreview');
     this.qrImg = get('campQR');
@@ -88,6 +92,7 @@ export class CampaignsTab {
     this.currentHeadlineImageUrl = '';
     this.currentSubheadlineImageUrl = '';
     this.currentOptionalImageUrl = '';
+    this.currentSoldCount = 0;
     this.mockParticleAnimations = [];
     this.mockEntranceAnimation = null;
     
@@ -170,7 +175,14 @@ export class CampaignsTab {
     }
 
     if (this.limitEnabled) {
-      this.limitEnabled.addEventListener('change', () => this.updateFieldStates());
+      this.limitEnabled.addEventListener('change', () => {
+        this.updateFieldStates();
+        this.updateSalesStats();
+      });
+    }
+
+    if (this.maxSales) {
+      this.maxSales.addEventListener('input', () => this.updateSalesStats());
     }
 
     if (this.showCountdown) {
@@ -179,6 +191,18 @@ export class CampaignsTab {
 
     if (this.showDeliveryInfo) {
       this.showDeliveryInfo.addEventListener('change', () => this.updateFieldStates());
+    }
+
+    if (this.sellOneBtn) {
+      this.sellOneBtn.addEventListener('click', async () => {
+        await this.adjustSoldCount(1);
+      });
+    }
+
+    if (this.undoSaleBtn) {
+      this.undoSaleBtn.addEventListener('click', async () => {
+        await this.adjustSoldCount(-1);
+      });
     }
   }
 
@@ -232,6 +256,54 @@ export class CampaignsTab {
     }
     if (this.optionalImageFile) {
       this.optionalImageFile.disabled = !this.optionalUseImage?.checked;
+    }
+
+    const limitEnabled = !!this.limitEnabled?.checked;
+    if (this.sellOneBtn) this.sellOneBtn.disabled = !limitEnabled;
+    if (this.undoSaleBtn) this.undoSaleBtn.disabled = !limitEnabled;
+
+    this.updateSalesStats();
+  }
+
+  updateSalesStats(soldCount = this.currentSoldCount, maxSales = Number.parseInt(this.maxSales?.value || '0', 10) || 0) {
+    this.currentSoldCount = Math.max(0, soldCount || 0);
+    if (this.statSold) this.statSold.textContent = String(this.currentSoldCount);
+
+    const left = this.limitEnabled?.checked && maxSales > 0
+      ? Math.max(0, maxSales - this.currentSoldCount)
+      : null;
+
+    if (this.statLeft) {
+      this.statLeft.textContent = left === null ? '-' : String(left);
+    }
+  }
+
+  async adjustSoldCount(delta) {
+    const maxSales = Number.parseInt(this.maxSales?.value || '0', 10) || 0;
+    const limitEnabled = !!this.limitEnabled?.checked;
+    if (!limitEnabled) {
+      alert('Enable "Limit Total Orders" first.');
+      return;
+    }
+
+    const docRef = doc(db, 'campaigns', 'prime-mun');
+    try {
+      const nextSoldCount = await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(docRef);
+        if (!snap.exists()) throw new Error('Campaign not found.');
+
+        const currentSold = Math.max(0, Number(snap.data().soldCount || 0));
+        const proposed = currentSold + delta;
+        if (proposed < 0) return currentSold;
+        if (delta > 0 && maxSales > 0 && proposed > maxSales) return currentSold;
+
+        transaction.set(docRef, { soldCount: proposed }, { merge: true });
+        return proposed;
+      });
+
+      this.updateSalesStats(nextSoldCount, maxSales);
+    } catch (error) {
+      alert(`Could not update sold count: ${error.message}`);
     }
   }
 
@@ -481,6 +553,7 @@ export class CampaignsTab {
         if (this.whatsappNumber) this.whatsappNumber.value = data.whatsappNumber || '';
         if (this.limitEnabled) this.limitEnabled.checked = !!data.limitSalesEnabled;
         if (this.maxSales) this.maxSales.value = data.maxSales || 50;
+        this.updateSalesStats(Number(data.soldCount || 0), Number(data.maxSales || 50));
         if (this.showCountdown) this.showCountdown.checked = data.showCountdown !== false;
         if (this.countdownVariant) this.countdownVariant.value = data.countdownVariant || 'classic';
         if (this.showDeliveryInfo) this.showDeliveryInfo.checked = !!data.showDeliveryInfo;
@@ -569,6 +642,7 @@ export class CampaignsTab {
         whatsappNumber: this.whatsappNumber ? this.whatsappNumber.value.trim() : '',
         limitSalesEnabled: this.limitEnabled ? this.limitEnabled.checked : false,
         maxSales: this.maxSales ? parseInt(this.maxSales.value, 10) || 0 : 0,
+        soldCount: this.currentSoldCount || 0,
         showCountdown: this.showCountdown ? this.showCountdown.checked : true,
         countdownVariant: this.countdownVariant ? this.countdownVariant.value : 'classic',
         showDeliveryInfo: this.showDeliveryInfo ? this.showDeliveryInfo.checked : false,

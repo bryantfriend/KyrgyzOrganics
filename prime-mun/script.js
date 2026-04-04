@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, getDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB2azgMx3VRCqKTVj4zhdqv51o6w1cAtxI",
@@ -27,18 +27,6 @@ const urlParams = new URLSearchParams(window.location.search);
 const sourceParam = urlParams.get('src') || 'unknown';
 const langParam = urlParams.get('lang') || localStorage.getItem('selectedLang') || 'ru';
 let countdownTimer = null;
-
-async function getConversionCount() {
-    const eventsQuery = query(
-        collection(db, 'campaign_events'),
-        where('campaignId', '==', 'prime-mun')
-    );
-    const snap = await getDocs(eventsQuery);
-    return snap.docs.filter((docSnap) => {
-        const actionType = docSnap.data().actionType;
-        return actionType === 'cta_click' || actionType === 'click_whatsapp' || actionType === 'click_glovo';
-    }).length;
-}
 
 async function logEvent(actionType, actionValue = '') {
     try {
@@ -195,7 +183,7 @@ async function initCampaign() {
         if (!campaignSnap.exists()) throw new Error("No campaign config");
         const config = campaignSnap.data();
         const s = config.styles || {};
-        const totalConversions = await getConversionCount();
+        const soldCount = Number(config.soldCount || 0);
 
         // Active Range Check
         const now = new Date();
@@ -215,7 +203,7 @@ async function initCampaign() {
             return;
         }
 
-        const salesLimitReached = Boolean(config.limitSalesEnabled && config.maxSales > 0 && totalConversions >= config.maxSales);
+        const salesLimitReached = Boolean(config.limitSalesEnabled && config.maxSales > 0 && soldCount >= config.maxSales);
 
         // Apply Global Styles
         const bodyColor = s.textColor || '#f9e29f';

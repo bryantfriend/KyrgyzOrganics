@@ -22,7 +22,8 @@ body {
     min-height: 100vh;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
+    padding-bottom: calc(6.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Fallback message hidden by default */
@@ -55,6 +56,22 @@ body {
     padding: 2rem 1.5rem;
     position: relative;
     z-index: 10;
+}
+
+.cta-dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    padding: 0 1rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+    pointer-events: none;
+}
+
+.cta-dock .btn-glovo {
+    margin: 0 auto;
+    max-width: 480px;
+    pointer-events: auto;
 }
 
 /* Entrance Animations */
@@ -371,14 +388,8 @@ h1 {
     justify-content: center;
     gap: 0.5rem;
     /* Delay entry */
-    opacity: 0;
-    transform: scale(0.9);
-}
-
-.landing-container.loaded .btn-glovo {
     opacity: 1;
-    transform: scale(1);
-    transition-delay: 0.4s;
+    transform: none;
 }
 
 .btn-glovo:hover {
@@ -425,7 +436,81 @@ h1 {
 }
 
 @media (max-width: 480px) {
+    body {
+        padding-bottom: calc(6.25rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    .landing-container {
+        padding: 1.4rem 1rem 1rem;
+        min-height: auto;
+    }
+
     .countdown-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .countdown-card {
+        padding: 0.85rem;
+    }
+
+    .countdown-unit span {
+        font-size: 1.15rem;
+    }
+
+    .headline-image {
+        max-height: 120px;
+    }
+
+    .subheadline-image {
+        max-height: 72px;
+    }
+
+    .optional-line-image {
+        max-height: 64px;
+    }
+
+    .image-wrapper {
+        max-width: 100%;
+    }
+
+    .product-image {
+        border-radius: 14px;
+    }
+
+    .cta-dock {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+        padding-bottom: calc(0.7rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    .btn-glovo {
+        border-radius: 16px;
+        font-size: 1.05rem;
+        padding: 1rem;
+    }
+
+    .delivery-info {
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        justify-content: center;
+    }
+
+    .decor-lines {
+        min-width: 72px;
+    }
+}
+
+@media (max-width: 360px) {
+    h1 {
+        font-size: 1.75rem;
+    }
+
+    .subheadline {
+        font-size: 1rem;
+    }
+
+    .landing-container {
+        padding-left: 0.8rem;
+        padding-right: 0.8rem;
     }
 }
