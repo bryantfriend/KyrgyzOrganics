@@ -160,6 +160,53 @@ h1 {
     font-weight: 300;
 }
 
+.countdown-card {
+    margin-top: 1.25rem;
+    padding: 1rem;
+    border: 1px solid rgba(249, 226, 159, 0.22);
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    backdrop-filter: blur(8px);
+}
+
+.countdown-label {
+    font-size: 0.82rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    opacity: 0.75;
+    margin-bottom: 0.85rem;
+}
+
+.countdown-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.countdown-unit {
+    border-radius: 14px;
+    padding: 0.75rem 0.4rem;
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.countdown-unit span {
+    display: block;
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1;
+    color: white;
+}
+
+.countdown-unit small {
+    display: block;
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.72;
+}
+
 /* Product Showcase */
 .product-section {
     position: relative;
@@ -280,4 +327,10 @@ h1 {
     h1 { font-size: 1.75rem; }
     .btn-glovo { padding: 0.875rem; }
     .brand-name { font-size: 1rem; }
+}
+
+@media (max-width: 480px) {
+    .countdown-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }

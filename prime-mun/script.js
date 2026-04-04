@@ -26,6 +26,7 @@ function getSessionId() {
 const urlParams = new URLSearchParams(window.location.search);
 const sourceParam = urlParams.get('src') || 'unknown';
 const langParam = urlParams.get('lang') || localStorage.getItem('selectedLang') || 'ru';
+let countdownTimer = null;
 
 async function logEvent(actionType, actionValue = '') {
     try {
@@ -40,6 +41,65 @@ async function logEvent(actionType, actionValue = '') {
             actionValue: actionValue
         });
     } catch (error) { console.error("Tracking error:", error); }
+}
+
+function normalizeWhatsappNumber(value) {
+    return String(value || '').replace(/[^\d]/g, '');
+}
+
+function buildWhatsAppUrl(config, headlineText) {
+    const phone = normalizeWhatsappNumber(config.whatsappNumber);
+    if (!phone) return '';
+
+    const message = [
+        'Hello!',
+        `I want to order: ${headlineText || config.headline || 'Prime MUN Box'}.`,
+        sourceParam && sourceParam !== 'unknown' ? `Source: ${sourceParam}` : ''
+    ].filter(Boolean).join('\n');
+
+    return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+}
+
+function startCountdown(endDate) {
+    const countdownCard = document.getElementById('countdownCard');
+    const daysEl = document.getElementById('countdownDays');
+    const hoursEl = document.getElementById('countdownHours');
+    const minutesEl = document.getElementById('countdownMinutes');
+    const secondsEl = document.getElementById('countdownSeconds');
+    if (!countdownCard || !daysEl || !hoursEl || !minutesEl || !secondsEl || !endDate) return;
+
+    if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+    }
+
+    const updateCountdown = () => {
+        const remaining = endDate.getTime() - Date.now();
+        if (remaining <= 0) {
+            daysEl.textContent = '00';
+            hoursEl.textContent = '00';
+            minutesEl.textContent = '00';
+            secondsEl.textContent = '00';
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+            return;
+        }
+
+        const totalSeconds = Math.floor(remaining / 1000);
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        daysEl.textContent = String(days).padStart(2, '0');
+        hoursEl.textContent = String(hours).padStart(2, '0');
+        minutesEl.textContent = String(minutes).padStart(2, '0');
+        secondsEl.textContent = String(seconds).padStart(2, '0');
+    };
+
+    countdownCard.hidden = false;
+    updateCountdown();
+    countdownTimer = window.setInterval(updateCountdown, 1000);
 }
 
 function spawnParticles(type, color) {
@@ -88,10 +148,13 @@ async function initCampaign() {
         // Active Range Check
         const now = new Date();
         let isActive = config.isActive;
+        let endDate = null;
         if (isActive && config.startDate && config.endDate) {
             const start = config.startDate.toDate();
-            const end = config.endDate.toDate();
-            if (now < start || now > end) isActive = false;
+            endDate = config.endDate.toDate();
+            if (now < start || now > endDate) isActive = false;
+        } else if (config.endDate) {
+            endDate = config.endDate.toDate();
         }
 
         if (!isActive) {
@@ -133,6 +196,10 @@ async function initCampaign() {
             subH.style.color = bodyColor;
         }
 
+        if (endDate && endDate.getTime() > Date.now()) {
+            startCountdown(endDate);
+        }
+
         const optionalLine = document.getElementById('optionalLine');
         if (optionalLine) {
             if (config.optionalLine) {
@@ -161,11 +228,18 @@ async function initCampaign() {
             ctaButton.style.background = s.btnColor || '#00c3a5';
             ctaButton.classList.remove('pulse-btn');
             if (s.btnPulse) ctaButton.classList.add('pulse-btn');
-            
+            const whatsappUrl = buildWhatsAppUrl(config, headlineText);
+            ctaButton.disabled = !whatsappUrl;
+            ctaButton.textContent = whatsappUrl ? 'Order on WhatsApp' : 'WhatsApp unavailable';
+            const dot = document.createElement('span');
+            dot.className = 'location-dot';
+            ctaButton.appendChild(dot);
+
             ctaButton.addEventListener('click', (e) => {
                 e.preventDefault();
-                logEvent('click_glovo', config.glovoLink).then(() => {
-                    window.location.href = config.glovoLink;
+                if (!whatsappUrl) return;
+                logEvent('cta_click', whatsappUrl).then(() => {
+                    window.location.href = whatsappUrl;
                 });
             });
         }
@@ -174,6 +248,7 @@ async function initCampaign() {
         if (mainContainer) {
             const animClass = `anim-${s.entranceAnim || 'fadeUp'}`;
             mainContainer.classList.add(animClass);
+            mainContainer.classList.add('loaded');
             setTimeout(() => { mainContainer.style.opacity = '1'; }, 10);
         }
 

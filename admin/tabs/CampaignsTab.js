@@ -16,7 +16,7 @@ export class CampaignsTab {
 
     // 1. Basic Inputs
     this.isActive = get('campActive');
-    this.glovoLink = get('campGlovo');
+    this.whatsappNumber = get('campWhatsapp');
     this.startDate = get('campStart');
     this.endDate = get('campEnd');
 
@@ -206,12 +206,15 @@ export class CampaignsTab {
     try {
       const q = query(
         collection(db, "campaign_events"), 
-        where("campaignId", "==", "prime-mun"), 
-        where("actionType", "==", "click_glovo")
+        where("campaignId", "==", "prime-mun")
       );
 
       this.statsUnsubscribe = onSnapshot(q, (snap) => {
-        this.statClicks.textContent = snap.size;
+        const totalClicks = snap.docs.filter((docSnap) => {
+          const actionType = docSnap.data().actionType;
+          return actionType === 'cta_click' || actionType === 'click_whatsapp' || actionType === 'click_glovo';
+        }).length;
+        this.statClicks.textContent = totalClicks;
       });
     } catch(err) { console.error("Real-time Stats error:", err); }
   }
@@ -225,7 +228,7 @@ export class CampaignsTab {
         const s = data.styles || {};
 
         if (this.isActive) this.isActive.checked = data.isActive;
-        if (this.glovoLink) this.glovoLink.value = data.glovoLink || '';
+        if (this.whatsappNumber) this.whatsappNumber.value = data.whatsappNumber || '';
         if (this.headline) this.headline.value = data.headline || '';
         if (this.headlineEN) this.headlineEN.value = data.headlineEN || '';
         if (this.headlineKG) this.headlineKG.value = data.headlineKG || '';
@@ -284,7 +287,7 @@ export class CampaignsTab {
         subheadline: this.subheadline ? this.subheadline.value : '',
         imageUrl: finalImageUrl,
         logoUrl: finalLogoUrl,
-        glovoLink: this.glovoLink ? this.glovoLink.value : '',
+        whatsappNumber: this.whatsappNumber ? this.whatsappNumber.value.trim() : '',
         optionalLine: this.optionalLine ? this.optionalLine.value : '',
         startDate: (this.startDate && this.startDate.value) ? new Date(this.startDate.value) : null,
         endDate: (this.endDate && this.endDate.value) ? new Date(this.endDate.value) : null,

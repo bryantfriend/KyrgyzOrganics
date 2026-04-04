@@ -1689,4 +1689,8 @@ body.has-sticky-cart .footer {
         width: auto;
         text-align: center;
     }
+
+    body.has-sticky-cart .whatsapp-support-btn {
+        bottom: 6.25rem;
+    }
 }
