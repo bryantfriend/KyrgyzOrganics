@@ -332,9 +332,16 @@ export class CampaignsTab {
     });
   }
 
+  getImagePreviewSource(imgEl) {
+    if (!imgEl) return '';
+    return imgEl.getAttribute('src') || '';
+  }
+
   updateLogoDisplays() {
-    const primaryLogoSrc = this.logoFile?.files[0] ? this.logoPreview?.src : this.currentLogoUrl || this.logoPreview?.src || '';
-    const secondaryLogoSrc = this.logoFile2?.files[0] ? this.logoPreview2?.src : this.currentLogoUrl2 || this.logoPreview2?.src || '';
+    const primaryPreviewSrc = this.getImagePreviewSource(this.logoPreview);
+    const secondaryPreviewSrc = this.getImagePreviewSource(this.logoPreview2);
+    const primaryLogoSrc = this.logoFile?.files[0] ? primaryPreviewSrc : this.currentLogoUrl || primaryPreviewSrc || '';
+    const secondaryLogoSrc = this.logoFile2?.files[0] ? secondaryPreviewSrc : this.currentLogoUrl2 || secondaryPreviewSrc || '';
     const logoWidth = `${this.logoWidth?.value || 120}px`;
 
     if (this.mockLogo) {
@@ -360,7 +367,7 @@ export class CampaignsTab {
     }
 
     if (this.secondLogoRow) {
-      this.secondLogoRow.style.display = secondaryLogoSrc || this.logoFile2?.files[0] ? 'flex' : this.secondLogoRow.style.display === 'flex' ? 'flex' : 'none';
+      this.secondLogoRow.style.display = secondaryLogoSrc || this.logoFile2?.files[0] ? 'flex' : 'none';
     }
 
     if (this.addLogoBtn) {
@@ -422,7 +429,11 @@ export class CampaignsTab {
   }
 
   async resetConversions() {
-    const visibleConversions = Math.max(0, this.currentConversionCount - this.currentConversionOffset);
+    const visibleConversions = Math.max(
+      0,
+      Number.parseInt(this.statClicks?.textContent || '0', 10) || 0,
+      this.currentConversionCount - this.currentConversionOffset
+    );
     if (visibleConversions <= 0) {
       alert('Conversions are already at 0.');
       return;
@@ -432,11 +443,12 @@ export class CampaignsTab {
     if (!confirmed) return;
 
     try {
+      const nextOffset = Math.max(this.currentConversionCount, this.currentConversionOffset + visibleConversions);
       await setDoc(doc(db, 'campaigns', 'prime-mun'), {
-        conversionOffset: this.currentConversionCount
+        conversionOffset: nextOffset
       }, { merge: true });
 
-      this.updateConversionStats(this.currentConversionCount, this.currentConversionCount);
+      this.updateConversionStats(nextOffset, nextOffset);
     } catch (error) {
       alert(`Could not reset conversions: ${error.message}`);
     }
