@@ -12,6 +12,7 @@ export class SettingsTab extends BaseTab {
         this.form = document.getElementById('paymentForm');
         this.deliveryFee = document.getElementById('checkoutDeliveryFee');
         this.freeThreshold = document.getElementById('checkoutFreeThreshold');
+        this.supportWhatsappNumber = document.getElementById('supportWhatsappNumber');
         this.saveCheckoutBtn = document.getElementById('saveCheckoutSettings');
     }
 
@@ -115,6 +116,7 @@ export class SettingsTab extends BaseTab {
 
             if (this.deliveryFee) this.deliveryFee.value = data.deliveryFee ?? 200;
             if (this.freeThreshold) this.freeThreshold.value = data.freeDeliveryThreshold ?? 3000;
+            if (this.supportWhatsappNumber) this.supportWhatsappNumber.value = data.supportWhatsappNumber ?? '';
         } catch (error) {
             console.error(error);
         }
@@ -125,6 +127,7 @@ export class SettingsTab extends BaseTab {
             await setDoc(doc(db, 'shop_settings', 'checkout'), {
                 deliveryFee: Number(this.deliveryFee?.value || 0),
                 freeDeliveryThreshold: Number(this.freeThreshold?.value || 0),
+                supportWhatsappNumber: String(this.supportWhatsappNumber?.value || '').trim(),
                 pickupEnabled: true,
                 updatedAt: serverTimestamp()
             }, { merge: true });

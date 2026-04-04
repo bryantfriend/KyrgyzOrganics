@@ -1,4 +1,5 @@
 export const CART_KEY = 'oa_kyrgyz_organic_cart_v1';
+export const CART_DAY_KEY = 'oa_kyrgyz_organic_cart_day_v1';
 
 export const DEFAULT_CHECKOUT_SETTINGS = {
     deliveryFee: 200,
@@ -27,6 +28,19 @@ export function loadCart() {
 
 export function saveCart(cart) {
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
+}
+
+export function loadCartDay() {
+    try {
+        return localStorage.getItem(CART_DAY_KEY) || '';
+    } catch (error) {
+        console.warn('Failed to load cart day:', error);
+        return '';
+    }
+}
+
+export function saveCartDay(dayKey) {
+    localStorage.setItem(CART_DAY_KEY, dayKey || '');
 }
 
 export function addCartItem(cart, productId, quantity = 1) {

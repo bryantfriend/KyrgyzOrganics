@@ -2,7 +2,7 @@ import { db } from './firebase-config.js';
 import { collection, doc, getDoc, getDocs, limit, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl } from './product-utils.js';
-import { addCartItem, loadCart, saveCart } from './shop-utils.js';
+import { addCartItem, loadCart, saveCart, saveCartDay } from './shop-utils.js';
 
 const root = document.getElementById('productPageRoot');
 
@@ -190,6 +190,36 @@ function bindPageInteractions(product, shareUrl) {
         const quantity = Number.parseInt(quantityInput?.value || '1', 10);
         return Math.max(1, quantity || 1);
     };
+    const getAvailableStock = () => Math.max(0, Number.parseInt(dailyInventory[product.id]?.available, 10) || 0);
+    const saveCartForToday = (cart) => {
+        saveCart(cart);
+        saveCartDay(getTodayKey());
+    };
+    const tryAddToCart = (redirectToCart = false) => {
+        const currentCart = loadCart();
+        const existingQty = currentCart.find((item) => item.productId === product.id)?.quantity || 0;
+        const requestedQty = getSelectedQuantity();
+        const available = getAvailableStock();
+
+        if (existingQty + requestedQty > available) {
+            copyStatus.textContent = available <= 0
+                ? `${loc(product, 'name')}: ${t('sold_out_today')}`
+                : `${loc(product, 'name')}: ${t('limited_stock_today').replace('{count}', String(available))}`;
+            return;
+        }
+
+        const nextCart = addCartItem(currentCart, product.id, requestedQty);
+        saveCartForToday(nextCart);
+
+        if (redirectToCart) {
+            const cartUrl = new URL('index.html', window.location.href);
+            cartUrl.searchParams.set('cart', 'open');
+            window.location.href = cartUrl.toString();
+            return;
+        }
+
+        copyStatus.textContent = t('added_to_cart');
+    };
 
     imageButtons.forEach((button) => {
         button.addEventListener('click', () => {
@@ -212,19 +242,13 @@ function bindPageInteractions(product, shareUrl) {
 
     if (buyNowBtn) {
         buyNowBtn.addEventListener('click', () => {
-            const cart = addCartItem(loadCart(), product.id, getSelectedQuantity());
-            saveCart(cart);
-            const cartUrl = new URL('index.html', window.location.href);
-            cartUrl.searchParams.set('cart', 'open');
-            window.location.href = cartUrl.toString();
+            tryAddToCart(true);
         });
     }
 
     if (addToCartBtn) {
         addToCartBtn.addEventListener('click', () => {
-            const cart = addCartItem(loadCart(), product.id, getSelectedQuantity());
-            saveCart(cart);
-            copyStatus.textContent = t('added_to_cart');
+            tryAddToCart(false);
         });
     }
 }

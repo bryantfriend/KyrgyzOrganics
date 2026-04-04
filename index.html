@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OA Kyrgyz Organic - Grocery Catalog</title>
-  <link rel="stylesheet" href="styles.css?v=2.0">
+  <link rel="stylesheet" href="styles.css?v=2.1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -200,6 +200,7 @@
       <div class="shop-layout">
         <section>
           <h3 class="shop-section-title">Cart</h3>
+          <div id="cartNotice" class="cart-notice" style="display:none;"></div>
           <div id="cartItems" class="cart-items"></div>
           <p id="cartEmptyState" class="cart-empty">Your cart is empty.</p>
         </section>
@@ -306,6 +307,8 @@
     </div>
   </div>
 
+  <a id="whatsAppSupportBtn" class="whatsapp-support-btn" href="#" target="_blank" rel="noopener" hidden>WhatsApp Support</a>
+
   <!-- Categories Dialog Modal -->
   <div id="categoriesModal" class="modal-overlay" style="display:none;">
     <div class="modal-container">
@@ -317,7 +320,7 @@
     </div>
   </div>
 
-  <script type="module" src="home.js?v=2.0"></script>
+  <script type="module" src="home.js?v=2.1"></script>
 </body>
 
 </html>

@@ -11,8 +11,10 @@ import {
     formatPrice,
     getCartItemCount,
     loadCart,
+    loadCartDay,
     removeCartItem,
     saveCart,
+    saveCartDay,
     updateCartItemQuantity
 } from './shop-utils.js';
 
@@ -27,6 +29,8 @@ let paymentMethods = [];
 let pendingOrder = null; // { orderId, orderToken, expiresAtMillis, total, items, timerInterval }
 let cart = loadCart();
 let checkoutSettings = { ...DEFAULT_CHECKOUT_SETTINGS };
+let supportWhatsappNumber = '';
+let cartNoticeMessage = '';
 
 // --- DOM ELEMENTS ---
 const productGrid = $('productGrid');
@@ -45,6 +49,7 @@ const cartModal = $('cartModal');
 const closeCartModal = $('closeCartModal');
 const cartItems = $('cartItems');
 const cartEmptyState = $('cartEmptyState');
+const cartNotice = $('cartNotice');
 const cartCheckoutForm = $('cartCheckoutForm');
 const cartSubtotal = $('cartSubtotal');
 const cartDeliveryFee = $('cartDeliveryFee');
@@ -56,6 +61,7 @@ const stickyCartButton = $('stickyCartButton');
 const stickyCartTitle = $('stickyCartTitle');
 const stickyCartMeta = $('stickyCartMeta');
 const stickyCartTotal = $('stickyCartTotal');
+const whatsAppSupportBtn = $('whatsAppSupportBtn');
 
 // --- INIT ---
 async function init() {
@@ -149,6 +155,7 @@ async function loadData() {
         paymentMethods = pmRes.docs.map(d => ({ id: d.id, ...d.data() }));
         await loadCheckoutSettings();
         syncCartWithCatalog();
+        reconcileCartWithInventory({ shouldNotify: true });
 
     } catch (e) {
         console.error("Error loading data:", e);
@@ -187,6 +194,7 @@ function updateStaticUI() {
 
     if (cartEmptyState) cartEmptyState.textContent = t('cart_empty');
     if (stickyCartTitle) stickyCartTitle.textContent = t('cart');
+    if (whatsAppSupportBtn) whatsAppSupportBtn.textContent = t('contact_support_whatsapp');
 }
 
 function renderBanner() {
@@ -276,6 +284,99 @@ function syncCartWithCatalog() {
     if (nextCart.length !== cart.length) {
         cart = nextCart;
         saveCart(cart);
+    }
+}
+
+async function loadCheckoutSettings() {
+    try {
+        const snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
+        const data = snap.exists() ? snap.data() : {};
+        checkoutSettings = { ...DEFAULT_CHECKOUT_SETTINGS, ...data };
+        supportWhatsappNumber = String(data.supportWhatsappNumber || '').trim();
+        updateWhatsAppSupportButton();
+    } catch (error) {
+        console.error('Checkout settings load error:', error);
+        checkoutSettings = { ...DEFAULT_CHECKOUT_SETTINGS };
+        supportWhatsappNumber = '';
+        updateWhatsAppSupportButton();
+    }
+}
+
+function normalizeWhatsappNumber(value) {
+    return String(value || '').replace(/[^\d]/g, '');
+}
+
+function updateWhatsAppSupportButton() {
+    if (!whatsAppSupportBtn) return;
+
+    const phone = normalizeWhatsappNumber(supportWhatsappNumber);
+    if (!phone) {
+        whatsAppSupportBtn.hidden = true;
+        return;
+    }
+
+    const message = encodeURIComponent('Hello, I need help with my order.');
+    whatsAppSupportBtn.href = `https://wa.me/${phone}?text=${message}`;
+    whatsAppSupportBtn.hidden = false;
+}
+
+function setCartNotice(message = '') {
+    cartNoticeMessage = message;
+    if (!cartNotice) return;
+
+    cartNotice.textContent = cartNoticeMessage;
+    cartNotice.style.display = cartNoticeMessage ? 'block' : 'none';
+}
+
+function getAvailableStock(productId) {
+    return Math.max(0, Number.parseInt(dailyInventory[productId]?.available, 10) || 0);
+}
+
+function getCartQuantity(productId) {
+    return cart.find((item) => item.productId === productId)?.quantity || 0;
+}
+
+function buildAvailabilityMessage(productName, available) {
+    if (available <= 0) {
+        return `${productName}: ${t('sold_out_today')}`;
+    }
+
+    return `${productName}: ${t('limited_stock_today').replace('{count}', String(available))}`;
+}
+
+function reconcileCartWithInventory({ shouldNotify = false } = {}) {
+    const previousDay = loadCartDay();
+    const isNewDay = previousDay && previousDay !== todayStr;
+    const productMap = new Map(products.map((product) => [product.id, product]));
+    const nextCart = [];
+    let changed = false;
+
+    cart.forEach((item) => {
+        const product = productMap.get(item.productId);
+        const available = getAvailableStock(item.productId);
+
+        if (!product || available <= 0) {
+            changed = true;
+            return;
+        }
+
+        const nextQuantity = Math.min(item.quantity, available);
+        if (nextQuantity !== item.quantity) changed = true;
+        nextCart.push({ productId: item.productId, quantity: nextQuantity });
+    });
+
+    if (isNewDay) {
+        saveCartDay(todayStr);
+    }
+
+    if (changed || isNewDay) {
+        cart = nextCart;
+        saveCart(cart);
+        saveCartDay(todayStr);
+
+        if (shouldNotify && (changed || isNewDay)) {
+            setCartNotice(t('cart_updated_today'));
+        }
     }
 }
 
@@ -444,8 +545,20 @@ function setupEventListeners() {
 
             const quantity = Number.parseInt(qtyInput.value, 10);
             if (!Number.isFinite(quantity)) return;
+            const productId = qtyInput.dataset.productQty;
+            const product = products.find((item) => item.id === productId);
+            const available = getAvailableStock(productId);
+            const safeQuantity = Math.max(0, Math.min(quantity, available));
 
-            cart = updateCartItemQuantity(cart, qtyInput.dataset.productQty, quantity);
+            if (quantity > available) {
+                const productName = product ? loc(product, 'name') : 'This product';
+                setCartNotice(buildAvailabilityMessage(productName, available));
+                qtyInput.value = String(safeQuantity);
+            } else if (cartNoticeMessage) {
+                setCartNotice('');
+            }
+
+            cart = updateCartItemQuantity(cart, productId, safeQuantity);
             persistCart();
         });
     }
@@ -505,6 +618,7 @@ function getSelectedDeliveryMethod() {
 
 function persistCart() {
     saveCart(cart);
+    if (todayStr) saveCartDay(todayStr);
     renderCart();
 }
 
@@ -548,6 +662,8 @@ function renderCart() {
             if (stickyCartTotal) stickyCartTotal.textContent = `${formatPrice(totals.total)} ${t('price_currency')}`;
         }
     }
+
+    setCartNotice(cartNoticeMessage);
 
     if (cartEmptyState) {
         cartEmptyState.style.display = totals.items.length ? 'none' : 'block';
@@ -719,21 +835,40 @@ function openModal(product) {
         const quantity = Number.parseInt(document.getElementById('modalQuantity')?.value || '1', 10);
         return Math.max(1, quantity || 1);
     };
+    const tryAddProductToCart = (openCartAfter = false) => {
+        const requestedQuantity = getSelectedQuantity();
+        const available = getAvailableStock(product.id);
+        const currentInCart = getCartQuantity(product.id);
+        const nextTotal = currentInCart + requestedQuantity;
+
+        if (nextTotal > available) {
+            if (statusDiv) statusDiv.textContent = buildAvailabilityMessage(loc(product, 'name'), available);
+            return false;
+        }
+
+        cart = addCartItem(cart, product.id, requestedQuantity);
+        persistCart();
+        setCartNotice('');
+
+        if (openCartAfter) {
+            closeModalFn();
+            openCartModal();
+        } else if (statusDiv) {
+            statusDiv.textContent = t('added_to_cart');
+        }
+
+        return true;
+    };
 
     if (buyNowBtn) {
         buyNowBtn.addEventListener('click', () => {
-            cart = addCartItem(cart, product.id, getSelectedQuantity());
-            persistCart();
-            closeModalFn();
-            openCartModal();
+            tryAddProductToCart(true);
         });
     }
 
     if (addToCartBtn) {
         addToCartBtn.addEventListener('click', () => {
-            cart = addCartItem(cart, product.id, getSelectedQuantity());
-            persistCart();
-            if (statusDiv) statusDiv.textContent = t('added_to_cart');
+            tryAddProductToCart(false);
         });
     }
 
@@ -748,6 +883,7 @@ function openModal(product) {
 async function handleCheckoutSubmit(event) {
     event.preventDefault();
 
+    reconcileCartWithInventory({ shouldNotify: true });
     const deliveryMethod = getSelectedDeliveryMethod();
     const totals = calculateCartTotals(cart, products, deliveryMethod, checkoutSettings);
     const name = document.getElementById('checkoutName')?.value.trim() || '';

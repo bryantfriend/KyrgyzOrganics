@@ -1,8 +1,10 @@
-import { functions, httpsCallable } from './firebase-config.js';
+import { db, functions, httpsCallable } from './firebase-config.js';
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { initMobileMenu, setupLanguage, t } from './common.js';
 import { formatPrice } from './shop-utils.js';
 
 const root = document.getElementById('orderTrackingRoot');
+const whatsAppSupportBtn = document.getElementById('whatsAppSupportBtn');
 
 const STATUS_TEXT = {
     pending_payment: 'Awaiting payment',
@@ -17,6 +19,7 @@ const STATUS_TEXT = {
 async function init() {
     setupLanguage();
     initMobileMenu();
+    updateWhatsAppSupportButton();
 
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('orderId') || '';
@@ -34,6 +37,28 @@ async function init() {
     } catch (error) {
         console.error(error);
         renderError(error.message || 'We could not load this order.');
+    }
+}
+
+async function updateWhatsAppSupportButton() {
+    if (!whatsAppSupportBtn) return;
+
+    try {
+        const snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
+        const phone = String(snap.data()?.supportWhatsappNumber || '').replace(/[^\d]/g, '');
+
+        if (!phone) {
+            whatsAppSupportBtn.hidden = true;
+            return;
+        }
+
+        const message = encodeURIComponent('Hello, I need help with my order.');
+        whatsAppSupportBtn.href = `https://wa.me/${phone}?text=${message}`;
+        whatsAppSupportBtn.textContent = t('contact_support_whatsapp');
+        whatsAppSupportBtn.hidden = false;
+    } catch (error) {
+        console.warn('WhatsApp support button unavailable:', error);
+        whatsAppSupportBtn.hidden = true;
     }
 }
 
