@@ -1105,6 +1105,167 @@ body.has-sticky-cart .footer {
     box-shadow: var(--shadow-sm);
 }
 
+.order-tracking-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+}
+
+.order-summary-panel,
+.tracking-panel {
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.order-summary-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.tracking-eyebrow {
+    color: var(--color-primary);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+}
+
+.tracking-muted {
+    color: var(--color-text-light);
+}
+
+.tracking-status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.55rem 0.9rem;
+    border-radius: 999px;
+    color: white;
+    font-weight: 700;
+    background: #5f6b76;
+}
+
+.tracking-status-pill.status-pending_payment { background: #1e88e5; }
+.tracking-status-pill.status-pending_verification { background: #fb8c00; }
+.tracking-status-pill.status-paid { background: #2e7d32; }
+.tracking-status-pill.status-preparing { background: #6a1b9a; }
+.tracking-status-pill.status-out_for_delivery { background: #00897b; }
+.tracking-status-pill.status-delivered { background: #1565c0; }
+.tracking-status-pill.status-cancelled { background: #c62828; }
+
+.tracking-customer-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.tracking-detail-card {
+    background: #f8fbf4;
+    border: 1px solid #dfead0;
+    border-radius: 16px;
+    padding: 1rem;
+}
+
+.tracking-detail-label,
+.tracking-panel-title {
+    font-size: 0.85rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--color-text-light);
+    letter-spacing: 0.04em;
+    margin-bottom: 0.6rem;
+}
+
+.tracking-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.tracking-item {
+    display: grid;
+    grid-template-columns: 72px 1fr auto;
+    gap: 0.9rem;
+    align-items: center;
+    padding: 0.9rem;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    background: #fcfdf9;
+}
+
+.tracking-item img {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    border-radius: 10px;
+    background: white;
+}
+
+.tracking-item-title {
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+}
+
+.tracking-item-meta {
+    color: var(--color-text-light);
+    font-size: 0.9rem;
+}
+
+.tracking-item-price {
+    font-weight: 700;
+    color: var(--color-accent);
+    text-align: right;
+}
+
+.tracking-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.tracking-step {
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 0.9rem;
+    align-items: flex-start;
+    opacity: 0.55;
+}
+
+.tracking-step.is-complete {
+    opacity: 1;
+}
+
+.tracking-step-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    margin-top: 0.15rem;
+    border: 3px solid #bdd5c3;
+    background: white;
+}
+
+.tracking-step.is-complete .tracking-step-dot {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.tracking-step-title {
+    font-weight: 700;
+}
+
+.tracking-step-time {
+    color: var(--color-text-light);
+    font-size: 0.9rem;
+    margin-top: 0.18rem;
+}
+
 .product-page-gallery {
     display: flex;
     flex-direction: column;
@@ -1411,6 +1572,14 @@ body.has-sticky-cart .footer {
         grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.05fr);
         padding: 2rem;
     }
+
+    .order-tracking-layout {
+        grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+    }
+
+    .tracking-customer-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 767px) {
@@ -1471,5 +1640,14 @@ body.has-sticky-cart .footer {
     .secondary-pill {
         text-align: center;
         justify-content: center;
+    }
+
+    .tracking-item {
+        grid-template-columns: 72px 1fr;
+    }
+
+    .tracking-item-price {
+        grid-column: 1 / -1;
+        text-align: left;
     }
 }

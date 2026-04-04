@@ -518,6 +518,13 @@ function maybeOpenCartFromUrl() {
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
+function buildOrderTrackingUrl(orderId, orderToken) {
+    const url = new URL('track-order.html', window.location.href);
+    url.searchParams.set('orderId', orderId);
+    url.searchParams.set('token', orderToken);
+    return url.toString();
+}
+
 function renderCart() {
     if (cartCount) cartCount.textContent = String(getCartItemCount(cart));
     if (!cartItems) return;
@@ -864,6 +871,8 @@ function setupPaymentModal(orderData) {
 function renderPaymentSummary() {
     if (!paymentOrderSummary || !pendingOrder) return;
 
+    const trackingUrl = buildOrderTrackingUrl(pendingOrder.orderId, pendingOrder.orderToken);
+
     paymentOrderSummary.innerHTML = `
         <div class="cart-summary-row">
             <span>${t('order_summary')}</span>
@@ -881,7 +890,23 @@ function renderPaymentSummary() {
             <span>${t('total')}</span>
             <strong>${formatPrice(pendingOrder.total)} ${t('price_currency')}</strong>
         </div>
+        <div style="margin-top:0.75rem; display:flex; gap:0.75rem; flex-wrap:wrap;">
+            <a href="${trackingUrl}" class="secondary-pill" style="text-decoration:none;">Track Order</a>
+            <button type="button" id="copyTrackingLinkBtn" class="secondary-pill">Copy Tracking Link</button>
+        </div>
     `;
+
+    const copyTrackingLinkBtn = document.getElementById('copyTrackingLinkBtn');
+    if (copyTrackingLinkBtn) {
+        copyTrackingLinkBtn.onclick = async () => {
+            try {
+                await navigator.clipboard.writeText(trackingUrl);
+                copyTrackingLinkBtn.textContent = 'Tracking Link Copied';
+            } catch (error) {
+                copyTrackingLinkBtn.textContent = 'Copy Failed';
+            }
+        };
+    }
 }
 
 function showPaymentDetails(pm, container) {
@@ -937,8 +962,10 @@ async function confirmPayment() {
             receiptPath: storageRef.fullPath
         });
 
+        const trackingUrl = buildOrderTrackingUrl(pendingOrder.orderId, pendingOrder.orderToken);
         closePaymentModal();
         alert(t('payment_submitted'));
+        window.location.href = trackingUrl;
         renderAll();
 
     } catch (e) {

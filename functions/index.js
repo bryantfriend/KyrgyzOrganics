@@ -92,6 +92,66 @@ function getOrderLineItems(order) {
     return [];
 }
 
+function mapOrderItemsForClient(items) {
+    return (Array.isArray(items) ? items : []).map((item) => ({
+        productId: item.productId || '',
+        quantity: Math.max(1, Number.parseInt(item.quantity, 10) || 1),
+        unitPrice: readMoney(item.unitPrice),
+        lineTotal: readMoney(item.lineTotal),
+        imageUrl: item.imageUrl || '',
+        weight: item.weight || '',
+        name: getOrderDisplayName(item)
+    }));
+}
+
+function toMillis(value) {
+    if (!value) return null;
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    if (value instanceof Date) return value.getTime();
+    return null;
+}
+
+function getTrackingEvents(order) {
+    return [
+        {
+            key: 'pending_payment',
+            label: 'Order placed',
+            completed: true,
+            atMillis: toMillis(order.createdAt)
+        },
+        {
+            key: 'pending_verification',
+            label: 'Payment submitted',
+            completed: ['pending_verification', 'paid', 'preparing', 'out_for_delivery', 'delivered'].includes(order.status),
+            atMillis: toMillis(order.paymentSubmittedAt)
+        },
+        {
+            key: 'paid',
+            label: 'Payment verified',
+            completed: ['paid', 'preparing', 'out_for_delivery', 'delivered'].includes(order.status),
+            atMillis: toMillis(order.paidAt || order.verifiedAt)
+        },
+        {
+            key: 'preparing',
+            label: 'Preparing order',
+            completed: ['preparing', 'out_for_delivery', 'delivered'].includes(order.status),
+            atMillis: toMillis(order.preparingAt)
+        },
+        {
+            key: 'out_for_delivery',
+            label: order.deliveryMethod === 'pickup' ? 'Ready for pickup' : 'Out for delivery',
+            completed: ['out_for_delivery', 'delivered'].includes(order.status),
+            atMillis: toMillis(order.outForDeliveryAt || order.readyForPickupAt)
+        },
+        {
+            key: 'delivered',
+            label: order.deliveryMethod === 'pickup' ? 'Picked up' : 'Delivered',
+            completed: order.status === 'delivered',
+            atMillis: toMillis(order.deliveredAt)
+        }
+    ];
+}
+
 async function releaseInventory(tx, dateStr, items) {
     if (!dateStr || !items.length) return;
 
@@ -344,4 +404,47 @@ exports.cancelOrder = functions.https.onCall(async (data) => {
 
         return { ok: true };
     });
+});
+
+exports.getOrderStatus = functions.https.onCall(async (data) => {
+    const orderId = asTrimmedString(data?.orderId, 120);
+    const orderToken = asTrimmedString(data?.orderToken, 120);
+
+    if (!orderId || !orderToken) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing order lookup details');
+    }
+
+    const orderSnap = await db.doc(`orders/${orderId}`).get();
+    if (!orderSnap.exists) {
+        throw new functions.https.HttpsError('not-found', 'Order not found');
+    }
+
+    const order = orderSnap.data();
+    ensureOrderToken(order, orderToken);
+
+    return {
+        orderId,
+        orderToken,
+        status: order.status || 'pending_payment',
+        paymentStatus: order.paymentStatus || 'unpaid',
+        deliveryMethod: order.deliveryMethod || 'delivery',
+        customerName: order.customerName || '',
+        customerPhone: order.customerPhone || '',
+        customerAddress: order.customerAddress || '',
+        customerNotes: order.customerNotes || '',
+        subtotal: readMoney(order.subtotal),
+        deliveryFee: readMoney(order.deliveryFee),
+        total: readMoney(order.total),
+        itemCount: Math.max(0, Number.parseInt(order.itemCount, 10) || 0),
+        expiresAtMillis: toMillis(order.expiresAt),
+        createdAtMillis: toMillis(order.createdAt),
+        paymentSubmittedAtMillis: toMillis(order.paymentSubmittedAt),
+        paidAtMillis: toMillis(order.paidAt || order.verifiedAt),
+        preparingAtMillis: toMillis(order.preparingAt),
+        outForDeliveryAtMillis: toMillis(order.outForDeliveryAt || order.readyForPickupAt),
+        deliveredAtMillis: toMillis(order.deliveredAt),
+        cancelledAtMillis: toMillis(order.cancelledAt),
+        items: mapOrderItemsForClient(order.items),
+        trackingEvents: getTrackingEvents(order)
+    };
 });

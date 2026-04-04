@@ -27,6 +27,7 @@ export class ProductsTab extends BaseTab {
         this.fNameContent = document.getElementById('fNameContent');
         this.filePack = document.getElementById('pImgPack');
         this.fileContent = document.getElementById('pImgContent');
+        this.autoCompress = document.getElementById('pAutoCompress');
 
         this.allProductsCache = [];
         this.slugTouched = false;
@@ -211,9 +212,12 @@ export class ProductsTab extends BaseTab {
         try {
             let imageUrl = null;
             let imageNoPackagingUrl = null;
+            const uploadOptions = {
+                autoCompress: this.autoCompress ? this.autoCompress.checked : true
+            };
 
-            if (filePack) imageUrl = await uploadImage(filePack, 'products');
-            if (fileContent) imageNoPackagingUrl = await uploadImage(fileContent, 'products');
+            if (filePack) imageUrl = await uploadImage(filePack, 'products', uploadOptions);
+            if (fileContent) imageNoPackagingUrl = await uploadImage(fileContent, 'products', uploadOptions);
 
             const data = {
                 name_ru: document.getElementById('pNameRU').value,
@@ -272,6 +276,7 @@ export class ProductsTab extends BaseTab {
         this.fNamePack.textContent = 'No file chosen';
         this.fNameContent.textContent = 'No file chosen';
         if (this.pSlug) this.pSlug.value = '';
+        if (this.autoCompress) this.autoCompress.checked = true;
         this.slugTouched = false;
     }
 

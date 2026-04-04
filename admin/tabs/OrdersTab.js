@@ -25,6 +25,7 @@ export class OrdersTab extends BaseTab {
         window.verifyOrder = this.verifyOrder.bind(this);
         window.rejectOrder = this.rejectOrder.bind(this);
         window.markOrderPreparing = this.markOrderPreparing.bind(this);
+        window.markOrderOutForDelivery = this.markOrderOutForDelivery.bind(this);
         window.markOrderDelivered = this.markOrderDelivered.bind(this);
         window.cancelOrderAdmin = this.cancelOrderAdmin.bind(this);
 
@@ -112,7 +113,14 @@ export class OrdersTab extends BaseTab {
             } else if (order.status === 'preparing') {
                 actions = `
                     <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-                        <button onclick="markOrderDelivered('${id}')" class="btn-primary" style="background:#1565c0; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">Mark Delivered</button>
+                        <button onclick="markOrderOutForDelivery('${id}', '${order.deliveryMethod || 'delivery'}')" class="btn-secondary" style="padding:5px 10px; border-radius:4px; cursor:pointer;">${order.deliveryMethod === 'pickup' ? 'Ready for Pickup' : 'Out for Delivery'}</button>
+                        <button onclick="cancelOrderAdmin('${id}')" class="btn-danger" style="padding:5px 10px; border-radius:4px; cursor:pointer;">Cancel & Release</button>
+                    </div>
+                `;
+            } else if (order.status === 'out_for_delivery') {
+                actions = `
+                    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <button onclick="markOrderDelivered('${id}')" class="btn-primary" style="background:#1565c0; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">${order.deliveryMethod === 'pickup' ? 'Mark Picked Up' : 'Mark Delivered'}</button>
                     </div>
                 `;
             }
@@ -175,6 +183,7 @@ export class OrdersTab extends BaseTab {
         switch (status) {
             case 'paid': return '#2e7d32'; // Green
             case 'preparing': return '#6a1b9a';
+            case 'out_for_delivery': return '#00897b';
             case 'delivered': return '#1565c0';
             case 'pending_verification': return '#ff9800'; // Orange
             case 'pending_payment':
@@ -237,6 +246,18 @@ export class OrdersTab extends BaseTab {
             await updateDoc(doc(db, 'orders', orderId), {
                 status: 'delivered',
                 deliveredAt: serverTimestamp()
+            });
+            this.loadOrders();
+        } catch (e) { alert(e.message); }
+    }
+
+    async markOrderOutForDelivery(orderId, deliveryMethod = 'delivery') {
+        try {
+            const timestampField = deliveryMethod === 'pickup' ? 'readyForPickupAt' : 'outForDeliveryAt';
+
+            await updateDoc(doc(db, 'orders', orderId), {
+                status: 'out_for_delivery',
+                [timestampField]: serverTimestamp()
             });
             this.loadOrders();
         } catch (e) { alert(e.message); }

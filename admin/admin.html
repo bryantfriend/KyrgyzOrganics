@@ -140,6 +140,16 @@
             </div>
           </div>
 
+          <div class="form-row">
+            <div class="form-group">
+              <label style="display:inline-flex; align-items:center; gap:0.55rem; cursor:pointer; font-weight:600;">
+                <input type="checkbox" id="pAutoCompress" checked style="width:auto; margin:0;">
+                Auto compress images before upload
+              </label>
+              <small style="display:block; color:#777; margin-top:0.35rem;">Recommended. Large photos will be resized and compressed automatically for faster website loading.</small>
+            </div>
+          </div>
+
           <div style="margin-top:1rem;">
             <button type="submit" id="pSubmitBtn">Add Product</button>
             <button type="button" id="pCancelBtn" class="btn-secondary"
@@ -485,6 +495,7 @@
             <option value="pending_verification" selected>Pending Verification</option>
             <option value="paid">Paid / Verified</option>
             <option value="preparing">Preparing</option>
+            <option value="out_for_delivery">Out for Delivery / Ready</option>
             <option value="delivered">Delivered</option>
             <option value="reserved">Legacy Reserved</option>
             <option value="cancelled">Cancelled</option>
