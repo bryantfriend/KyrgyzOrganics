@@ -418,6 +418,11 @@ export class CampaignsTab {
     }
   }
 
+  getItemsLeftValue(maxSales = Number.parseInt(this.maxSales?.value || '0', 10) || 0, soldCount = this.currentSoldCount) {
+    if (!this.limitEnabled?.checked || maxSales <= 0) return null;
+    return Math.max(0, maxSales - Math.max(0, Number(soldCount) || 0));
+  }
+
   updateConversionStats(totalConversions = this.currentConversionCount, conversionOffset = this.currentConversionOffset) {
     this.currentConversionCount = Math.max(0, Number(totalConversions) || 0);
     this.currentConversionOffset = Math.max(0, Number(conversionOffset) || 0);
@@ -473,7 +478,11 @@ export class CampaignsTab {
         if (proposed < 0) return currentSold;
         if (delta > 0 && maxSales > 0 && proposed > maxSales) return currentSold;
 
-        transaction.set(docRef, { soldCount: proposed }, { merge: true });
+        const nextItemsLeft = this.getItemsLeftValue(maxSales, proposed);
+        transaction.set(docRef, {
+          soldCount: proposed,
+          itemsLeft: nextItemsLeft
+        }, { merge: true });
         return proposed;
       });
 
@@ -859,6 +868,7 @@ export class CampaignsTab {
         finalLogoUrl2 = '';
       }
 
+      const maxSalesValue = this.maxSales ? parseInt(this.maxSales.value, 10) || 0 : 0;
       const data = {
         isActive: this.isActive ? this.isActive.checked : false,
         headline: this.headline ? this.headline.value : '',
@@ -875,8 +885,9 @@ export class CampaignsTab {
         whatsappNumber: this.whatsappNumber ? this.whatsappNumber.value.trim() : '',
         conversionOffset: this.currentConversionOffset || 0,
         limitSalesEnabled: this.limitEnabled ? this.limitEnabled.checked : false,
-        maxSales: this.maxSales ? parseInt(this.maxSales.value, 10) || 0 : 0,
+        maxSales: maxSalesValue,
         soldCount: this.currentSoldCount || 0,
+        itemsLeft: this.getItemsLeftValue(maxSalesValue, this.currentSoldCount),
         showCountdown: this.showCountdown ? this.showCountdown.checked : true,
         countdownVariant: this.countdownVariant ? this.countdownVariant.value : 'classic',
         showItemsLeft: this.showItemsLeft ? this.showItemsLeft.checked : false,

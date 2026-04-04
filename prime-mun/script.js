@@ -117,7 +117,10 @@ function renderItemsLeftBadge(config) {
 
     const maxSales = Number(config.maxSales || 0);
     const soldCount = Number(config.soldCount || 0);
-    const left = Math.max(0, maxSales - soldCount);
+    const explicitItemsLeft = Number(config.itemsLeft);
+    const left = Number.isFinite(explicitItemsLeft)
+        ? Math.max(0, explicitItemsLeft)
+        : Math.max(0, maxSales - soldCount);
 
     if (config.showItemsLeft && config.limitSalesEnabled && maxSales > 0) {
         badge.textContent = `ОСТАЛОСЬ ${left} ШТ.`;
