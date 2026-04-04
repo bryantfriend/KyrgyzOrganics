@@ -635,7 +635,7 @@
                     <strong>Use image for headline instead of text</strong>
                   </label>
                   <input type="file" id="campHeadlineImageFile" accept="image/*" style="display:none;">
-                  <button type="button" onclick="document.getElementById('campHeadlineImageFile').click()" class="btn-secondary" style="width: 100%; margin-top: 0.75rem;">Upload Headline Image</button>
+                  <button type="button" id="campHeadlineImageBtn" class="btn-secondary" style="width: 100%; margin-top: 0.75rem;">Upload Headline Image</button>
                   <img id="campHeadlineImagePreview" style="width: 100%; max-height: 90px; object-fit: contain; margin-top: 0.75rem; border-radius: 8px; background: #fff; border: 1px solid #dfe7d3; padding: 8px;">
                 </div>
                 <div style="display: flex; gap: 1rem;">
@@ -658,7 +658,7 @@
                     <strong>Use image for subheadline instead of text</strong>
                   </label>
                   <input type="file" id="campSubheadlineImageFile" accept="image/*" style="display:none;">
-                  <button type="button" onclick="document.getElementById('campSubheadlineImageFile').click()" class="btn-secondary" style="width: 100%; margin-top: 0.75rem;">Upload Subheadline Image</button>
+                  <button type="button" id="campSubheadlineImageBtn" class="btn-secondary" style="width: 100%; margin-top: 0.75rem;">Upload Subheadline Image</button>
                   <img id="campSubheadlineImagePreview" style="width: 100%; max-height: 90px; object-fit: contain; margin-top: 0.75rem; border-radius: 8px; background: #fff; border: 1px solid #dfe7d3; padding: 8px;">
                 </div>
                 <div>
@@ -671,7 +671,7 @@
                     <strong>Use image for promo line instead of text</strong>
                   </label>
                   <input type="file" id="campOptionalImageFile" accept="image/*" style="display:none;">
-                  <button type="button" onclick="document.getElementById('campOptionalImageFile').click()" class="btn-secondary" style="width: 100%; margin-top: 0.75rem;">Upload Promo Image</button>
+                  <button type="button" id="campOptionalImageBtn" class="btn-secondary" style="width: 100%; margin-top: 0.75rem;">Upload Promo Image</button>
                   <img id="campOptionalImagePreview" style="width: 100%; max-height: 90px; object-fit: contain; margin-top: 0.75rem; border-radius: 8px; background: #fff; border: 1px solid #dfe7d3; padding: 8px;">
                 </div>
               </div>
@@ -788,8 +788,9 @@
             </div>
             <div id="mobileFrame" style="width: 320px; height: 620px; border: 14px solid #1a1a1a; border-radius: 45px; background: #000; overflow: hidden; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
                <!-- Dynamic Mock -->
-               <div id="mockLanding" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 2rem 1.25rem; text-align: center; position: relative; overflow-y: auto;">
-                 <header id="mockHeader"><img id="mockLogo" style="height: auto; max-height: 40px; width: auto; margin: auto; transition: width 0.3s, height 0.3s;"></header>
+                <div id="mockLanding" style="height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 2rem 1.25rem; text-align: center; position: relative; overflow: hidden;">
+                  <div id="mockParticleBg" style="position:absolute; inset:0; pointer-events:none; overflow:hidden;"></div>
+                  <header id="mockHeader"><img id="mockLogo" style="height: auto; max-height: 40px; width: auto; margin: auto; transition: width 0.3s, height 0.3s;"></header>
                  <main style="margin: 1rem 0;">
                    <h1 id="mockHeadline" style="line-height: 1.2; margin-bottom: 0.5rem; transition: all 0.3s;">Headline</h1>
                    <img id="mockHeadlineImage" style="display:none; width: 100%; max-height: 90px; object-fit: contain; margin-bottom: 0.5rem;">

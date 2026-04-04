@@ -169,6 +169,10 @@ h1 {
     object-fit: contain;
 }
 
+.content-image[hidden] {
+    display: none !important;
+}
+
 .headline-image {
     max-height: 160px;
     margin-bottom: 0.75rem;

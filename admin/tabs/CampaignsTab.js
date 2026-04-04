@@ -34,12 +34,15 @@ export class CampaignsTab {
     this.optionalLine = get('campOptional');
     this.headlineUseImage = get('campHeadlineUseImage');
     this.headlineImageFile = get('campHeadlineImageFile');
+    this.headlineImageBtn = get('campHeadlineImageBtn');
     this.headlineImagePreview = get('campHeadlineImagePreview');
     this.subheadlineUseImage = get('campSubheadlineUseImage');
     this.subheadlineImageFile = get('campSubheadlineImageFile');
+    this.subheadlineImageBtn = get('campSubheadlineImageBtn');
     this.subheadlineImagePreview = get('campSubheadlineImagePreview');
     this.optionalUseImage = get('campOptionalUseImage');
     this.optionalImageFile = get('campOptionalImageFile');
+    this.optionalImageBtn = get('campOptionalImageBtn');
     this.optionalImagePreview = get('campOptionalImagePreview');
 
     // 3. Assets
@@ -69,6 +72,7 @@ export class CampaignsTab {
 
     // Mock Elements
     this.mockLanding = get('mockLanding');
+    this.mockParticleBg = get('mockParticleBg');
     this.mockLogo = get('mockLogo');
     this.mockHeadline = get('mockHeadline');
     this.mockHeadlineImage = get('mockHeadlineImage');
@@ -84,6 +88,8 @@ export class CampaignsTab {
     this.currentHeadlineImageUrl = '';
     this.currentSubheadlineImageUrl = '';
     this.currentOptionalImageUrl = '';
+    this.mockParticleAnimations = [];
+    this.mockEntranceAnimation = null;
     
     this.bindEvents();
     this.updateFieldStates();
@@ -148,6 +154,9 @@ export class CampaignsTab {
     this.bindContentImagePreview(this.headlineImageFile, this.headlineImagePreview, this.mockHeadlineImage);
     this.bindContentImagePreview(this.subheadlineImageFile, this.subheadlineImagePreview, this.mockSubheadlineImage);
     this.bindContentImagePreview(this.optionalImageFile, this.optionalImagePreview, this.mockOptionalImage);
+    this.bindContentImageButton(this.headlineImageBtn, this.headlineImageFile, this.headlineUseImage);
+    this.bindContentImageButton(this.subheadlineImageBtn, this.subheadlineImageFile, this.subheadlineUseImage);
+    this.bindContentImageButton(this.optionalImageBtn, this.optionalImageFile, this.optionalUseImage);
 
     if (this.copyBtn && this.urlLink) {
       this.copyBtn.addEventListener('click', (e) => {
@@ -188,6 +197,20 @@ export class CampaignsTab {
     });
   }
 
+  bindContentImageButton(buttonEl, fileInput, toggleEl) {
+    if (!buttonEl || !fileInput) return;
+
+    buttonEl.addEventListener('click', () => {
+      if (toggleEl && !toggleEl.checked) {
+        toggleEl.checked = true;
+        this.updateFieldStates();
+        this.updateLivePreview();
+      }
+
+      fileInput.click();
+    });
+  }
+
   updateFieldStates() {
     if (this.maxSales) {
       this.maxSales.disabled = !this.limitEnabled?.checked;
@@ -210,6 +233,122 @@ export class CampaignsTab {
     if (this.optionalImageFile) {
       this.optionalImageFile.disabled = !this.optionalUseImage?.checked;
     }
+  }
+
+  clearMockParticleAnimations() {
+    if (Array.isArray(this.mockParticleAnimations)) {
+      this.mockParticleAnimations.forEach((animation) => {
+        try {
+          animation.cancel();
+        } catch (_) {
+          // ignore stale animation handles
+        }
+      });
+    }
+    this.mockParticleAnimations = [];
+  }
+
+  renderMockParticles() {
+    if (!this.mockParticleBg) return;
+
+    this.clearMockParticleAnimations();
+    this.mockParticleBg.innerHTML = '';
+
+    const type = this.bgParticles?.value || 'none';
+    if (type === 'none') return;
+
+    const icons = {
+      sparkles: '✨',
+      float: '🍃',
+      snow: '🌸'
+    };
+    const icon = icons[type] || '•';
+    const color = this.textColor?.value || '#f9e29f';
+
+    for (let i = 0; i < 18; i += 1) {
+      const particle = document.createElement('div');
+      particle.textContent = icon;
+      particle.style.position = 'absolute';
+      particle.style.left = `${Math.random() * 100}%`;
+      particle.style.top = '100%';
+      particle.style.fontSize = `${Math.random() * 1.2 + 0.55}rem`;
+      particle.style.color = color;
+      particle.style.opacity = '0';
+      particle.style.pointerEvents = 'none';
+      this.mockParticleBg.appendChild(particle);
+
+      const drift = (Math.random() - 0.5) * 40;
+      const animation = particle.animate(
+        [
+          { transform: 'translate3d(0, 20px, 0) scale(0.4) rotate(0deg)', opacity: 0 },
+          { transform: `translate3d(${drift * 0.2}px, -40px, 0) scale(0.7) rotate(90deg)`, opacity: 0.65, offset: 0.2 },
+          { transform: `translate3d(${drift * 0.7}px, -180px, 0) scale(0.95) rotate(240deg)`, opacity: 0.65, offset: 0.8 },
+          { transform: `translate3d(${drift}px, -260px, 0) scale(1.1) rotate(360deg)`, opacity: 0 }
+        ],
+        {
+          duration: 7000 + Math.random() * 5000,
+          delay: Math.random() * 2500,
+          iterations: Infinity,
+          easing: 'linear'
+        }
+      );
+      this.mockParticleAnimations.push(animation);
+    }
+  }
+
+  runMockEntranceAnimation() {
+    if (!this.mockLanding || !this.mockLanding.animate) return;
+
+    if (this.mockEntranceAnimation) {
+      try {
+        this.mockEntranceAnimation.cancel();
+      } catch (_) {
+        // ignore stale animation handles
+      }
+    }
+
+    const variant = this.entranceAnim?.value || 'fadeUp';
+    const presets = {
+      fadeUp: {
+        keyframes: [
+          { opacity: 0, transform: 'translateY(28px)' },
+          { opacity: 1, transform: 'translateY(0)' }
+        ],
+        options: { duration: 900, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
+      },
+      zoomIn: {
+        keyframes: [
+          { opacity: 0, transform: 'scale(0.88)' },
+          { opacity: 1, transform: 'scale(1)' }
+        ],
+        options: { duration: 800, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }
+      },
+      reveal: {
+        keyframes: [
+          { opacity: 0, clipPath: 'inset(0 50% 0 50%)' },
+          { opacity: 1, clipPath: 'inset(0 0 0 0)' }
+        ],
+        options: { duration: 950, easing: 'cubic-bezier(0.77, 0, 0.175, 1)' }
+      },
+      bounce: {
+        keyframes: [
+          { opacity: 0, transform: 'scale(0.3)' },
+          { opacity: 0.9, transform: 'scale(1.08)', offset: 0.55 },
+          { opacity: 1, transform: 'scale(0.94)', offset: 0.75 },
+          { opacity: 1, transform: 'scale(1)' }
+        ],
+        options: { duration: 950, easing: 'cubic-bezier(0.28, 0.84, 0.42, 1)' }
+      }
+    };
+
+    const preset = presets[variant] || presets.fadeUp;
+    this.mockLanding.style.opacity = '1';
+    this.mockLanding.style.transform = 'none';
+    this.mockLanding.style.clipPath = 'inset(0 0 0 0)';
+    this.mockEntranceAnimation = this.mockLanding.animate(preset.keyframes, {
+      fill: 'both',
+      ...preset.options
+    });
   }
 
   updateLivePreview() {
@@ -270,6 +409,9 @@ export class CampaignsTab {
           this.mockLanding.style.backgroundImage = 'none';
       }
     }
+
+    this.renderMockParticles();
+    this.runMockEntranceAnimation();
 
     // Button
     if (this.mockBtn && this.btnColor) {

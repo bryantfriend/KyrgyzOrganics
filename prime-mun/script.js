@@ -128,22 +128,27 @@ function renderContentElement({ textEl, imageEl, useImage, imageUrl, textValue }
     if (useImage && imageUrl) {
         imageEl.src = imageUrl;
         imageEl.hidden = false;
+        imageEl.style.display = '';
         textEl.hidden = true;
+        textEl.style.display = 'none';
         return;
     }
 
     textEl.hidden = false;
+    textEl.style.display = '';
     imageEl.hidden = true;
+    imageEl.style.display = 'none';
+    imageEl.removeAttribute('src');
     if ('textContent' in textEl) {
         textEl.textContent = textValue || '';
     }
 }
 
 function spawnParticles(type, color) {
-    if (!type || type === 'none') return;
     const container = document.getElementById('particleBg');
     if (!container) return;
-    container.innerHTML = ''; // Clear previous
+    container.innerHTML = '';
+    if (!type || type === 'none') return;
     
     const count = 30;
     const icons = {
@@ -167,6 +172,13 @@ function spawnParticles(type, color) {
         p.style.animationDelay = Math.random() * 10 + 's';
         container.appendChild(p);
     }
+}
+
+function applyEntranceAnimation(element, variant = 'fadeUp') {
+    if (!element) return;
+    element.classList.remove('anim-fadeUp', 'anim-zoomIn', 'anim-reveal', 'anim-bounce');
+    void element.offsetWidth;
+    element.classList.add(`anim-${variant}`);
 }
 
 async function initCampaign() {
@@ -339,8 +351,7 @@ async function initCampaign() {
 
         // Animations
         if (mainContainer) {
-            const animClass = `anim-${s.entranceAnim || 'fadeUp'}`;
-            mainContainer.classList.add(animClass);
+            applyEntranceAnimation(mainContainer, s.entranceAnim || 'fadeUp');
             mainContainer.classList.add('loaded');
             setTimeout(() => { mainContainer.style.opacity = '1'; }, 10);
         }
