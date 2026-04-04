@@ -110,6 +110,22 @@ function startCountdown(endDate, variant = 'classic') {
     countdownTimer = window.setInterval(updateCountdown, 1000);
 }
 
+function renderItemsLeftBadge(config) {
+    const badge = document.getElementById('itemsLeftBadge');
+    if (!badge) return;
+
+    const maxSales = Number(config.maxSales || 0);
+    const soldCount = Number(config.soldCount || 0);
+    const left = Math.max(0, maxSales - soldCount);
+
+    if (config.showItemsLeft && config.limitSalesEnabled && maxSales > 0) {
+        badge.textContent = `${left} items left`;
+        badge.hidden = false;
+    } else {
+        badge.hidden = true;
+    }
+}
+
 function renderContentElement({ textEl, imageEl, useImage, imageUrl, textValue }) {
     if (!textEl || !imageEl) return;
 
@@ -259,6 +275,7 @@ async function initCampaign() {
         if (config.showCountdown !== false && endDate && endDate.getTime() > Date.now()) {
             startCountdown(endDate, config.countdownVariant || 'classic');
         }
+        renderItemsLeftBadge(config);
 
         const optionalLine = document.getElementById('optionalLine');
         const optionalLineImage = document.getElementById('optionalLineImage');

@@ -223,6 +223,23 @@ h1 {
     gap: 0.65rem;
 }
 
+.items-left-badge {
+    margin-bottom: 0.85rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    background: rgba(212, 175, 55, 0.12);
+    border: 1px solid rgba(212, 175, 55, 0.28);
+    color: #f9e29f;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
 .countdown-unit {
     border-radius: 14px;
     padding: 0.75rem 0.4rem;

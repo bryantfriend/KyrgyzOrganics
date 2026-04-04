@@ -25,6 +25,7 @@ export class CampaignsTab {
     this.undoSaleBtn = get('campUndoSaleBtn');
     this.showCountdown = get('campShowCountdown');
     this.countdownVariant = get('campCountdownVariant');
+    this.showItemsLeft = get('campShowItemsLeft');
     this.showDeliveryInfo = get('campShowDeliveryInfo');
     this.deliveryInfoText = get('campDeliveryInfoText');
 
@@ -82,6 +83,8 @@ export class CampaignsTab {
     this.mockHeadlineImage = get('mockHeadlineImage');
     this.mockSubheadline = get('mockSubheadline');
     this.mockSubheadlineImage = get('mockSubheadlineImage');
+    this.mockCountdownCard = get('mockCountdownCard');
+    this.mockItemsLeft = get('mockItemsLeft');
     this.mockImage = get('mockImage');
     this.mockOptional = get('mockOptional');
     this.mockOptionalImage = get('mockOptionalImage');
@@ -113,7 +116,7 @@ export class CampaignsTab {
       this.headline, this.headlineEN, this.headlineKG, this.subheadline, this.optionalLine,
       this.logoWidth, this.imgScale, this.bgColor, this.textColor, this.bgTexture, 
       this.headlineFont, this.headlineSize, this.btnColor, this.btnPulse,
-      this.limitEnabled, this.maxSales, this.showCountdown, this.countdownVariant,
+      this.limitEnabled, this.maxSales, this.showCountdown, this.countdownVariant, this.showItemsLeft,
       this.headlineUseImage, this.subheadlineUseImage, this.optionalUseImage,
       this.showDeliveryInfo, this.deliveryInfoText
     ].filter(el => el !== null); // Only bind to existing elements
@@ -187,6 +190,10 @@ export class CampaignsTab {
 
     if (this.showCountdown) {
       this.showCountdown.addEventListener('change', () => this.updateFieldStates());
+    }
+
+    if (this.showItemsLeft) {
+      this.showItemsLeft.addEventListener('change', () => this.updateLivePreview());
     }
 
     if (this.showDeliveryInfo) {
@@ -485,6 +492,21 @@ export class CampaignsTab {
     this.renderMockParticles();
     this.runMockEntranceAnimation();
 
+    if (this.mockCountdownCard) {
+      const showCountdown = this.showCountdown?.checked !== false;
+      this.mockCountdownCard.style.display = showCountdown ? 'block' : 'none';
+      this.mockCountdownCard.className = `countdown-card variant-${this.countdownVariant?.value || 'classic'}`;
+    }
+
+    if (this.mockItemsLeft) {
+      const maxSales = Number.parseInt(this.maxSales?.value || '0', 10) || 0;
+      const left = this.limitEnabled?.checked && maxSales > 0
+        ? Math.max(0, maxSales - this.currentSoldCount)
+        : 12;
+      this.mockItemsLeft.textContent = `${left} items left`;
+      this.mockItemsLeft.style.display = this.showItemsLeft?.checked ? 'inline-flex' : 'none';
+    }
+
     // Button
     if (this.mockBtn && this.btnColor) {
       this.mockBtn.style.backgroundColor = this.btnColor.value;
@@ -556,6 +578,7 @@ export class CampaignsTab {
         this.updateSalesStats(Number(data.soldCount || 0), Number(data.maxSales || 50));
         if (this.showCountdown) this.showCountdown.checked = data.showCountdown !== false;
         if (this.countdownVariant) this.countdownVariant.value = data.countdownVariant || 'classic';
+        if (this.showItemsLeft) this.showItemsLeft.checked = !!data.showItemsLeft;
         if (this.showDeliveryInfo) this.showDeliveryInfo.checked = !!data.showDeliveryInfo;
         if (this.deliveryInfoText) this.deliveryInfoText.value = data.deliveryInfoText || 'Delivery in under 60 minutes';
         if (this.headlineUseImage) this.headlineUseImage.checked = !!data.headlineUseImage;
@@ -645,6 +668,7 @@ export class CampaignsTab {
         soldCount: this.currentSoldCount || 0,
         showCountdown: this.showCountdown ? this.showCountdown.checked : true,
         countdownVariant: this.countdownVariant ? this.countdownVariant.value : 'classic',
+        showItemsLeft: this.showItemsLeft ? this.showItemsLeft.checked : false,
         showDeliveryInfo: this.showDeliveryInfo ? this.showDeliveryInfo.checked : false,
         deliveryInfoText: this.deliveryInfoText ? this.deliveryInfoText.value.trim() : '',
         optionalLine: this.optionalLine ? this.optionalLine.value : '',
