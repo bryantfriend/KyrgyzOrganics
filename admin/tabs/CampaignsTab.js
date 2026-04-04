@@ -478,10 +478,8 @@ export class CampaignsTab {
         if (proposed < 0) return currentSold;
         if (delta > 0 && maxSales > 0 && proposed > maxSales) return currentSold;
 
-        const nextItemsLeft = this.getItemsLeftValue(maxSales, proposed);
         transaction.set(docRef, {
-          soldCount: proposed,
-          itemsLeft: nextItemsLeft
+          soldCount: proposed
         }, { merge: true });
         return proposed;
       });
@@ -887,7 +885,6 @@ export class CampaignsTab {
         limitSalesEnabled: this.limitEnabled ? this.limitEnabled.checked : false,
         maxSales: maxSalesValue,
         soldCount: this.currentSoldCount || 0,
-        itemsLeft: this.getItemsLeftValue(maxSalesValue, this.currentSoldCount),
         showCountdown: this.showCountdown ? this.showCountdown.checked : true,
         countdownVariant: this.countdownVariant ? this.countdownVariant.value : 'classic',
         showItemsLeft: this.showItemsLeft ? this.showItemsLeft.checked : false,
