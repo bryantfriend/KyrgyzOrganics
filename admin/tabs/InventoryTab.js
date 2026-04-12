@@ -1,8 +1,9 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { logAudit } from '../utils.js';
+import { COMPANY_ID, matchesCompanyId } from '../../company-config.js';
 import {
-    collection, getDocs, getDoc, doc, setDoc, addDoc, query, orderBy, serverTimestamp
+    collection, getDocs, getDoc, doc, setDoc, addDoc, query, orderBy, serverTimestamp, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 export class InventoryTab extends BaseTab {
@@ -54,12 +55,19 @@ export class InventoryTab extends BaseTab {
         // Products
         if (this.productsCache.length === 0) {
             const snaps = await getDocs(collection(db, 'products'));
-            this.productsCache = snaps.docs.map(d => ({ id: d.id, ...d.data() }));
+            this.productsCache = snaps.docs
+                .map(d => ({ id: d.id, ...d.data() }))
+                .filter(p => matchesCompanyId(p, `products/${p.id}`));
         }
         // Categories
         if (Object.keys(this.categoriesMap).length === 0) {
             const snaps = await getDocs(collection(db, 'categories'));
-            snaps.docs.forEach(d => this.categoriesMap[d.id] = d.data());
+            snaps.docs.forEach(d => {
+                const category = { id: d.id, ...d.data() };
+                if (matchesCompanyId(category, `categories/${category.id}`)) {
+                    this.categoriesMap[d.id] = category;
+                }
+            });
         }
     }
 
@@ -79,7 +87,15 @@ export class InventoryTab extends BaseTab {
             this.inventoryCache = {};
 
             if (snap.exists()) {
-                this.inventoryCache = snap.data();
+                const inventoryData = snap.data();
+                if (inventoryData.companyId && inventoryData.companyId !== COMPANY_ID) {
+                    console.warn('Inventory companyId mismatch:', dateStr);
+                    this.inventoryCache = {};
+                } else {
+                    if (!inventoryData.companyId) console.warn('Inventory missing companyId:', dateStr);
+                    this.inventoryCache = inventoryData;
+                    delete this.inventoryCache.companyId;
+                }
                 Object.keys(this.inventoryCache).forEach(pid => this.selectedProducts.add(pid));
                 this.setStatus(`Loaded inventory for ${dateStr}`);
             } else {
@@ -222,7 +238,7 @@ export class InventoryTab extends BaseTab {
         this.saveBtn.disabled = true;
 
         try {
-            const updateData = {};
+            const updateData = { companyId: COMPANY_ID };
             // Capture Inputs
             document.querySelectorAll('.inv-qty-input').forEach(input => {
                 const pid = input.dataset.id;
@@ -257,9 +273,15 @@ export class InventoryTab extends BaseTab {
     async fetchTemplates() {
         if (!this.templateSelect) return;
         try {
-            const snap = await getDocs(query(collection(db, 'inventory_templates'), orderBy('name')));
+            const snap = await getDocs(collection(db, 'inventory_templates'));
+            const sortedDocs = snap.docs
+                .filter(d => {
+                    const template = { id: d.id, ...d.data() };
+                    return matchesCompanyId(template, `inventory_templates/${template.id}`);
+                })
+                .sort((a, b) => (a.data().name || '').localeCompare(b.data().name || ''));
             this.templateSelect.innerHTML = '<option value="">-- Select Template --</option>';
-            snap.forEach(d => {
+            sortedDocs.forEach(d => {
                 const opt = document.createElement('option');
                 opt.value = d.id;
                 opt.textContent = d.data().name;
@@ -280,7 +302,7 @@ export class InventoryTab extends BaseTab {
         });
 
         try {
-            await addDoc(collection(db, 'inventory_templates'), { name, items: data, createdAt: serverTimestamp() });
+            await addDoc(collection(db, 'inventory_templates'), { companyId: COMPANY_ID, name, items: data, createdAt: serverTimestamp() });
             alert("Template Saved!");
             this.fetchTemplates();
         } catch (e) { alert(e.message); }
@@ -292,9 +314,15 @@ export class InventoryTab extends BaseTab {
 
         const snap = await getDoc(doc(db, 'inventory_templates', id));
         if (snap.exists()) {
+            const templateData = snap.data();
+            if (templateData.companyId && templateData.companyId !== COMPANY_ID) {
+                console.warn('Inventory template companyId mismatch:', id);
+                return;
+            }
+            if (!templateData.companyId) console.warn('Inventory template missing companyId:', id);
             await this.ensureDataLoaded(); // Ensure we have products to display
-            this.applyData(snap.data().items);
-            this.setStatus(`Loaded template: ${snap.data().name}`);
+            this.applyData(templateData.items);
+            this.setStatus(`Loaded template: ${templateData.name}`);
         }
     }
 
@@ -306,8 +334,16 @@ export class InventoryTab extends BaseTab {
         if (snap.exists()) {
             await this.ensureDataLoaded();
             const raw = snap.data();
+            if (raw.companyId && raw.companyId !== COMPANY_ID) {
+                console.warn('Inventory companyId mismatch:', dateStr);
+                alert("No inventory found for this company.");
+                return;
+            }
+            if (!raw.companyId) console.warn('Inventory missing companyId:', dateStr);
             const clean = {};
-            Object.keys(raw).forEach(k => clean[k] = raw[k].available || 0);
+            Object.keys(raw).forEach(k => {
+                if (k !== 'companyId') clean[k] = raw[k].available || 0;
+            });
             this.applyData(clean);
             this.setStatus(`Copied stock from ${dateStr}`);
         } else {

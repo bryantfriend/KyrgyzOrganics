@@ -3,6 +3,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from "https://w
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl } from './product-utils.js';
 import { addCartItem, loadCart, saveCart, saveCartDay } from './shop-utils.js';
+import { COMPANY_ID, matchesCompanyId } from './company-config.js';
 
 const root = document.getElementById('productPageRoot');
 
@@ -36,14 +37,23 @@ function getTodayKey() {
 async function loadCategories() {
     const snap = await getDocs(collection(db, 'categories'));
     snap.forEach((docSnap) => {
-        categoriesMap[docSnap.id] = { id: docSnap.id, ...docSnap.data() };
+        const category = { id: docSnap.id, ...docSnap.data() };
+        if (!matchesCompanyId(category, `categories/${category.id}`)) return;
+        categoriesMap[docSnap.id] = category;
     });
 }
 
 async function loadInventory() {
     const invSnap = await getDoc(doc(db, 'inventory', getTodayKey()));
     if (invSnap.exists()) {
-        dailyInventory = invSnap.data();
+        const inventoryData = invSnap.data();
+        if (inventoryData.companyId && inventoryData.companyId !== COMPANY_ID) {
+            console.warn('Inventory companyId mismatch:', getTodayKey());
+            dailyInventory = {};
+        } else {
+            if (!inventoryData.companyId) console.warn('Inventory missing companyId:', getTodayKey());
+            dailyInventory = inventoryData;
+        }
     }
 }
 
@@ -53,18 +63,28 @@ async function loadProductFromUrl() {
     const productId = params.get('id');
 
     if (slug) {
-        const productQuery = query(collection(db, 'products'), where('slug', '==', slug), limit(1));
+        const productQuery = query(
+            collection(db, 'products'),
+            where('slug', '==', slug),
+            limit(5)
+        );
         const snap = await getDocs(productQuery);
-        if (!snap.empty) {
-            const productDoc = snap.docs[0];
-            return { id: productDoc.id, ...productDoc.data() };
-        }
+        const product = snap.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .find(p => matchesCompanyId(p, `products/${p.id}`));
+        if (product) return product;
     }
 
     if (productId) {
         const productDoc = await getDoc(doc(db, 'products', productId));
         if (productDoc.exists()) {
-            return { id: productDoc.id, ...productDoc.data() };
+            const productData = productDoc.data();
+            if (productData.companyId && productData.companyId !== COMPANY_ID) {
+                console.warn('Product companyId mismatch:', productId);
+                return null;
+            }
+            if (!productData.companyId) console.warn('Product missing companyId:', productId);
+            return { id: productDoc.id, ...productData };
         }
     }
 

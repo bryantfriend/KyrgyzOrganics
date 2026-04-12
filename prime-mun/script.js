@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, collection, addDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, collection, addDoc, serverTimestamp, onSnapshot, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { COMPANY_ID, matchesCompanyId } from "../company-config.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyB2azgMx3VRCqKTVj4zhdqv51o6w1cAtxI",
@@ -32,6 +33,7 @@ let campaignUnsubscribe = null;
 async function logEvent(actionType, actionValue = '') {
     try {
         await addDoc(collection(db, 'campaign_events'), {
+            companyId: COMPANY_ID,
             campaignId: 'prime-mun',
             sessionId: getSessionId(),
             timestamp: serverTimestamp(),
@@ -54,7 +56,7 @@ function buildWhatsAppUrl(config, headlineText) {
 
     const message = [
         'Hello!',
-        `I want to order: ${headlineText || config.headline || 'Prime MUN Box'}.`,
+        `I want to order: ${headlineText || config.headline || 'Campaign offer'}.`,
         sourceParam && sourceParam !== 'unknown' ? `Source: ${sourceParam}` : ''
     ].filter(Boolean).join('\n');
 
@@ -148,6 +150,160 @@ function renderLogos(config, styles = {}) {
     });
 }
 
+function buildCampaignSilhouette(title = 'Coming Soon') {
+    return `
+        <div class="timeline-silhouette">
+            <div class="silhouette-arch"></div>
+            <div class="silhouette-lines">
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        <span>${title}</span>
+    `;
+}
+
+function toCampaignDate(value) {
+    if (!value) return null;
+    if (typeof value.toDate === 'function') return value.toDate();
+    if (value instanceof Date) return value;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getCampaignTitle(campaign = {}, fallback = 'Campaign') {
+    return campaign.timelineTitle || campaign.headline || campaign.headlineEN || campaign.headlineKG || campaign.title || fallback;
+}
+
+function getCampaignImage(campaign = {}) {
+    return campaign.timelineImageUrl || campaign.imageUrl || campaign.optionalImageUrl || '';
+}
+
+function getCampaignUrl(campaign = {}) {
+    if (campaign.url) return campaign.url;
+    if (campaign.campaignUrl) return campaign.campaignUrl;
+    if (campaign.slug) return `/${String(campaign.slug).replace(/^\/+|\/+$/g, '')}/`;
+    if (campaign.id === 'prime-mun') return '/prime-mun/';
+    return '/prime-mun/';
+}
+
+function getFallbackCampaignTimeline(currentCampaign = {}) {
+    const fallbackTimeline = [
+        { key: 'past1', status: 'past', title: 'Previous Drop', imageUrl: '' },
+        { key: 'past2', status: 'past', title: 'Last Campaign', imageUrl: '' },
+        { key: 'current', status: 'current', title: getCampaignTitle(currentCampaign, 'Current Campaign'), imageUrl: getCampaignImage(currentCampaign), url: getCampaignUrl(currentCampaign) },
+        { key: 'future1', status: 'future', title: 'Coming Soon', imageUrl: '' },
+        { key: 'future2', status: 'future', title: 'Next Surprise', imageUrl: '' }
+    ];
+    const savedTimeline = Array.isArray(currentCampaign.campaignTimeline) ? currentCampaign.campaignTimeline : [];
+
+    return fallbackTimeline.map((fallback) => ({
+        ...fallback,
+        ...(savedTimeline.find(item => item.key === fallback.key) || {})
+    }));
+}
+
+function campaignToTimelineItem(campaign, key, status, fallbackTitle) {
+    return {
+        key,
+        status,
+        title: getCampaignTitle(campaign, fallbackTitle),
+        imageUrl: getCampaignImage(campaign),
+        url: getCampaignUrl(campaign)
+    };
+}
+
+function buildCampaignTimelineFromDocs(campaigns, currentCampaign) {
+    const now = new Date();
+    const fallbackTimeline = getFallbackCampaignTimeline(currentCampaign);
+    const fallbackByKey = Object.fromEntries(fallbackTimeline.map(item => [item.key, item]));
+    const currentId = currentCampaign.id || 'prime-mun';
+
+    const pastCampaigns = campaigns
+        .filter(campaign => campaign.id !== currentId)
+        .filter(campaign => {
+            const end = toCampaignDate(campaign.endDate);
+            return end && end < now;
+        })
+        .sort((a, b) => toCampaignDate(b.endDate) - toCampaignDate(a.endDate))
+        .slice(0, 2)
+        .reverse();
+
+    const futureCampaigns = campaigns
+        .filter(campaign => campaign.id !== currentId)
+        .filter(campaign => {
+            const start = toCampaignDate(campaign.startDate);
+            return start && start > now;
+        })
+        .sort((a, b) => toCampaignDate(a.startDate) - toCampaignDate(b.startDate))
+        .slice(0, 2);
+
+    return [
+        pastCampaigns[0] ? campaignToTimelineItem(pastCampaigns[0], 'past1', 'past', 'Previous Campaign') : fallbackByKey.past1,
+        pastCampaigns[1] ? campaignToTimelineItem(pastCampaigns[1], 'past2', 'past', 'Last Campaign') : fallbackByKey.past2,
+        campaignToTimelineItem(currentCampaign, 'current', 'current', fallbackByKey.current?.title || 'Current Campaign'),
+        futureCampaigns[0] ? campaignToTimelineItem(futureCampaigns[0], 'future1', 'future', 'Coming Soon') : fallbackByKey.future1,
+        futureCampaigns[1] ? campaignToTimelineItem(futureCampaigns[1], 'future2', 'future', 'Next Surprise') : fallbackByKey.future2
+    ].filter(Boolean);
+}
+
+async function resolveCampaignTimeline(config, headlineText) {
+    const currentCampaign = {
+        id: 'prime-mun',
+        ...config,
+        headline: headlineText || config.headline
+    };
+
+    try {
+        const campaignsSnap = await getDocs(collection(db, 'campaigns'));
+        const campaigns = campaignsSnap.docs
+            .map(campaignDoc => ({ id: campaignDoc.id, ...campaignDoc.data() }))
+            .filter(campaign => matchesCompanyId(campaign, `campaigns/${campaign.id}`));
+
+        const hasCurrent = campaigns.some(campaign => campaign.id === currentCampaign.id);
+        return buildCampaignTimelineFromDocs(hasCurrent ? campaigns : [...campaigns, currentCampaign], currentCampaign);
+    } catch (error) {
+        console.warn('Campaign timeline load failed:', error);
+        return getFallbackCampaignTimeline(currentCampaign);
+    }
+}
+
+async function renderCampaignTimeline(config, headlineText) {
+    const timelineEl = document.getElementById('campaignTimeline');
+    if (!timelineEl) return;
+
+    if (config.showCampaignJourney === false) {
+        timelineEl.hidden = true;
+        timelineEl.innerHTML = '';
+        return;
+    }
+
+    const timeline = await resolveCampaignTimeline(config, headlineText);
+
+    timelineEl.hidden = false;
+    timelineEl.innerHTML = `
+        <div class="timeline-kicker">Campaign Journey</div>
+        <div class="timeline-track">
+            ${timeline.map((item) => {
+                const status = item.status || 'future';
+                const title = item.title || (status === 'future' ? 'Coming Soon' : 'Campaign');
+                const imageUrl = item.imageUrl || '';
+                const imageMarkup = imageUrl
+                    ? `<img src="${imageUrl}" alt="${title}">`
+                    : buildCampaignSilhouette(title);
+
+                return `
+                    <article class="timeline-card ${status === 'current' ? 'is-current' : ''} ${status === 'future' ? 'is-future' : ''}">
+                        <div class="timeline-image">${imageMarkup}</div>
+                        <div class="timeline-label">${status === 'current' ? 'Now' : status === 'future' ? 'Soon' : 'Past'}</div>
+                        <h3>${title}</h3>
+                    </article>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
 function renderContentElement({ textEl, imageEl, useImage, imageUrl, textValue }) {
     if (!textEl || !imageEl) return;
 
@@ -221,6 +377,8 @@ async function initCampaign() {
         campaignUnsubscribe = onSnapshot(campaignRef, (campaignSnap) => {
             if (!campaignSnap.exists()) throw new Error("No campaign config");
             const config = campaignSnap.data();
+            if (config.companyId && config.companyId !== COMPANY_ID) throw new Error("Campaign unavailable for this company");
+            if (!config.companyId) console.warn('Campaign missing companyId: prime-mun');
             const s = config.styles || {};
             const soldCount = Number(config.soldCount || 0);
 
@@ -260,6 +418,7 @@ async function initCampaign() {
             let headlineText = config.headline;
             if (langParam === 'en' && config.headlineEN) headlineText = config.headlineEN;
             if (langParam === 'kg' && config.headlineKG) headlineText = config.headlineKG;
+            renderCampaignTimeline(config, headlineText);
 
             const h1 = document.getElementById('headline');
             const headlineImage = document.getElementById('headlineImage');

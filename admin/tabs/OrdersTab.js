@@ -1,7 +1,8 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
+import { getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
 import {
-    collection, query, where, orderBy, getDocs, doc, updateDoc, runTransaction, serverTimestamp
+    collection, query, where, orderBy, getDocs, getDoc, doc, updateDoc, runTransaction, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { storage } from '../../firebase-config.js';
 import { ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
@@ -45,13 +46,13 @@ export class OrdersTab extends BaseTab {
         try {
             let q;
             if (statusFilter === 'all') {
-                q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+                q = query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId()), orderBy('createdAt', 'desc'));
             } else {
-                q = query(collection(db, 'orders'), where('status', '==', statusFilter), orderBy('createdAt', 'desc'));
+                q = query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId()), where('status', '==', statusFilter), orderBy('createdAt', 'desc'));
             }
 
             const snap = await getDocs(q);
-            await this.renderList(snap.docs);
+            await this.renderList(this.filterCompanyDocs(snap.docs, 'orders'));
         } catch (e) {
             console.error("Load Orders Error:", e);
             this.list.innerHTML = `<p style="color:red">Error: ${e.message}</p>`;
@@ -60,11 +61,20 @@ export class OrdersTab extends BaseTab {
             if (e.message.includes("requires an index")) {
                 this.list.innerHTML += `<p style="font-size:0.8rem; color:#666;">(Missing Index for current filter)</p>`;
                 // Fallback: client side filter
-                const allSnap = await getDocs(query(collection(db, 'orders'), orderBy('createdAt', 'desc')));
-                const filtered = allSnap.docs.filter(d => statusFilter === 'all' || d.data().status === statusFilter);
-                await this.renderList(filtered);
+                const allSnap = await getDocs(query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId())));
+                const filtered = allSnap.docs
+                    .filter(d => statusFilter === 'all' || d.data().status === statusFilter)
+                    .sort((a, b) => (b.data().createdAt?.toMillis?.() || 0) - (a.data().createdAt?.toMillis?.() || 0));
+                await this.renderList(this.filterCompanyDocs(filtered, 'orders'));
             }
         }
+    }
+
+    filterCompanyDocs(docs, collectionName) {
+        return docs.filter((docSnap) => {
+            const data = { id: docSnap.id, ...docSnap.data() };
+            return matchesCompanyId(data, `${collectionName}/${data.id}`);
+        });
     }
 
     async renderList(docs) {
@@ -208,9 +218,23 @@ export class OrdersTab extends BaseTab {
         }
     }
 
+    async ensureCompanyOrder(orderId) {
+        const orderSnap = await getDoc(doc(db, 'orders', orderId));
+        if (!orderSnap.exists()) throw new Error('Order not found');
+
+        const order = orderSnap.data();
+        if (order.companyId && !matchesCompanyId(order, `orders/${orderId}`)) {
+            throw new Error('Order belongs to another company');
+        }
+        if (!order.companyId) {
+            console.warn('Order missing companyId:', orderId);
+        }
+    }
+
     async verifyOrder(orderId) {
         if (!confirm("Confirm payment received? Status will be PAID.")) return;
         try {
+            await this.ensureCompanyOrder(orderId);
             await updateDoc(doc(db, 'orders', orderId), {
                 status: 'paid',
                 paymentStatus: 'paid',
@@ -233,6 +257,7 @@ export class OrdersTab extends BaseTab {
 
     async markOrderPreparing(orderId) {
         try {
+            await this.ensureCompanyOrder(orderId);
             await updateDoc(doc(db, 'orders', orderId), {
                 status: 'preparing',
                 preparingAt: serverTimestamp()
@@ -243,6 +268,7 @@ export class OrdersTab extends BaseTab {
 
     async markOrderDelivered(orderId) {
         try {
+            await this.ensureCompanyOrder(orderId);
             await updateDoc(doc(db, 'orders', orderId), {
                 status: 'delivered',
                 deliveredAt: serverTimestamp()
@@ -253,6 +279,7 @@ export class OrdersTab extends BaseTab {
 
     async markOrderOutForDelivery(orderId, deliveryMethod = 'delivery') {
         try {
+            await this.ensureCompanyOrder(orderId);
             const timestampField = deliveryMethod === 'pickup' ? 'readyForPickupAt' : 'outForDeliveryAt';
 
             await updateDoc(doc(db, 'orders', orderId), {
@@ -281,6 +308,7 @@ export class OrdersTab extends BaseTab {
             // Find expired reserved orders
             const q = query(
                 collection(db, 'orders'),
+                where('companyId', '==', getCurrentCompanyId()),
                 where('status', '==', 'pending_payment'),
                 where('createdAt', '<', cutoff)
             );
@@ -290,9 +318,10 @@ export class OrdersTab extends BaseTab {
                 snap = await getDocs(q);
             } catch (e) {
                 // Client-side fallback if index missing
-                const all = await getDocs(query(collection(db, 'orders'), where('status', '==', 'pending_payment')));
+                const all = await getDocs(query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId()), where('status', '==', 'pending_payment')));
                 snap = { docs: all.docs.filter(d => d.data().createdAt.toDate() < cutoff) };
             }
+            snap.docs = this.filterCompanyDocs(snap.docs, 'orders');
 
             if (snap.docs.length === 0) {
                 return alert("No expired orders found.");
@@ -316,6 +345,8 @@ export class OrdersTab extends BaseTab {
             if (!orderSnap.exists()) throw "Order not found";
 
             const order = orderSnap.data();
+            if (order.companyId && !matchesCompanyId(order, `orders/${orderId}`)) throw "Order belongs to another company";
+            if (!order.companyId) console.warn('Order missing companyId:', orderId);
             if (['cancelled', 'delivered'].includes(order.status)) throw "Order already finalized";
 
             // Release Stock
@@ -330,6 +361,8 @@ export class OrdersTab extends BaseTab {
 
                 if (invSnap.exists()) {
                     const invData = invSnap.data();
+                    if (invData.companyId && !matchesCompanyId(invData, `inventory/${dateStr}`)) throw "Inventory belongs to another company";
+                    if (!invData.companyId) console.warn('Inventory missing companyId:', dateStr);
                     const updates = {};
 
                     items.forEach(item => {

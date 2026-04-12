@@ -1,5 +1,6 @@
 import { auth } from '../firebase-config.js';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { ensureBaseCompanies, loadUserCompany, login } from '../tenant-auth.js';
 import { CategoriesTab } from './tabs/CategoriesTab.js';
 import { ProductsTab } from './tabs/ProductsTab.js';
 import { BannersTab } from './tabs/BannersTab.js';
@@ -9,7 +10,7 @@ import { SettingsTab } from './tabs/SettingsTab.js';
 import { OrdersTab } from './tabs/OrdersTab.js';
 import { AuditTab } from './tabs/AuditTab.js';
 import { AnalyticsTab } from './tabs/AnalyticsTab.js';
-import { CampaignsTab } from './tabs/CampaignsTab.js';
+import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 
 class AdminApp {
   constructor() {
@@ -39,11 +40,22 @@ class AdminApp {
   }
 
   setupAuth() {
-    onAuthStateChanged(auth, user => {
+    onAuthStateChanged(auth, async user => {
       this.authScreen.hidden = !!user;
       this.mainApp.hidden = !user;
       if (user) {
-        this.onLogin();
+        try {
+          await loadUserCompany(user);
+          await ensureBaseCompanies().catch(err => {
+            console.warn("Base company seed skipped:", err);
+          });
+          this.onLogin();
+        } catch (err) {
+          console.error("Company context failed:", err);
+          this.authScreen.hidden = false;
+          this.mainApp.hidden = true;
+          await signOut(auth);
+        }
       }
     });
 
@@ -57,7 +69,7 @@ class AdminApp {
         const errorP = document.getElementById('loginError');
 
         try {
-          await signInWithEmailAndPassword(auth, email, pwd);
+          await login(email, pwd);
           this.loginForm.reset();
           if (errorP) errorP.textContent = '';
         } catch (err) {

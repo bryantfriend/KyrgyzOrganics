@@ -7,11 +7,22 @@ admin.initializeApp();
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
+const COMPANY_ID = "kyrgyz-organics";
 
 const DEFAULT_CHECKOUT_SETTINGS = {
     deliveryFee: 200,
     freeDeliveryThreshold: 3000
 };
+
+function ensureCompanyDoc(data, label, id) {
+    if (data?.companyId && data.companyId !== COMPANY_ID) {
+        throw new functions.https.HttpsError('permission-denied', `${label} belongs to another company`);
+    }
+
+    if (!data?.companyId) {
+        console.warn(`${label} missing companyId:`, id);
+    }
+}
 
 function asTrimmedString(value, maxLength = 500) {
     return String(value || '').trim().slice(0, maxLength);
@@ -58,9 +69,11 @@ function calculateDeliveryFee(subtotal, deliveryMethod, settings) {
 async function getCheckoutSettings() {
     try {
         const snap = await db.doc('shop_settings/checkout').get();
-        return snap.exists
-            ? { ...DEFAULT_CHECKOUT_SETTINGS, ...snap.data() }
-            : { ...DEFAULT_CHECKOUT_SETTINGS };
+        if (!snap.exists) return { ...DEFAULT_CHECKOUT_SETTINGS };
+
+        const data = snap.data() || {};
+        ensureCompanyDoc(data, 'Checkout settings', 'shop_settings/checkout');
+        return { ...DEFAULT_CHECKOUT_SETTINGS, ...data };
     } catch (error) {
         console.warn('Checkout settings fallback:', error);
         return { ...DEFAULT_CHECKOUT_SETTINGS };
@@ -160,6 +173,7 @@ async function releaseInventory(tx, dateStr, items) {
     if (!inventorySnap.exists) return;
 
     const inventoryData = inventorySnap.data() || {};
+    ensureCompanyDoc(inventoryData, 'Inventory', dateStr);
     const inventoryUpdates = {};
 
     items.forEach((item) => {
@@ -207,6 +221,7 @@ exports.createOrder = functions.https.onCall(async (data) => {
         }
 
         const inventoryData = inventorySnap.data() || {};
+        ensureCompanyDoc(inventoryData, 'Inventory', dateStr);
         const productSnaps = await Promise.all(
             normalizedItems.map((item) => tx.get(db.doc(`products/${item.productId}`)))
         );
@@ -223,6 +238,7 @@ exports.createOrder = functions.https.onCall(async (data) => {
             }
 
             const product = productSnap.data();
+            ensureCompanyDoc(product, 'Product', item.productId);
             if (product.active === false) {
                 throw new functions.https.HttpsError('failed-precondition', 'One of the products is inactive');
             }
@@ -260,6 +276,7 @@ exports.createOrder = functions.https.onCall(async (data) => {
 
         tx.update(inventoryRef, inventoryUpdates);
         tx.set(orderRef, {
+            companyId: COMPANY_ID,
             date: dateStr,
             itemCount,
             items: orderItems,
@@ -313,9 +330,11 @@ exports.submitPaymentProof = functions.https.onCall(async (data) => {
 
     if (paymentMethodId) {
         const methodSnap = await db.doc(`payment_methods/${paymentMethodId}`).get();
-        if (!methodSnap.exists || methodSnap.data()?.active === false) {
+        const method = methodSnap.data() || {};
+        if (!methodSnap.exists || method.active === false) {
             throw new functions.https.HttpsError('failed-precondition', 'Payment method is unavailable');
         }
+        ensureCompanyDoc(method, 'Payment method', paymentMethodId);
     }
 
     const file = admin.storage().bucket().file(receiptPath);
@@ -344,6 +363,7 @@ exports.submitPaymentProof = functions.https.onCall(async (data) => {
         }
 
         const order = orderSnap.data();
+        ensureCompanyDoc(order, 'Order', orderId);
         ensureOrderToken(order, orderToken);
 
         if (!['pending_payment', 'reserved'].includes(order.status)) {
@@ -386,6 +406,7 @@ exports.cancelOrder = functions.https.onCall(async (data) => {
         }
 
         const order = orderSnap.data();
+        ensureCompanyDoc(order, 'Order', orderId);
         ensureOrderToken(order, orderToken);
 
         if (!['pending_payment', 'reserved'].includes(order.status)) {
@@ -420,6 +441,7 @@ exports.getOrderStatus = functions.https.onCall(async (data) => {
     }
 
     const order = orderSnap.data();
+    ensureCompanyDoc(order, 'Order', orderId);
     ensureOrderToken(order, orderToken);
 
     return {

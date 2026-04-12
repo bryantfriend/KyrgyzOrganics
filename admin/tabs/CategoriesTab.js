@@ -1,7 +1,8 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
+import { getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
 import {
-    collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, getDoc
+    collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, getDoc, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 export class CategoriesTab extends BaseTab {
@@ -71,7 +72,16 @@ export class CategoriesTab extends BaseTab {
 
     async handleSubmit(e) {
         e.preventDefault();
+        if (this.cId.value) {
+            const existingSnap = await getDoc(doc(db, 'categories', this.cId.value));
+            if (!existingSnap.exists() || !matchesCompanyId({ id: existingSnap.id, ...existingSnap.data() }, `categories/${this.cId.value}`)) {
+                alert('This category is not available for your company.');
+                return;
+            }
+        }
+
         const data = {
+            companyId: getCurrentCompanyId(),
             name_ru: this.cNameRU.value,
             name_en: this.cNameEN.value,
             name_kg: this.cNameKG.value,
@@ -101,6 +111,11 @@ export class CategoriesTab extends BaseTab {
         if (!docSnap.exists()) return;
 
         const data = docSnap.data();
+        if (data.companyId && !matchesCompanyId(data, `categories/${id}`)) {
+            console.warn('Category companyId mismatch:', id);
+            return;
+        }
+        if (!data.companyId) console.warn('Category missing companyId:', id);
         this.cId.value = id;
         this.cNameRU.value = data.name_ru || '';
         this.cNameEN.value = data.name_en || '';
@@ -121,17 +136,31 @@ export class CategoriesTab extends BaseTab {
 
     async deleteCategory(id) {
         if (confirm('Delete this category?')) {
+            const docSnap = await getDoc(doc(db, 'categories', id));
+            if (!docSnap.exists() || !matchesCompanyId({ id: docSnap.id, ...docSnap.data() }, `categories/${id}`)) {
+                alert('This category is not available for your company.');
+                return;
+            }
             await deleteDoc(doc(db, 'categories', id));
         }
     }
 
     loadCategories() {
         if (!this.list) return;
-        const q = query(collection(db, 'categories'), orderBy('name_ru'));
+        const q = query(collection(db, 'categories'), where('companyId', '==', getCurrentCompanyId()));
 
         onSnapshot(q, snapshot => {
             this.list.innerHTML = '';
-            snapshot.forEach(docSnap => {
+            const sortedDocs = snapshot.docs.filter(docSnap => {
+                const category = { id: docSnap.id, ...docSnap.data() };
+                return matchesCompanyId(category, `categories/${category.id}`);
+            }).sort((a, b) => {
+                const aName = a.data().name_ru || a.data().name_en || '';
+                const bName = b.data().name_ru || b.data().name_en || '';
+                return aName.localeCompare(bName);
+            });
+
+            sortedDocs.forEach(docSnap => {
                 const c = docSnap.data();
                 const el = document.createElement('div');
                 el.className = 'list-item';

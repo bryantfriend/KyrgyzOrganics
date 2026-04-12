@@ -1,5 +1,6 @@
 import { db } from './firebase-config.js';
 import { collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { COMPANY_ID, matchesCompanyId } from './company-config.js';
 
 // --- STATE ---
 let currentLang = localStorage.getItem('site_lang') || 'ru'; // Default RU
@@ -71,18 +72,23 @@ async function loadData() {
             getDocs(collection(db, "banners"))
         ]);
 
-        products = pRes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        products = pRes.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(p => matchesCompanyId(p, `products/${p.id}`));
 
         categories = [];
         cRes.docs.forEach(doc => {
             const data = { id: doc.id, ...doc.data() };
+            if (!matchesCompanyId(data, `categories/${data.id}`)) return;
             categories.push(data);
             categoriesMap[doc.id] = data;
         });
 
         categories.sort((a, b) => loc(a, 'name').localeCompare(loc(b, 'name')));
 
-        bannerData = bRes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        bannerData = bRes.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(b => matchesCompanyId(b, `banners/${b.id}`));
 
     } catch (e) {
         console.error("Error loading data:", e);

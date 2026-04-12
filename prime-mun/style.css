@@ -361,6 +361,147 @@ h1 {
     transition: all 0.8s cubic-bezier(0.2, 1, 0.3, 1);
 }
 
+.campaign-timeline {
+    margin: 1rem 0 0.55rem;
+    padding: 0.8rem 0.15rem;
+}
+
+.timeline-kicker {
+    color: rgba(249, 226, 159, 0.68);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    margin-bottom: 0.75rem;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.timeline-track {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(48px, 1fr));
+    align-items: center;
+    gap: 0.32rem;
+}
+
+.timeline-card {
+    min-width: 0;
+    opacity: 0.82;
+    text-align: center;
+    transform: scale(1);
+    transform-origin: center;
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.timeline-card.is-current {
+    opacity: 1;
+}
+
+.timeline-card:hover,
+.timeline-card:focus-visible {
+    opacity: 1;
+    transform: scale(1.07);
+}
+
+.timeline-image {
+    aspect-ratio: 1 / 0.86;
+    border: 1px solid rgba(249, 226, 159, 0.16);
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at 50% 20%, rgba(249, 226, 159, 0.16), transparent 48%),
+        linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+    box-shadow: inset 0 0 18px rgba(255,255,255,0.04);
+    display: grid;
+    overflow: hidden;
+    place-items: center;
+    transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.timeline-image img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+}
+
+.timeline-card.is-current .timeline-image {
+    border-color: rgba(249, 226, 159, 0.58);
+    border-radius: 16px;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.24), 0 0 0 1px rgba(249, 226, 159, 0.18);
+}
+
+.timeline-card:hover .timeline-image,
+.timeline-card:focus-visible .timeline-image {
+    border-color: rgba(249, 226, 159, 0.5);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.22), inset 0 0 18px rgba(255,255,255,0.04);
+}
+
+.timeline-card.is-future .timeline-image {
+    border-style: dashed;
+}
+
+.timeline-card.is-future img {
+    filter: grayscale(1) brightness(0.48) contrast(1.25);
+    opacity: 0.42;
+}
+
+.timeline-label {
+    color: rgba(249, 226, 159, 0.55);
+    font-size: 0.48rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    margin-top: 0.32rem;
+    text-transform: uppercase;
+}
+
+.timeline-card h3 {
+    color: currentColor;
+    font-size: 0.54rem;
+    font-weight: 700;
+    line-height: 1.15;
+    margin-top: 0.18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.timeline-card.is-current h3 {
+    font-size: 0.62rem;
+}
+
+.timeline-silhouette {
+    width: 68%;
+    height: 68%;
+    display: grid;
+    gap: 0.3rem;
+    justify-items: center;
+    opacity: 0.62;
+}
+
+.silhouette-arch {
+    width: 58%;
+    aspect-ratio: 0.8;
+    border-radius: 999px 999px 18px 18px;
+    background: linear-gradient(180deg, rgba(249,226,159,0.52), rgba(249,226,159,0.12));
+    filter: blur(0.2px);
+}
+
+.silhouette-lines {
+    width: 100%;
+    display: grid;
+    gap: 0.2rem;
+}
+
+.silhouette-lines span {
+    height: 0.28rem;
+    border-radius: 999px;
+    background: rgba(249,226,159,0.28);
+}
+
+.silhouette-lines span:last-child {
+    width: 68%;
+    justify-self: center;
+}
+
 .landing-container.loaded .product-image {
     transform: translateY(0);
     opacity: 1;
@@ -493,6 +634,28 @@ h1 {
 
     .product-image {
         border-radius: 14px;
+    }
+
+    .campaign-timeline {
+        margin-left: -0.15rem;
+        margin-right: -0.15rem;
+        overflow: hidden;
+    }
+
+    .timeline-track {
+        grid-auto-columns: 76px;
+        grid-auto-flow: column;
+        grid-template-columns: none;
+        overflow-x: auto;
+        padding: 0.05rem 0.15rem 0.35rem;
+        scroll-padding-inline: 0.15rem;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .timeline-card {
+        min-width: 76px;
+        scroll-snap-align: center;
     }
 
     .cta-dock {

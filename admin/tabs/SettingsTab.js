@@ -1,8 +1,9 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { uploadImage } from '../utils.js';
+import { COMPANY_ID, matchesCompanyId } from '../../company-config.js';
 import {
-    collection, addDoc, deleteDoc, doc, query, orderBy, getDocs, getDoc, setDoc, serverTimestamp
+    collection, addDoc, deleteDoc, doc, query, orderBy, getDocs, getDoc, setDoc, serverTimestamp, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 export class SettingsTab extends BaseTab {
@@ -44,8 +45,10 @@ export class SettingsTab extends BaseTab {
             }
 
             this.list.innerHTML = '';
-            snap.forEach(d => {
-                const m = d.data();
+            snap.docs
+                .map(d => ({ id: d.id, ...d.data() }))
+                .filter(m => matchesCompanyId(m, `payment_methods/${m.id}`))
+                .forEach(m => {
                 const el = document.createElement('div');
                 el.className = 'list-item';
                 el.innerHTML = `
@@ -57,7 +60,7 @@ export class SettingsTab extends BaseTab {
                         </div>
                     </div>
                     <div>
-                         <button onclick="deletePaymentMethod('${d.id}')" style="background:none; border:none; cursor:pointer;">🗑️</button>
+                         <button onclick="deletePaymentMethod('${m.id}')" style="background:none; border:none; cursor:pointer;">🗑️</button>
                     </div>
                 `;
                 this.list.appendChild(el);
@@ -83,6 +86,7 @@ export class SettingsTab extends BaseTab {
             }
 
             await addDoc(collection(db, 'payment_methods'), {
+                companyId: COMPANY_ID,
                 name: document.getElementById('methodBank').value,
                 accountName: document.getElementById('methodAccountName').value,
                 number: document.getElementById('methodNumber').value,
@@ -113,6 +117,11 @@ export class SettingsTab extends BaseTab {
         try {
             const snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
             const data = snap.exists() ? snap.data() : {};
+            if (data.companyId && data.companyId !== COMPANY_ID) {
+                console.warn('Checkout settings companyId mismatch');
+                return;
+            }
+            if (snap.exists() && !data.companyId) console.warn('Checkout settings missing companyId');
 
             if (this.deliveryFee) this.deliveryFee.value = data.deliveryFee ?? 200;
             if (this.freeThreshold) this.freeThreshold.value = data.freeDeliveryThreshold ?? 3000;
@@ -125,6 +134,7 @@ export class SettingsTab extends BaseTab {
     async saveCheckoutSettings() {
         try {
             await setDoc(doc(db, 'shop_settings', 'checkout'), {
+                companyId: COMPANY_ID,
                 deliveryFee: Number(this.deliveryFee?.value || 0),
                 freeDeliveryThreshold: Number(this.freeThreshold?.value || 0),
                 supportWhatsappNumber: String(this.supportWhatsappNumber?.value || '').trim(),

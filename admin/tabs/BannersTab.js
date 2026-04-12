@@ -1,8 +1,9 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { uploadImage } from '../utils.js';
+import { COMPANY_ID, matchesCompanyId } from '../../company-config.js';
 import {
-    collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, serverTimestamp
+    collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, serverTimestamp, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 export class BannersTab extends BaseTab {
@@ -32,15 +33,21 @@ export class BannersTab extends BaseTab {
     }
 
     async loadBanners() {
-        const q = query(collection(db, 'banners'), orderBy('order'));
+        const q = collection(db, 'banners');
         onSnapshot(q, async snapshot => {
-            await this.autoEnableScheduledBanners(snapshot);
-            await this.autoDisableExpiredBanners(snapshot);
+            const companyDocs = snapshot.docs.filter(docSnap => {
+                const banner = { id: docSnap.id, ...docSnap.data() };
+                return matchesCompanyId(banner, `banners/${banner.id}`);
+            });
+            const companySnapshot = { docs: companyDocs };
+            await this.autoEnableScheduledBanners(companySnapshot);
+            await this.autoDisableExpiredBanners(companySnapshot);
 
             this.list.innerHTML = '';
-            this.bannerCount = snapshot.size;
+            this.bannerCount = companyDocs.length;
+            const sortedDocs = companyDocs.sort((a, b) => (Number(a.data().order) || 0) - (Number(b.data().order) || 0));
 
-            snapshot.forEach(docSnap => {
+            sortedDocs.forEach(docSnap => {
                 const b = docSnap.data();
                 const el = document.createElement('div');
                 el.className = 'list-item';
@@ -100,6 +107,7 @@ export class BannersTab extends BaseTab {
             const endAt = this.bEndAt.value ? new Date(this.bEndAt.value) : null;
 
             await addDoc(collection(db, 'banners'), {
+                companyId: COMPANY_ID,
                 imageUrl,
                 active: this.bActive.checked,
                 startAt,

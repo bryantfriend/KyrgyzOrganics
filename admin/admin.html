@@ -540,7 +540,7 @@
         <!-- Header & Stats -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 2px solid #7cb342; padding-bottom: 1rem;">
           <div>
-            <h2 style="margin: 0; color: #2e7d32;">Prime MUN Command Center</h2>
+            <h2 style="margin: 0; color: #2e7d32;">Campaign Command Center</h2>
             <p style="color:#666; font-size: 0.9rem; margin: 4px 0 0 0;">Visual Stylist & Campaign Analytics</p>
           </div>
           <div style="display: flex; gap: 1.5rem; align-items: center;">
@@ -637,6 +637,14 @@
               <div class="form-row" style="margin-top: 1rem;">
                 <div class="form-group">
                   <label style="cursor:pointer; display:flex; align-items:center; gap: 10px;">
+                    <input type="checkbox" id="campShowCampaignJourney" style="width:auto; transform: scale(1.1);" checked>
+                    <strong>Show Campaign Journey</strong>
+                  </label>
+                </div>
+              </div>
+              <div class="form-row" style="margin-top: 1rem;">
+                <div class="form-group">
+                  <label style="cursor:pointer; display:flex; align-items:center; gap: 10px;">
                     <input type="checkbox" id="campShowDeliveryInfo" style="width:auto; transform: scale(1.1);">
                     <strong>Show Bottom Info Box</strong>
                   </label>
@@ -654,7 +662,7 @@
               <div style="display: flex; gap: 1rem; flex-direction: column;">
                 <div>
                   <label style="font-size: 0.85rem; font-weight: bold; color: #555;">Russian Headline (Default)</label>
-                  <input type="text" id="campHeadline" required placeholder="Prime MUN Box" style="margin-top: 4px;">
+                  <input type="text" id="campHeadline" required placeholder="Campaign headline" style="margin-top: 4px;">
                 </div>
                 <div style="border: 1px dashed #d7e6c3; border-radius: 10px; padding: 0.9rem; background: #f9fcf4;">
                   <label style="cursor:pointer; display:flex; align-items:center; gap: 10px;">
@@ -668,7 +676,7 @@
                 <div style="display: flex; gap: 1rem;">
                   <div style="flex: 1;">
                     <label style="font-size: 0.8rem; color: #777;">English Headline</label>
-                    <input type="text" id="campHeadlineEN" placeholder="Luxury Prime MUN" style="padding: 0.5rem;">
+                    <input type="text" id="campHeadlineEN" placeholder="Campaign headline" style="padding: 0.5rem;">
                   </div>
                   <div style="flex: 1;">
                     <label style="font-size: 0.8rem; color: #777;">Kyrgyz Headline</label>
@@ -742,6 +750,47 @@
                       <img id="campPreview" style="width: 100%; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;">
                       <label style="font-size: 0.75rem; margin-top: 0.5rem; display: block;">Image Scale (%)</label>
                       <input type="range" id="imgScale" min="50" max="150" value="100" style="width: 100%;">
+                   </div>
+                 </div>
+               </div>
+               <div style="margin-top: 1rem; border-top: 1px solid #eee; padding-top: 1rem;">
+                 <label style="font-weight: 700; color: #444;">Campaign Timeline Infograph</label>
+                 <p style="font-size: 0.8rem; color: #666; margin: 0.25rem 0 0.75rem;">Past 2 campaigns, current campaign, and 2 future teasers.</p>
+                 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:0.75rem;">
+                   <div style="border:1px solid #e5e5e5; border-radius:10px; padding:0.75rem;">
+                     <strong style="font-size:0.8rem;">Past 1</strong>
+                     <input type="text" id="campTimelinePast1Title" placeholder="Past campaign name" style="margin:0.5rem 0;">
+                     <input type="file" id="campTimelinePast1File" accept="image/*" style="display:none;">
+                     <button type="button" id="campTimelinePast1Btn" class="btn-secondary" style="width:100%; font-size:0.8rem;">Upload</button>
+                     <img id="campTimelinePast1Preview" style="width:100%; height:64px; object-fit:cover; border-radius:8px; margin-top:0.5rem; background:#eee;">
+                   </div>
+                   <div style="border:1px solid #e5e5e5; border-radius:10px; padding:0.75rem;">
+                     <strong style="font-size:0.8rem;">Past 2</strong>
+                     <input type="text" id="campTimelinePast2Title" placeholder="Past campaign name" style="margin:0.5rem 0;">
+                     <input type="file" id="campTimelinePast2File" accept="image/*" style="display:none;">
+                     <button type="button" id="campTimelinePast2Btn" class="btn-secondary" style="width:100%; font-size:0.8rem;">Upload</button>
+                     <img id="campTimelinePast2Preview" style="width:100%; height:64px; object-fit:cover; border-radius:8px; margin-top:0.5rem; background:#eee;">
+                   </div>
+                   <div style="border:2px solid #7cb342; border-radius:10px; padding:0.75rem; background:#f8fff1;">
+                     <strong style="font-size:0.8rem;">Current</strong>
+                     <input type="text" id="campTimelineCurrentTitle" placeholder="Current campaign name" style="margin:0.5rem 0;">
+                     <input type="file" id="campTimelineCurrentFile" accept="image/*" style="display:none;">
+                     <button type="button" id="campTimelineCurrentBtn" class="btn-secondary" style="width:100%; font-size:0.8rem;">Upload</button>
+                     <img id="campTimelineCurrentPreview" style="width:100%; height:64px; object-fit:cover; border-radius:8px; margin-top:0.5rem; background:#eee;">
+                   </div>
+                   <div style="border:1px dashed #c9c9c9; border-radius:10px; padding:0.75rem;">
+                     <strong style="font-size:0.8rem;">Future 1</strong>
+                     <input type="text" id="campTimelineFuture1Title" placeholder="Coming soon" style="margin:0.5rem 0;">
+                     <input type="file" id="campTimelineFuture1File" accept="image/*" style="display:none;">
+                     <button type="button" id="campTimelineFuture1Btn" class="btn-secondary" style="width:100%; font-size:0.8rem;">Optional Image</button>
+                     <img id="campTimelineFuture1Preview" style="width:100%; height:64px; object-fit:cover; border-radius:8px; margin-top:0.5rem; background:#eee;">
+                   </div>
+                   <div style="border:1px dashed #c9c9c9; border-radius:10px; padding:0.75rem;">
+                     <strong style="font-size:0.8rem;">Future 2</strong>
+                     <input type="text" id="campTimelineFuture2Title" placeholder="Coming soon" style="margin:0.5rem 0;">
+                     <input type="file" id="campTimelineFuture2File" accept="image/*" style="display:none;">
+                     <button type="button" id="campTimelineFuture2Btn" class="btn-secondary" style="width:100%; font-size:0.8rem;">Optional Image</button>
+                     <img id="campTimelineFuture2Preview" style="width:100%; height:64px; object-fit:cover; border-radius:8px; margin-top:0.5rem; background:#eee;">
                    </div>
                  </div>
                </div>

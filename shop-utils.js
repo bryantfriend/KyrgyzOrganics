@@ -1,3 +1,5 @@
+import { createOrder } from './order-utils.js';
+
 export const CART_KEY = 'oa_kyrgyz_organic_cart_v1';
 export const CART_DAY_KEY = 'oa_kyrgyz_organic_cart_day_v1';
 
@@ -140,4 +142,26 @@ export function calculateCartTotals(cart, products, deliveryMethod = 'delivery',
         deliveryFee,
         total: subtotal + deliveryFee
     };
+}
+
+export async function checkout(cartItems) {
+    if (!cartItems || cartItems.length === 0) {
+        alert("Cart is empty");
+        return null;
+    }
+
+    try {
+        const orderId = await createOrder(cartItems);
+
+        saveCart([]);
+
+        alert("Order placed successfully!");
+        console.log("Order ID:", orderId);
+
+        return orderId;
+    } catch (error) {
+        console.error("Order failed:", error);
+        alert("Failed to place order");
+        return null;
+    }
 }

@@ -1,6 +1,7 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { COMPANY_ID } from '../../company-config.js';
 
 export class ContentTab extends BaseTab {
     constructor() {
@@ -63,7 +64,14 @@ export class ContentTab extends BaseTab {
         try {
             const docSnap = await getDoc(doc(db, 'pages', pageId));
             if (docSnap.exists()) {
-                this.quill.root.innerHTML = docSnap.data()[lang] || '';
+                const data = docSnap.data();
+                if (data.companyId && data.companyId !== COMPANY_ID) {
+                    console.warn('Page companyId mismatch:', pageId);
+                    this.quill.root.innerHTML = '';
+                    return;
+                }
+                if (!data.companyId) console.warn('Page missing companyId:', pageId);
+                this.quill.root.innerHTML = data[lang] || '';
             } else {
                 this.quill.root.innerHTML = '';
             }
@@ -77,7 +85,7 @@ export class ContentTab extends BaseTab {
 
         try {
             const content = this.quill.root.innerHTML;
-            await setDoc(doc(db, 'pages', pageId), { [lang]: content }, { merge: true });
+            await setDoc(doc(db, 'pages', pageId), { companyId: COMPANY_ID, [lang]: content }, { merge: true });
             alert('Content Saved');
         } catch (e) { alert(e.message); }
     }
@@ -97,7 +105,13 @@ export class ContentTab extends BaseTab {
 
         try {
             const docSnap = await getDoc(doc(db, 'pages', this.pageSelect.value));
-            const source = docSnap.exists() ? (docSnap.data().en || '') : '';
+            const data = docSnap.exists() ? docSnap.data() : {};
+            if (data.companyId && data.companyId !== COMPANY_ID) {
+                console.warn('Page companyId mismatch:', this.pageSelect.value);
+                return;
+            }
+            if (docSnap.exists() && !data.companyId) console.warn('Page missing companyId:', this.pageSelect.value);
+            const source = data.en || '';
             if (!source) return alert("No English content found");
 
             let pair = `en|${lang}`;

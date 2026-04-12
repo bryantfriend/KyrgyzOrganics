@@ -2,6 +2,7 @@ import { db, functions, httpsCallable } from './firebase-config.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { initMobileMenu, setupLanguage, t } from './common.js';
 import { formatPrice } from './shop-utils.js';
+import { COMPANY_ID } from './company-config.js';
 
 const root = document.getElementById('orderTrackingRoot');
 const whatsAppSupportBtn = document.getElementById('whatsAppSupportBtn');
@@ -45,7 +46,14 @@ async function updateWhatsAppSupportButton() {
 
     try {
         const snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
-        const phone = String(snap.data()?.supportWhatsappNumber || '').replace(/[^\d]/g, '');
+        const data = snap.exists() ? snap.data() : {};
+        if (data.companyId && data.companyId !== COMPANY_ID) {
+            console.warn('Checkout settings companyId mismatch');
+            whatsAppSupportBtn.hidden = true;
+            return;
+        }
+        if (snap.exists() && !data.companyId) console.warn('Checkout settings missing companyId');
+        const phone = String(data.supportWhatsappNumber || '').replace(/[^\d]/g, '');
 
         if (!phone) {
             whatsAppSupportBtn.hidden = true;

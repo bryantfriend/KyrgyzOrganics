@@ -3,6 +3,7 @@ import { collection, getDocs, query, where, doc, getDoc } from "https://www.gsta
 import { ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { $, $$, t, loc, setupLanguage, initMobileMenu } from './common.js';
 import { buildProductPageUrl } from './product-utils.js';
+import { COMPANY_ID, matchesCompanyId } from './company-config.js';
 import {
     DEFAULT_CHECKOUT_SETTINGS,
     addCartItem,
@@ -31,6 +32,7 @@ let cart = loadCart();
 let checkoutSettings = { ...DEFAULT_CHECKOUT_SETTINGS };
 let supportWhatsappNumber = '';
 let cartNoticeMessage = '';
+let campaignTimeline = [];
 
 // --- DOM ELEMENTS ---
 const productGrid = $('productGrid');
@@ -62,6 +64,8 @@ const stickyCartTitle = $('stickyCartTitle');
 const stickyCartMeta = $('stickyCartMeta');
 const stickyCartTotal = $('stickyCartTotal');
 const whatsAppSupportBtn = $('whatsAppSupportBtn');
+const homeCampaignSection = $('homeCampaignSection');
+const homeCampaignTimeline = $('homeCampaignTimeline');
 
 // --- INIT ---
 async function init() {
@@ -89,7 +93,8 @@ async function loadData() {
     getDocs(collection(db, "banners")).then(snap => {
         const now = new Date();
         bannerData = snap.docs
-            .map(d => d.data())
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(b => matchesCompanyId(b, `banners/${b.id}`))
             .filter(b => {
                 if (!b.active) return false;
                 let start = b.startAt;
@@ -133,16 +138,26 @@ async function loadData() {
         // Fetch Inventory
         const invSnap = await getDoc(doc(db, 'inventory', todayStr));
         if (invSnap.exists()) {
-            dailyInventory = invSnap.data();
+            const inventoryData = invSnap.data();
+            if (inventoryData.companyId && inventoryData.companyId !== COMPANY_ID) {
+                console.warn('Inventory companyId mismatch:', todayStr);
+                dailyInventory = {};
+            } else {
+                if (!inventoryData.companyId) console.warn('Inventory missing companyId:', todayStr);
+                dailyInventory = inventoryData;
+            }
         } else {
             dailyInventory = {};
         }
 
-        products = pRes.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        products = pRes.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(p => matchesCompanyId(p, `products/${p.id}`));
 
         categories = [];
         cRes.docs.forEach(doc => {
             const data = { id: doc.id, ...doc.data() };
+            if (!matchesCompanyId(data, `categories/${data.id}`)) return;
             categories.push(data);
             categoriesMap[doc.id] = data;
         });
@@ -152,7 +167,10 @@ async function loadData() {
         // Banner processing moved to top of function for lazy loading
 
         // Payment Methods
-        paymentMethods = pmRes.docs.map(d => ({ id: d.id, ...d.data() }));
+        paymentMethods = pmRes.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(pm => matchesCompanyId(pm, `payment_methods/${pm.id}`));
+        await loadCampaignTimeline();
         await loadCheckoutSettings();
         syncCartWithCatalog();
         reconcileCartWithInventory({ shouldNotify: true });
@@ -170,14 +188,185 @@ function renderAll() {
     renderBanner();
     renderFeatured();
     renderProducts(products);
+    renderCampaignTimeline();
     updateStaticUI();
     renderCart();
 }
 
+function toCampaignDate(value) {
+    if (!value) return null;
+    if (typeof value.toDate === 'function') return value.toDate();
+    if (value instanceof Date) return value;
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getCampaignTitle(campaign = {}, fallback = 'Campaign') {
+    return campaign.timelineTitle || campaign.headline || campaign.headlineEN || campaign.headlineKG || campaign.title || fallback;
+}
+
+function getCampaignImage(campaign = {}) {
+    return campaign.timelineImageUrl || campaign.imageUrl || campaign.optionalImageUrl || '';
+}
+
+function getCampaignUrl(campaign = {}) {
+    if (campaign.url) return campaign.url;
+    if (campaign.campaignUrl) return campaign.campaignUrl;
+    if (campaign.slug) return `/${String(campaign.slug).replace(/^\/+|\/+$/g, '')}/`;
+    if (campaign.id === 'prime-mun') return '/prime-mun/';
+    return '/prime-mun/';
+}
+
+function isCampaignLive(campaign = {}, now = new Date()) {
+    if (!campaign.id) return false;
+    const start = toCampaignDate(campaign.startDate);
+    const end = toCampaignDate(campaign.endDate);
+    return Boolean(campaign.isActive && (!start || start <= now) && (!end || end >= now));
+}
+
+function getFallbackCampaignTimeline(currentCampaign = {}) {
+    const headline = getCampaignTitle(currentCampaign, 'Current Campaign');
+    const fallbackTimeline = [
+        { key: 'past1', status: 'past', title: 'Previous Drop', imageUrl: '' },
+        { key: 'past2', status: 'past', title: 'Last Campaign', imageUrl: '' },
+        { key: 'current', status: 'current', title: headline, imageUrl: getCampaignImage(currentCampaign), url: getCampaignUrl(currentCampaign), isClickable: isCampaignLive(currentCampaign) },
+        { key: 'future1', status: 'future', title: 'Coming Soon', imageUrl: '' },
+        { key: 'future2', status: 'future', title: 'Next Surprise', imageUrl: '' }
+    ];
+    const savedTimeline = Array.isArray(currentCampaign.campaignTimeline) ? currentCampaign.campaignTimeline : [];
+
+    return fallbackTimeline.map((fallback) => ({
+        ...fallback,
+        ...(savedTimeline.find(item => item.key === fallback.key) || {})
+    }));
+}
+
+function campaignToTimelineItem(campaign, key, status, fallbackTitle) {
+    return {
+        key,
+        status,
+        title: getCampaignTitle(campaign, fallbackTitle),
+        imageUrl: getCampaignImage(campaign),
+        url: getCampaignUrl(campaign),
+        isClickable: status === 'current' ? isCampaignLive(campaign) : false
+    };
+}
+
+function buildCampaignTimelineFromDocs(campaigns, currentCampaign) {
+    const now = new Date();
+    const fallbackTimeline = getFallbackCampaignTimeline(currentCampaign);
+    const fallbackByKey = Object.fromEntries(fallbackTimeline.map(item => [item.key, item]));
+    const current = currentCampaign || campaigns.find(campaign => campaign.id === 'prime-mun') || {};
+    const currentId = current.id || 'prime-mun';
+
+    const pastCampaigns = campaigns
+        .filter(campaign => campaign.id !== currentId)
+        .filter(campaign => {
+            const end = toCampaignDate(campaign.endDate);
+            return end && end < now;
+        })
+        .sort((a, b) => toCampaignDate(b.endDate) - toCampaignDate(a.endDate))
+        .slice(0, 2)
+        .reverse();
+
+    const futureCampaigns = campaigns
+        .filter(campaign => campaign.id !== currentId)
+        .filter(campaign => {
+            const start = toCampaignDate(campaign.startDate);
+            return start && start > now;
+        })
+        .sort((a, b) => toCampaignDate(a.startDate) - toCampaignDate(b.startDate))
+        .slice(0, 2);
+
+    const activeCampaign = campaigns.find(campaign => isCampaignLive(campaign, now));
+    const currentTimelineItem = activeCampaign
+        ? campaignToTimelineItem(activeCampaign, 'current', 'current', fallbackByKey.current?.title || 'Current Campaign')
+        : { ...fallbackByKey.current, isClickable: false, url: '' };
+
+    return [
+        pastCampaigns[0] ? campaignToTimelineItem(pastCampaigns[0], 'past1', 'past', 'Previous Campaign') : fallbackByKey.past1,
+        pastCampaigns[1] ? campaignToTimelineItem(pastCampaigns[1], 'past2', 'past', 'Last Campaign') : fallbackByKey.past2,
+        currentTimelineItem,
+        futureCampaigns[0] ? campaignToTimelineItem(futureCampaigns[0], 'future1', 'future', 'Coming Soon') : fallbackByKey.future1,
+        futureCampaigns[1] ? campaignToTimelineItem(futureCampaigns[1], 'future2', 'future', 'Next Surprise') : fallbackByKey.future2
+    ].filter(Boolean);
+}
+
+async function loadCampaignTimeline() {
+    try {
+        const campaignsSnap = await getDocs(collection(db, 'campaigns'));
+        const campaigns = campaignsSnap.docs
+            .map(campaignDoc => ({ id: campaignDoc.id, ...campaignDoc.data() }))
+            .filter(campaign => matchesCompanyId(campaign, `campaigns/${campaign.id}`));
+
+        const currentCampaign = campaigns.find(campaign => campaign.id === 'prime-mun') || {};
+        if (currentCampaign.showCampaignJourney === false) {
+            campaignTimeline = [];
+            return;
+        }
+
+        campaignTimeline = buildCampaignTimelineFromDocs(campaigns, currentCampaign);
+    } catch (error) {
+        console.warn('Campaign timeline load failed:', error);
+        campaignTimeline = getFallbackCampaignTimeline({});
+    }
+}
+
+function buildCampaignSilhouette(title = 'Coming Soon') {
+    return `
+        <div class="home-campaign-silhouette">
+            <div class="home-silhouette-arch"></div>
+            <div class="home-silhouette-lines">
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+        <span>${title}</span>
+    `;
+}
+
+function renderCampaignTimeline() {
+    if (!homeCampaignSection || !homeCampaignTimeline || !campaignTimeline.length) {
+        if (homeCampaignSection) homeCampaignSection.hidden = true;
+        return;
+    }
+
+    homeCampaignSection.hidden = false;
+    homeCampaignTimeline.innerHTML = campaignTimeline.map((item) => {
+        const status = item.status || 'future';
+        const isCurrent = status === 'current';
+        const title = item.title || (status === 'future' ? 'Coming Soon' : 'Campaign');
+        const label = isCurrent ? (item.isClickable ? 'Now' : 'Paused') : status === 'future' ? 'Soon' : 'Past';
+        const imageMarkup = item.imageUrl
+            ? `<img src="${item.imageUrl}" alt="${title}">`
+            : buildCampaignSilhouette(title);
+        const content = `
+            <div class="home-campaign-image">${imageMarkup}</div>
+            <div class="home-campaign-label">${label}</div>
+            <h3>${title}</h3>
+        `;
+
+        if (isCurrent && item.isClickable) {
+            return `
+                <a class="home-campaign-card is-current" href="${item.url || '/prime-mun/'}" aria-label="Open current campaign: ${title}">
+                    ${content}
+                </a>
+            `;
+        }
+
+        return `
+            <article class="home-campaign-card ${isCurrent ? 'is-current' : ''} ${status === 'future' ? 'is-future' : ''}">
+                ${content}
+            </article>
+        `;
+    }).join('');
+}
+
 function updateStaticUI() {
-    const sectionTitles = document.querySelectorAll('.section-title');
-    if (sectionTitles[0]) sectionTitles[0].textContent = t('available_today');
-    if (sectionTitles[1]) sectionTitles[1].textContent = t('full_catalog');
+    const availableTodayTitle = document.getElementById('availableTodayTitle');
+    const fullCatalogTitle = document.getElementById('fullCatalog');
+    if (availableTodayTitle) availableTodayTitle.textContent = t('available_today');
+    if (fullCatalogTitle) fullCatalogTitle.textContent = t('full_catalog');
 
     const availableTodayLabel = document.getElementById('availableTodayLabel');
     if (availableTodayLabel) availableTodayLabel.textContent = t('available_today_label');
@@ -291,6 +480,11 @@ async function loadCheckoutSettings() {
     try {
         const snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
         const data = snap.exists() ? snap.data() : {};
+        if (data.companyId && data.companyId !== COMPANY_ID) {
+            console.warn('Checkout settings companyId mismatch');
+            throw new Error('Checkout settings unavailable for this company');
+        }
+        if (snap.exists() && !data.companyId) console.warn('Checkout settings missing companyId');
         checkoutSettings = { ...DEFAULT_CHECKOUT_SETTINGS, ...data };
         supportWhatsappNumber = String(data.supportWhatsappNumber || '').trim();
         updateWhatsAppSupportButton();

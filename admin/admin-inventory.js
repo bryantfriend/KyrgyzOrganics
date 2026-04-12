@@ -1,4 +1,8 @@
 
+import { COMPANY_ID, matchesCompanyId } from '../company-config.js';
+import { db } from '../firebase-config.js';
+import { collection, doc, getDoc, getDocs, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
 /* ---------- INVENTORY SYSTEM ---------- */
 const invDateInput = document.getElementById('invDate');
 const loadInvBtn = document.getElementById('loadInvBtn');
@@ -12,6 +16,7 @@ if (invDateInput) {
 }
 
 let inventoryCache = {}; // Stores loaded inventory for current date
+let allProductsCache = [];
 
 async function loadInventory() {
     const dateStr = invDateInput.value;
@@ -24,10 +29,14 @@ async function loadInventory() {
     try {
         // 1. Ensure products loaded
         if (allProductsCache.length === 0) {
-            const tempQ = query(collection(db, 'products'));
-            const snap = await getDocs(tempQ);
+            const snap = await getDocs(collection(db, 'products'));
             allProductsCache = [];
-            snap.forEach(d => allProductsCache.push({ id: d.id, ...d.data() }));
+            snap.forEach(d => {
+                const product = { id: d.id, ...d.data() };
+                if (matchesCompanyId(product, `products/${product.id}`)) {
+                    allProductsCache.push(product);
+                }
+            });
         }
 
         // 2. Fetch Inventory Doc
@@ -36,6 +45,13 @@ async function loadInventory() {
 
         if (invSnap.exists()) {
             inventoryCache = invSnap.data();
+            if (inventoryCache.companyId && inventoryCache.companyId !== COMPANY_ID) {
+                console.warn('Inventory belongs to another company:', dateStr);
+                inventoryCache = {};
+            } else if (!inventoryCache.companyId) {
+                console.warn('Inventory missing companyId:', dateStr);
+            }
+            delete inventoryCache.companyId;
             invStatus.textContent = `Loaded existing inventory for ${dateStr}`;
             invStatus.style.display = 'block';
         } else {
@@ -96,7 +112,7 @@ async function saveInventory() {
 
     try {
         const inputs = document.querySelectorAll('.inv-qty-input');
-        const updateData = {}; // Will hold the map
+        const updateData = { companyId: COMPANY_ID }; // Will hold the map
 
         // Re-construct the map based on inputs plus existing 'sold' data
         inputs.forEach(input => {

@@ -1,6 +1,7 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
-import { collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, query, orderBy, limit, getDocs, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { COMPANY_ID, matchesCompanyId } from '../../company-config.js';
 
 export class AuditTab extends BaseTab {
     constructor() {
@@ -31,15 +32,29 @@ export class AuditTab extends BaseTab {
                 limit(50)
             );
 
-            const snap = await getDocs(q);
+            let docs = [];
+            try {
+                const snap = await getDocs(q);
+                docs = snap.docs;
+            } catch (e) {
+                if (!e.message.includes('index')) throw e;
+                const snap = await getDocs(collection(db, 'audit_logs'));
+                docs = snap.docs
+                    .sort((a, b) => (b.data().timestamp?.toMillis?.() || 0) - (a.data().timestamp?.toMillis?.() || 0))
+                    .slice(0, 50);
+            }
+            docs = docs.filter(d => {
+                const log = { id: d.id, ...d.data() };
+                return matchesCompanyId(log, `audit_logs/${log.id}`);
+            });
 
-            if (snap.empty) {
+            if (docs.length === 0) {
                 this.list.innerHTML = '<p style="color:#666;">No logs found.</p>';
                 return;
             }
 
             this.list.innerHTML = '';
-            snap.forEach(d => {
+            docs.forEach(d => {
                 const log = d.data();
                 const date = log.timestamp ? log.timestamp.toDate().toLocaleString() : 'Unknown Time';
 

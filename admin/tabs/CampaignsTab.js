@@ -1,6 +1,7 @@
 import { db } from '../../firebase-config.js';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { uploadImage } from '../utils.js';
+import { COMPANY_ID, matchesCompanyId } from '../../company-config.js';
 
 export class CampaignsTab {
   constructor() {
@@ -26,6 +27,7 @@ export class CampaignsTab {
     this.showCountdown = get('campShowCountdown');
     this.countdownVariant = get('campCountdownVariant');
     this.showItemsLeft = get('campShowItemsLeft');
+    this.showCampaignJourney = get('campShowCampaignJourney');
     this.showDeliveryInfo = get('campShowDeliveryInfo');
     this.deliveryInfoText = get('campDeliveryInfoText');
 
@@ -60,6 +62,13 @@ export class CampaignsTab {
     this.logoWidth = get('logoWidth');
     this.imageFile = get('campImage');
     this.imgScale = get('imgScale');
+    this.timelineSlots = [
+      this.createTimelineSlot('past1', 'past', get),
+      this.createTimelineSlot('past2', 'past', get),
+      this.createTimelineSlot('current', 'current', get),
+      this.createTimelineSlot('future1', 'future', get),
+      this.createTimelineSlot('future2', 'future', get)
+    ];
 
     // 4. Appearance
     this.bgColor = get('bgColor');
@@ -106,6 +115,7 @@ export class CampaignsTab {
     this.currentHeadlineImageUrl = '';
     this.currentSubheadlineImageUrl = '';
     this.currentOptionalImageUrl = '';
+    this.currentTimeline = [];
     this.currentSoldCount = 0;
     this.currentConversionCount = 0;
     this.currentConversionOffset = 0;
@@ -116,6 +126,19 @@ export class CampaignsTab {
     
     this.bindEvents();
     this.updateFieldStates();
+  }
+
+  createTimelineSlot(key, status, get) {
+    const idPart = key.charAt(0).toUpperCase() + key.slice(1);
+    return {
+      key,
+      status,
+      title: get(`campTimeline${idPart}Title`),
+      file: get(`campTimeline${idPart}File`),
+      button: get(`campTimeline${idPart}Btn`),
+      preview: get(`campTimeline${idPart}Preview`),
+      imageUrl: ''
+    };
   }
 
   bindEvents() {
@@ -131,7 +154,7 @@ export class CampaignsTab {
       this.headline, this.headlineEN, this.headlineKG, this.subheadline, this.optionalLine,
       this.logoWidth, this.imgScale, this.bgColor, this.textColor, this.bgTexture, 
       this.headlineFont, this.headlineSize, this.btnColor, this.btnPulse,
-      this.limitEnabled, this.maxSales, this.showCountdown, this.countdownVariant, this.showItemsLeft,
+      this.limitEnabled, this.maxSales, this.showCountdown, this.countdownVariant, this.showItemsLeft, this.showCampaignJourney,
       this.headlineUseImage, this.subheadlineUseImage, this.optionalUseImage,
       this.showDeliveryInfo, this.deliveryInfoText
     ].filter(el => el !== null); // Only bind to existing elements
@@ -243,6 +266,8 @@ export class CampaignsTab {
       });
     }
 
+    this.timelineSlots.forEach((slot) => this.bindTimelineSlot(slot));
+
     this.bindContentImagePreview(this.headlineImageFile, this.headlineImagePreview, this.mockHeadlineImage);
     this.bindContentImagePreview(this.subheadlineImageFile, this.subheadlineImagePreview, this.mockSubheadlineImage);
     this.bindContentImagePreview(this.optionalImageFile, this.optionalImagePreview, this.mockOptionalImage);
@@ -330,6 +355,82 @@ export class CampaignsTab {
 
       fileInput.click();
     });
+  }
+
+  bindTimelineSlot(slot) {
+    if (slot.button && slot.file) {
+      slot.button.addEventListener('click', () => slot.file.click());
+    }
+
+    if (slot.file) {
+      slot.file.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          if (slot.preview) slot.preview.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  }
+
+  getTimelineFallbackTitle(slot, index) {
+    if (slot.status === 'current') {
+      return this.headline?.value || 'Current Campaign';
+    }
+
+    const slotNumber = slot.key.replace(/\D/g, '') || index;
+    if (slot.status === 'future') return `Future Campaign ${slotNumber}`;
+    return `Past Campaign ${slotNumber}`;
+  }
+
+  async buildCampaignTimeline(finalImageUrl) {
+    const timeline = [];
+
+    for (let index = 0; index < this.timelineSlots.length; index++) {
+      const slot = this.timelineSlots[index];
+      let imageUrl = slot.imageUrl || '';
+
+      if (slot.file?.files[0]) {
+        imageUrl = await uploadImage(slot.file.files[0], 'campaigns');
+      }
+
+      if (slot.status === 'current' && !imageUrl) {
+        imageUrl = finalImageUrl || this.currentImageUrl || '';
+      }
+
+      timeline.push({
+        key: slot.key,
+        status: slot.status,
+        title: slot.title?.value.trim() || this.getTimelineFallbackTitle(slot, index + 1),
+        imageUrl
+      });
+    }
+
+    return timeline;
+  }
+
+  hydrateCampaignTimeline(timeline = [], currentImageUrl = '') {
+    const timelineMap = new Map((Array.isArray(timeline) ? timeline : []).map(item => [item.key, item]));
+
+    this.timelineSlots.forEach((slot, index) => {
+      const item = timelineMap.get(slot.key) || {};
+      slot.imageUrl = item.imageUrl || (slot.status === 'current' ? currentImageUrl : '');
+      if (slot.title) slot.title.value = item.title || this.getTimelineFallbackTitle(slot, index + 1);
+      if (slot.preview) {
+        if (slot.imageUrl) slot.preview.src = slot.imageUrl;
+        else slot.preview.removeAttribute('src');
+      }
+    });
+
+    this.currentTimeline = this.timelineSlots.map((slot, index) => ({
+      key: slot.key,
+      status: slot.status,
+      title: slot.title?.value.trim() || this.getTimelineFallbackTitle(slot, index + 1),
+      imageUrl: slot.imageUrl || ''
+    }));
   }
 
   getImagePreviewSource(imgEl) {
@@ -450,6 +551,7 @@ export class CampaignsTab {
     try {
       const nextOffset = Math.max(this.currentConversionCount, this.currentConversionOffset + visibleConversions);
       await setDoc(doc(db, 'campaigns', 'prime-mun'), {
+        companyId: COMPANY_ID,
         conversionOffset: nextOffset
       }, { merge: true });
 
@@ -472,13 +574,17 @@ export class CampaignsTab {
       const nextSoldCount = await runTransaction(db, async (transaction) => {
         const snap = await transaction.get(docRef);
         if (!snap.exists()) throw new Error('Campaign not found.');
+        const campaignData = snap.data();
+        if (campaignData.companyId && campaignData.companyId !== COMPANY_ID) throw new Error('Campaign belongs to another company.');
+        if (!campaignData.companyId) console.warn('Campaign missing companyId: prime-mun');
 
-        const currentSold = Math.max(0, Number(snap.data().soldCount || 0));
+        const currentSold = Math.max(0, Number(campaignData.soldCount || 0));
         const proposed = currentSold + delta;
         if (proposed < 0) return currentSold;
         if (delta > 0 && maxSales > 0 && proposed > maxSales) return currentSold;
 
         transaction.set(docRef, {
+          companyId: COMPANY_ID,
           soldCount: proposed
         }, { merge: true });
         return proposed;
@@ -711,6 +817,11 @@ export class CampaignsTab {
         if (!snap.exists() || this.isHydratingCampaign) return;
 
         const data = snap.data();
+        if (data.companyId && data.companyId !== COMPANY_ID) {
+          console.warn('Campaign companyId mismatch: prime-mun');
+          return;
+        }
+        if (!data.companyId) console.warn('Campaign missing companyId: prime-mun');
         const savedMaxSales = Number(data.maxSales || 0);
         const savedSoldCount = Number(data.soldCount || 0);
         const savedConversionOffset = Number(data.conversionOffset || 0);
@@ -754,7 +865,9 @@ export class CampaignsTab {
 
       this.statsUnsubscribe = onSnapshot(q, (snap) => {
         const totalClicks = snap.docs.filter((docSnap) => {
-          const actionType = docSnap.data().actionType;
+          const eventData = { id: docSnap.id, ...docSnap.data() };
+          if (!matchesCompanyId(eventData, `campaign_events/${eventData.id}`)) return false;
+          const actionType = eventData.actionType;
           return actionType === 'cta_click' || actionType === 'click_whatsapp' || actionType === 'click_glovo';
         }).length;
         this.updateConversionStats(totalClicks, this.currentConversionOffset);
@@ -769,6 +882,11 @@ export class CampaignsTab {
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         const data = snap.data();
+        if (data.companyId && data.companyId !== COMPANY_ID) {
+          console.warn('Campaign companyId mismatch: prime-mun');
+          return;
+        }
+        if (!data.companyId) console.warn('Campaign missing companyId: prime-mun');
         const s = data.styles || {};
 
         if (this.isActive) this.isActive.checked = data.isActive;
@@ -780,6 +898,7 @@ export class CampaignsTab {
         if (this.showCountdown) this.showCountdown.checked = data.showCountdown !== false;
         if (this.countdownVariant) this.countdownVariant.value = data.countdownVariant || 'classic';
         if (this.showItemsLeft) this.showItemsLeft.checked = !!data.showItemsLeft;
+        if (this.showCampaignJourney) this.showCampaignJourney.checked = data.showCampaignJourney !== false;
         if (this.showDeliveryInfo) this.showDeliveryInfo.checked = !!data.showDeliveryInfo;
         if (this.deliveryInfoText) this.deliveryInfoText.value = data.deliveryInfoText || 'Delivery in under 60 minutes';
         if (this.headlineUseImage) this.headlineUseImage.checked = !!data.headlineUseImage;
@@ -797,6 +916,7 @@ export class CampaignsTab {
         this.currentHeadlineImageUrl = data.headlineImageUrl || '';
         this.currentSubheadlineImageUrl = data.subheadlineImageUrl || '';
         this.currentOptionalImageUrl = data.optionalImageUrl || '';
+        this.hydrateCampaignTimeline(data.campaignTimeline, this.currentImageUrl);
         if (this.imagePreview) this.imagePreview.src = this.currentImageUrl;
         if (this.mockImage) this.mockImage.src = this.currentImageUrl;
         if (this.logoPreview) this.logoPreview.src = this.currentLogoUrl;
@@ -859,6 +979,7 @@ export class CampaignsTab {
       if (this.headlineImageFile && this.headlineImageFile.files[0]) finalHeadlineImageUrl = await uploadImage(this.headlineImageFile.files[0], 'campaigns');
       if (this.subheadlineImageFile && this.subheadlineImageFile.files[0]) finalSubheadlineImageUrl = await uploadImage(this.subheadlineImageFile.files[0], 'campaigns');
       if (this.optionalImageFile && this.optionalImageFile.files[0]) finalOptionalImageUrl = await uploadImage(this.optionalImageFile.files[0], 'campaigns');
+      const finalCampaignTimeline = await this.buildCampaignTimeline(finalImageUrl);
 
       if (!finalLogoUrl && finalLogoUrl2) {
         finalLogoUrl = finalLogoUrl2;
@@ -867,6 +988,7 @@ export class CampaignsTab {
 
       const maxSalesValue = this.maxSales ? parseInt(this.maxSales.value, 10) || 0 : 0;
       const data = {
+        companyId: COMPANY_ID,
         isActive: this.isActive ? this.isActive.checked : false,
         headline: this.headline ? this.headline.value : '',
         headlineEN: this.headlineEN ? this.headlineEN.value : '',
@@ -887,11 +1009,13 @@ export class CampaignsTab {
         showCountdown: this.showCountdown ? this.showCountdown.checked : true,
         countdownVariant: this.countdownVariant ? this.countdownVariant.value : 'classic',
         showItemsLeft: this.showItemsLeft ? this.showItemsLeft.checked : false,
+        showCampaignJourney: this.showCampaignJourney ? this.showCampaignJourney.checked : true,
         showDeliveryInfo: this.showDeliveryInfo ? this.showDeliveryInfo.checked : false,
         deliveryInfoText: this.deliveryInfoText ? this.deliveryInfoText.value.trim() : '',
         optionalLine: this.optionalLine ? this.optionalLine.value : '',
         optionalUseImage: this.optionalUseImage ? this.optionalUseImage.checked : false,
         optionalImageUrl: finalOptionalImageUrl,
+        campaignTimeline: finalCampaignTimeline,
         startDate: (this.startDate && this.startDate.value) ? new Date(this.startDate.value) : null,
         endDate: (this.endDate && this.endDate.value) ? new Date(this.endDate.value) : null,
         styles: {
@@ -916,6 +1040,7 @@ export class CampaignsTab {
       this.currentHeadlineImageUrl = finalHeadlineImageUrl;
       this.currentSubheadlineImageUrl = finalSubheadlineImageUrl;
       this.currentOptionalImageUrl = finalOptionalImageUrl;
+      this.hydrateCampaignTimeline(finalCampaignTimeline, finalImageUrl);
       this.updateFieldStates();
       this.updateLivePreview();
 

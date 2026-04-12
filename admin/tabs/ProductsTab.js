@@ -2,8 +2,9 @@ import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { uploadImage, logAudit } from '../utils.js';
 import { buildProductPageUrl, getPreferredProductName, slugifyProductName } from '../../product-utils.js';
+import { getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
 import {
-    collection, addDoc, updateDoc, deleteDoc, doc, query, onSnapshot, getDoc, serverTimestamp
+    collection, addDoc, updateDoc, deleteDoc, doc, query, onSnapshot, getDoc, serverTimestamp, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 export class ProductsTab extends BaseTab {
@@ -125,7 +126,9 @@ export class ProductsTab extends BaseTab {
 
     async loadCategories() {
         // Populate Product Form Category Select & Filter
-        onSnapshot(collection(db, 'categories'), (snapshot) => {
+        const q = query(collection(db, 'categories'), where('companyId', '==', getCurrentCompanyId()));
+
+        onSnapshot(q, (snapshot) => {
             const catSelect = document.getElementById('pCategory');
             const filterSelect = document.getElementById('filterCategory');
 
@@ -135,7 +138,9 @@ export class ProductsTab extends BaseTab {
             if (catSelect) catSelect.innerHTML = '<option value="" disabled selected>Select Category...</option>';
             if (filterSelect) filterSelect.innerHTML = '<option value="all">All Categories</option>';
 
-            const sorted = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+            const sorted = snapshot.docs
+                .map(d => ({ id: d.id, ...d.data() }))
+                .filter(c => matchesCompanyId(c, `categories/${c.id}`))
                 .sort((a, b) => (a.name_ru || '').localeCompare(b.name_ru || ''));
 
             sorted.forEach(c => {
@@ -163,10 +168,15 @@ export class ProductsTab extends BaseTab {
     }
 
     loadProducts() {
-        onSnapshot(query(collection(db, 'products')), (snapshot) => {
+        const q = query(collection(db, 'products'), where('companyId', '==', getCurrentCompanyId()));
+
+        onSnapshot(q, (snapshot) => {
             this.allProductsCache = [];
             snapshot.forEach(docSnap => {
-                this.allProductsCache.push({ id: docSnap.id, ...docSnap.data() });
+                const product = { id: docSnap.id, ...docSnap.data() };
+                if (matchesCompanyId(product, `products/${product.id}`)) {
+                    this.allProductsCache.push(product);
+                }
             });
             this.renderProductList();
         });
@@ -208,6 +218,10 @@ export class ProductsTab extends BaseTab {
         const isEdit = !!this.pId.value;
 
         if (!isEdit && !filePack) { alert('Packaging image required for new product'); return; }
+        if (isEdit && !this.allProductsCache.some(product => product.id === this.pId.value)) {
+            alert('This product is not available for your company.');
+            return;
+        }
 
         try {
             let imageUrl = null;
@@ -220,6 +234,7 @@ export class ProductsTab extends BaseTab {
             if (fileContent) imageNoPackagingUrl = await uploadImage(fileContent, 'products', uploadOptions);
 
             const data = {
+                companyId: getCurrentCompanyId(),
                 name_ru: document.getElementById('pNameRU').value,
                 name_en: document.getElementById('pNameEN').value,
                 name_kg: document.getElementById('pNameKG').value,
@@ -316,6 +331,11 @@ export class ProductsTab extends BaseTab {
     }
 
     async deleteProduct(id) {
+        if (!this.allProductsCache.some(product => product.id === id)) {
+            alert('This product is not available for your company.');
+            return;
+        }
+
         if (confirm('Delete this product?')) {
             await deleteDoc(doc(db, 'products', id));
             await logAudit('Product Deleted', `ID: ${id}`);

@@ -1,6 +1,7 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { COMPANY_ID, matchesCompanyId } from '../../company-config.js';
 
 export class AnalyticsTab extends BaseTab {
     constructor() {
@@ -43,6 +44,10 @@ export class AnalyticsTab extends BaseTab {
                     docs = snap.docs.sort((a, b) => b.data().date.localeCompare(a.data().date));
                 } else throw e;
             }
+            docs = docs.filter(d => {
+                const order = { id: d.id, ...d.data() };
+                return matchesCompanyId(order, `orders/${order.id}`);
+            });
 
             if (docs.length === 0) {
                 this.reportDiv.innerHTML = '<p>No confirmed sales data yet.</p>';
