@@ -13,10 +13,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
-  where,
-  getCountFromServer,
-  getAggregateFromServer,
-  sum
+  where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 function toLocalDateId(date = new Date()) {
@@ -292,30 +289,30 @@ export class StoresTab extends BaseTab {
       const productsBase = query(collection(db, 'products'), where('companyId', '==', companyId));
 
       const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-      const recentOrdersQ = query(
-        collection(db, 'orders'),
-        where('companyId', '==', companyId),
-        where('createdAt', '>=', cutoff)
-      );
 
-      const [ordersCountSnap, productsCountSnap, revenueAgg, recentCountSnap, lowInv] = await Promise.all([
-        getCountFromServer(ordersBase),
-        getCountFromServer(productsBase),
-        getAggregateFromServer(ordersBase, { totalSum: sum('total'), priceSum: sum('price') }),
-        getCountFromServer(recentOrdersQ).catch(() => ({ data: () => ({ count: null }) })),
+      const [ordersSnap, productsSnap, lowInv] = await Promise.all([
+        getDocs(ordersBase),
+        getDocs(productsBase),
         this.computeLowInventory(companyId).catch(() => null)
       ]);
 
-      const ordersCount = ordersCountSnap.data().count || 0;
-      const productsCount = productsCountSnap.data().count || 0;
+      const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const products = productsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      const aggData = revenueAgg.data ? revenueAgg.data() : {};
-      const totalSum = Number(aggData.totalSum || 0);
-      const priceSum = Number(aggData.priceSum || 0);
-      const revenue = totalSum > 0 ? totalSum : priceSum;
+      const ordersCount = orders.length;
+      const productsCount = products.length;
+      const revenue = orders.reduce((sum, order) => {
+        const value = Number(order.total ?? order.price ?? 0);
+        return sum + (Number.isFinite(value) ? value : 0);
+      }, 0);
 
-      const recentCount = recentCountSnap?.data?.().count;
-      const noOrders3d = typeof recentCount === 'number' ? recentCount === 0 : null;
+      const recentCount = orders.filter((order) => {
+        const createdAt = typeof order.createdAt?.toDate === 'function'
+          ? order.createdAt.toDate()
+          : (order.createdAt ? new Date(order.createdAt) : null);
+        return createdAt instanceof Date && !Number.isNaN(createdAt.getTime()) && createdAt >= cutoff;
+      }).length;
+      const noOrders3d = ordersCount > 0 ? recentCount === 0 : true;
 
       this.metricsCache.set(companyId, {
         ordersCount,
