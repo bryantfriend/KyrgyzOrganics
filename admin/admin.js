@@ -94,6 +94,7 @@ class AdminApp {
           const hostCompanyId = getCompanyIdFromHost(hostname);
 
           const profile = await getUserProfile(user.uid);
+          const isLegacyAdmin = !profile;
           const role = profile?.role || 'admin';
           const companyId = profile?.companyId || COMPANY_ID;
 
@@ -106,7 +107,8 @@ class AdminApp {
           };
 
           // Superadmin powers only on the HQ admin domain (oako.kg).
-          this.isSuperAdmin = role === 'superadmin' && hqHost;
+          // Legacy admins (no users/{uid} profile) are treated like superadmins on HQ host to avoid breaking existing access.
+          this.isSuperAdmin = hqHost && (role === 'superadmin' || isLegacyAdmin);
 
           // Hard block: HQ admin portal is only for Kyrgyz Organic (plus superadmins).
           // Store admins should use their own store subdomain (e.g. dailybread.oako.kg).

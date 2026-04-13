@@ -11,9 +11,13 @@ export function getCurrentCompanyId() {
 
 export function matchesCompanyId(data, id = 'document') {
     if (!data?.companyId) {
-        console.warn("Missing companyId:", id);
         // Safe migration: legacy docs without companyId belong to the default company only.
-        return getCurrentCompanyId() === COMPANY_ID;
+        const current = getCurrentCompanyId();
+        // Avoid spamming the console for Kyrgyz Organic legacy data.
+        if (current !== COMPANY_ID) {
+            console.warn("Missing companyId:", id);
+        }
+        return current === COMPANY_ID;
     }
 
     return data.companyId === getCurrentCompanyId();

@@ -1,0 +1,5 @@
+# Firebase rules are managed manually in Firebase Console for this project.
+# Do not commit rules to the repository.
+firestore.rules
+storage.rules
+
