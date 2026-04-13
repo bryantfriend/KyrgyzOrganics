@@ -1,6 +1,6 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
-import { getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
+import { getSelectedCompanyId, matchesSelectedCompany } from '../../store-context.js';
 import {
     collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, getDoc, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -81,14 +81,14 @@ export class CategoriesTab extends BaseTab {
         e.preventDefault();
         if (this.cId.value) {
             const existingSnap = await getDoc(doc(db, 'categories', this.cId.value));
-            if (!existingSnap.exists() || !matchesCompanyId({ id: existingSnap.id, ...existingSnap.data() }, `categories/${this.cId.value}`)) {
+            if (!existingSnap.exists() || !matchesSelectedCompany({ id: existingSnap.id, ...existingSnap.data() }, `categories/${this.cId.value}`)) {
                 alert('This category is not available for your company.');
                 return;
             }
         }
 
         const data = {
-            companyId: getCurrentCompanyId(),
+            companyId: getSelectedCompanyId(),
             name_ru: this.cNameRU.value,
             name_en: this.cNameEN.value,
             name_kg: this.cNameKG.value,
@@ -118,7 +118,7 @@ export class CategoriesTab extends BaseTab {
         if (!docSnap.exists()) return;
 
         const data = docSnap.data();
-        if (data.companyId && !matchesCompanyId(data, `categories/${id}`)) {
+        if (data.companyId && !matchesSelectedCompany(data, `categories/${id}`)) {
             console.warn('Category companyId mismatch:', id);
             return;
         }
@@ -144,7 +144,7 @@ export class CategoriesTab extends BaseTab {
     async deleteCategory(id) {
         if (confirm('Delete this category?')) {
             const docSnap = await getDoc(doc(db, 'categories', id));
-            if (!docSnap.exists() || !matchesCompanyId({ id: docSnap.id, ...docSnap.data() }, `categories/${id}`)) {
+            if (!docSnap.exists() || !matchesSelectedCompany({ id: docSnap.id, ...docSnap.data() }, `categories/${id}`)) {
                 alert('This category is not available for your company.');
                 return;
             }
@@ -154,7 +154,8 @@ export class CategoriesTab extends BaseTab {
 
     loadCategories() {
         if (!this.list) return;
-        const q = query(collection(db, 'categories'), where('companyId', '==', getCurrentCompanyId()));
+        const selectedCompanyId = getSelectedCompanyId();
+        const q = query(collection(db, 'categories'), where('companyId', '==', selectedCompanyId));
 
         if (this.unsubscribeCategories) this.unsubscribeCategories();
 
@@ -162,7 +163,7 @@ export class CategoriesTab extends BaseTab {
             this.list.innerHTML = '';
             const sortedDocs = snapshot.docs.filter(docSnap => {
                 const category = { id: docSnap.id, ...docSnap.data() };
-                return matchesCompanyId(category, `categories/${category.id}`);
+                return matchesSelectedCompany(category, `categories/${category.id}`);
             }).sort((a, b) => {
                 const aName = a.data().name_ru || a.data().name_en || '';
                 const bName = b.data().name_ru || b.data().name_en || '';
@@ -187,6 +188,10 @@ export class CategoriesTab extends BaseTab {
                 `;
                 this.list.appendChild(el);
             });
+
+            if (!sortedDocs.length) {
+                this.list.innerHTML = `<p style="color:#666; padding:1rem;">No categories found for ${selectedCompanyId}. Add the first category for this store above.</p>`;
+            }
         });
     }
 }

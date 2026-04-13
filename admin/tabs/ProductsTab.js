@@ -2,7 +2,7 @@ import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { uploadImage, logAudit } from '../utils.js';
 import { buildProductPageUrl, getPreferredProductName, slugifyProductName } from '../../product-utils.js';
-import { getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
+import { getSelectedCompanyId, matchesSelectedCompany } from '../../store-context.js';
 import {
     collection, addDoc, updateDoc, deleteDoc, doc, query, onSnapshot, getDoc, serverTimestamp, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -135,7 +135,8 @@ export class ProductsTab extends BaseTab {
 
     async loadCategories() {
         // Populate Product Form Category Select & Filter
-        const q = query(collection(db, 'categories'), where('companyId', '==', getCurrentCompanyId()));
+        const selectedCompanyId = getSelectedCompanyId();
+        const q = query(collection(db, 'categories'), where('companyId', '==', selectedCompanyId));
 
         if (this.unsubscribeCategories) this.unsubscribeCategories();
 
@@ -151,7 +152,7 @@ export class ProductsTab extends BaseTab {
 
             const sorted = snapshot.docs
                 .map(d => ({ id: d.id, ...d.data() }))
-                .filter(c => matchesCompanyId(c, `categories/${c.id}`))
+                .filter(c => matchesSelectedCompany(c, `categories/${c.id}`))
                 .sort((a, b) => (a.name_ru || '').localeCompare(b.name_ru || ''));
 
             sorted.forEach(c => {
@@ -179,7 +180,8 @@ export class ProductsTab extends BaseTab {
     }
 
     loadProducts() {
-        const q = query(collection(db, 'products'), where('companyId', '==', getCurrentCompanyId()));
+        const selectedCompanyId = getSelectedCompanyId();
+        const q = query(collection(db, 'products'), where('companyId', '==', selectedCompanyId));
 
         if (this.unsubscribeProducts) this.unsubscribeProducts();
 
@@ -187,7 +189,7 @@ export class ProductsTab extends BaseTab {
             this.allProductsCache = [];
             snapshot.forEach(docSnap => {
                 const product = { id: docSnap.id, ...docSnap.data() };
-                if (matchesCompanyId(product, `products/${product.id}`)) {
+                if (matchesSelectedCompany(product, `products/${product.id}`)) {
                     this.allProductsCache.push(product);
                 }
             });
@@ -203,6 +205,12 @@ export class ProductsTab extends BaseTab {
         const filtered = (filterVal === 'all')
             ? this.allProductsCache
             : this.allProductsCache.filter(p => p.categoryId === filterVal);
+
+        if (!filtered.length) {
+            const companyId = getSelectedCompanyId();
+            this.list.innerHTML = `<p style="color:#666; padding:1rem;">No products found for ${companyId}. Add the first product for this store below.</p>`;
+            return;
+        }
 
         filtered.forEach(p => {
             const pageUrl = `../${buildProductPageUrl(p)}`;
@@ -247,7 +255,7 @@ export class ProductsTab extends BaseTab {
             if (fileContent) imageNoPackagingUrl = await uploadImage(fileContent, 'products', uploadOptions);
 
             const data = {
-                companyId: getCurrentCompanyId(),
+                companyId: getSelectedCompanyId(),
                 name_ru: document.getElementById('pNameRU').value,
                 name_en: document.getElementById('pNameEN').value,
                 name_kg: document.getElementById('pNameKG').value,
