@@ -1,7 +1,8 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { logAudit } from '../utils.js';
-import { COMPANY_ID, matchesCompanyId } from '../../company-config.js';
+import { COMPANY_ID, getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
+import { getInventoryDocId } from '../../firestore-paths.js';
 import {
     collection, getDocs, getDoc, doc, setDoc, addDoc, query, orderBy, serverTimestamp, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -38,6 +39,19 @@ export class InventoryTab extends BaseTab {
         if (this.dateInput) this.dateInput.valueAsDate = new Date();
 
         this.bindEvents();
+        this.fetchTemplates();
+    }
+
+    onStoreChanged() {
+        this.inventoryCache = {};
+        this.selectedProducts.clear();
+        this.productsCache = [];
+        this.categoriesMap = {};
+
+        if (this.accordion) this.accordion.innerHTML = '';
+        if (this.menuList) this.menuList.innerHTML = '';
+
+        this.setStatus('Switched store. Load inventory to continue.');
         this.fetchTemplates();
     }
 
@@ -81,14 +95,21 @@ export class InventoryTab extends BaseTab {
         try {
             await this.ensureDataLoaded();
 
-            const snap = await getDoc(doc(db, 'inventory', dateStr));
+            const companyId = getCurrentCompanyId();
+            const invId = getInventoryDocId(companyId, dateStr);
+            let snap = await getDoc(doc(db, 'inventory', invId));
+
+            // Back-compat: legacy single-tenant inventory used date-only IDs.
+            if (!snap.exists() && companyId === COMPANY_ID) {
+                snap = await getDoc(doc(db, 'inventory', dateStr));
+            }
 
             this.selectedProducts.clear();
             this.inventoryCache = {};
 
             if (snap.exists()) {
                 const inventoryData = snap.data();
-                if (inventoryData.companyId && inventoryData.companyId !== COMPANY_ID) {
+                if (inventoryData.companyId && inventoryData.companyId !== companyId) {
                     console.warn('Inventory companyId mismatch:', dateStr);
                     this.inventoryCache = {};
                 } else {
@@ -238,7 +259,9 @@ export class InventoryTab extends BaseTab {
         this.saveBtn.disabled = true;
 
         try {
-            const updateData = { companyId: COMPANY_ID };
+            const companyId = getCurrentCompanyId();
+            const invId = getInventoryDocId(companyId, dateStr);
+            const updateData = { companyId: companyId };
             // Capture Inputs
             document.querySelectorAll('.inv-qty-input').forEach(input => {
                 const pid = input.dataset.id;
@@ -255,7 +278,12 @@ export class InventoryTab extends BaseTab {
             // Note: If item selected but not in DOM? (Shouldn't happen with renderMenu)
             // If item unchecked, it's not in selectedProducts, so not saved (deleted from day).
 
-            await setDoc(doc(db, 'inventory', dateStr), updateData);
+            await setDoc(doc(db, 'inventory', invId), updateData);
+
+            // Back-compat write for legacy reads (default store only).
+            if (companyId === COMPANY_ID) {
+                await setDoc(doc(db, 'inventory', dateStr), updateData);
+            }
             this.inventoryCache = updateData;
             await logAudit('Inventory Saved', `Date: ${dateStr}`);
             this.setStatus('Saved successfully!', true);
@@ -302,7 +330,7 @@ export class InventoryTab extends BaseTab {
         });
 
         try {
-            await addDoc(collection(db, 'inventory_templates'), { companyId: COMPANY_ID, name, items: data, createdAt: serverTimestamp() });
+            await addDoc(collection(db, 'inventory_templates'), { companyId: getCurrentCompanyId(), name, items: data, createdAt: serverTimestamp() });
             alert("Template Saved!");
             this.fetchTemplates();
         } catch (e) { alert(e.message); }
@@ -315,7 +343,7 @@ export class InventoryTab extends BaseTab {
         const snap = await getDoc(doc(db, 'inventory_templates', id));
         if (snap.exists()) {
             const templateData = snap.data();
-            if (templateData.companyId && templateData.companyId !== COMPANY_ID) {
+            if (templateData.companyId && templateData.companyId !== getCurrentCompanyId()) {
                 console.warn('Inventory template companyId mismatch:', id);
                 return;
             }
@@ -330,11 +358,16 @@ export class InventoryTab extends BaseTab {
         const dateStr = this.copyDateInput.value;
         if (!dateStr) return alert("Select date");
 
-        const snap = await getDoc(doc(db, 'inventory', dateStr));
+        const companyId = getCurrentCompanyId();
+        const invId = getInventoryDocId(companyId, dateStr);
+        let snap = await getDoc(doc(db, 'inventory', invId));
+        if (!snap.exists() && companyId === COMPANY_ID) {
+            snap = await getDoc(doc(db, 'inventory', dateStr));
+        }
         if (snap.exists()) {
             await this.ensureDataLoaded();
             const raw = snap.data();
-            if (raw.companyId && raw.companyId !== COMPANY_ID) {
+            if (raw.companyId && raw.companyId !== companyId) {
                 console.warn('Inventory companyId mismatch:', dateStr);
                 alert("No inventory found for this company.");
                 return;

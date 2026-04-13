@@ -7,6 +7,12 @@ export async function login(email, password) {
     return signInWithEmailAndPassword(auth, email, password);
 }
 
+export async function getUserProfile(userId) {
+    if (!userId) return null;
+    const userDoc = await getDoc(doc(db, "users", userId));
+    return userDoc.exists() ? userDoc.data() : null;
+}
+
 export async function getUserCompany(userId) {
     if (!userId) return null;
     const userDoc = await getDoc(doc(db, "users", userId));

@@ -1,7 +1,8 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { COMPANY_ID } from '../../company-config.js';
+import { COMPANY_ID, getCurrentCompanyId } from '../../company-config.js';
+import { getPageDocId } from '../../firestore-paths.js';
 
 export class ContentTab extends BaseTab {
     constructor() {
@@ -62,10 +63,18 @@ export class ContentTab extends BaseTab {
         if (!this.quill) return;
 
         try {
-            const docSnap = await getDoc(doc(db, 'pages', pageId));
+            const companyId = getCurrentCompanyId();
+            const scopedId = getPageDocId(companyId, pageId);
+            let docSnap = await getDoc(doc(db, 'pages', scopedId));
+
+            // Back-compat: legacy single-tenant pages used bare IDs (about/contact).
+            if (!docSnap.exists() && companyId === COMPANY_ID) {
+                docSnap = await getDoc(doc(db, 'pages', pageId));
+            }
+
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                if (data.companyId && data.companyId !== COMPANY_ID) {
+                if (data.companyId && data.companyId !== companyId) {
                     console.warn('Page companyId mismatch:', pageId);
                     this.quill.root.innerHTML = '';
                     return;
@@ -85,7 +94,16 @@ export class ContentTab extends BaseTab {
 
         try {
             const content = this.quill.root.innerHTML;
-            await setDoc(doc(db, 'pages', pageId), { companyId: COMPANY_ID, [lang]: content }, { merge: true });
+            const companyId = getCurrentCompanyId();
+            const scopedId = getPageDocId(companyId, pageId);
+            const payload = { companyId: companyId, [lang]: content };
+
+            await setDoc(doc(db, 'pages', scopedId), payload, { merge: true });
+
+            // Back-compat write for the default company.
+            if (companyId === COMPANY_ID) {
+                await setDoc(doc(db, 'pages', pageId), payload, { merge: true });
+            }
             alert('Content Saved');
         } catch (e) { alert(e.message); }
     }
@@ -104,9 +122,15 @@ export class ContentTab extends BaseTab {
         if (!confirm(`Overwrite ${lang} with translation?`)) return;
 
         try {
-            const docSnap = await getDoc(doc(db, 'pages', this.pageSelect.value));
+            const pageId = this.pageSelect.value;
+            const companyId = getCurrentCompanyId();
+            const scopedId = getPageDocId(companyId, pageId);
+            let docSnap = await getDoc(doc(db, 'pages', scopedId));
+            if (!docSnap.exists() && companyId === COMPANY_ID) {
+                docSnap = await getDoc(doc(db, 'pages', pageId));
+            }
             const data = docSnap.exists() ? docSnap.data() : {};
-            if (data.companyId && data.companyId !== COMPANY_ID) {
+            if (data.companyId && data.companyId !== companyId) {
                 console.warn('Page companyId mismatch:', this.pageSelect.value);
                 return;
             }

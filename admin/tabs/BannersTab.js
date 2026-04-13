@@ -1,7 +1,7 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { uploadImage } from '../utils.js';
-import { COMPANY_ID, matchesCompanyId } from '../../company-config.js';
+import { getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
 import {
     collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, serverTimestamp, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -18,6 +18,7 @@ export class BannersTab extends BaseTab {
         this.bEndAt = document.getElementById('bEndAt');
 
         this.bannerCount = 0;
+        this.unsubscribeBanners = null;
     }
 
     async init() {
@@ -32,9 +33,16 @@ export class BannersTab extends BaseTab {
         this.loadBanners();
     }
 
+    onStoreChanged() {
+        this.loadBanners();
+    }
+
     async loadBanners() {
-        const q = collection(db, 'banners');
-        onSnapshot(q, async snapshot => {
+        const q = query(collection(db, 'banners'), where('companyId', '==', getCurrentCompanyId()));
+
+        if (this.unsubscribeBanners) this.unsubscribeBanners();
+
+        this.unsubscribeBanners = onSnapshot(q, async snapshot => {
             const companyDocs = snapshot.docs.filter(docSnap => {
                 const banner = { id: docSnap.id, ...docSnap.data() };
                 return matchesCompanyId(banner, `banners/${banner.id}`);
@@ -107,7 +115,7 @@ export class BannersTab extends BaseTab {
             const endAt = this.bEndAt.value ? new Date(this.bEndAt.value) : null;
 
             await addDoc(collection(db, 'banners'), {
-                companyId: COMPANY_ID,
+                companyId: getCurrentCompanyId(),
                 imageUrl,
                 active: this.bActive.checked,
                 startAt,

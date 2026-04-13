@@ -31,6 +31,8 @@ export class ProductsTab extends BaseTab {
         this.autoCompress = document.getElementById('pAutoCompress');
 
         this.allProductsCache = [];
+        this.unsubscribeProducts = null;
+        this.unsubscribeCategories = null;
         this.slugTouched = false;
     }
 
@@ -40,6 +42,13 @@ export class ProductsTab extends BaseTab {
 
         this.bindEvents();
         this.loadCategories(); // Populates dropdowns
+        this.loadProducts();
+    }
+
+    onStoreChanged() {
+        // Switch listeners to the newly-selected store.
+        this.allProductsCache = [];
+        this.loadCategories();
         this.loadProducts();
     }
 
@@ -128,7 +137,9 @@ export class ProductsTab extends BaseTab {
         // Populate Product Form Category Select & Filter
         const q = query(collection(db, 'categories'), where('companyId', '==', getCurrentCompanyId()));
 
-        onSnapshot(q, (snapshot) => {
+        if (this.unsubscribeCategories) this.unsubscribeCategories();
+
+        this.unsubscribeCategories = onSnapshot(q, (snapshot) => {
             const catSelect = document.getElementById('pCategory');
             const filterSelect = document.getElementById('filterCategory');
 
@@ -170,7 +181,9 @@ export class ProductsTab extends BaseTab {
     loadProducts() {
         const q = query(collection(db, 'products'), where('companyId', '==', getCurrentCompanyId()));
 
-        onSnapshot(q, (snapshot) => {
+        if (this.unsubscribeProducts) this.unsubscribeProducts();
+
+        this.unsubscribeProducts = onSnapshot(q, (snapshot) => {
             this.allProductsCache = [];
             snapshot.forEach(docSnap => {
                 const product = { id: docSnap.id, ...docSnap.data() };

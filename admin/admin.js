@@ -1,6 +1,9 @@
-import { auth } from '../firebase-config.js';
+import { auth, db } from '../firebase-config.js';
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { ensureBaseCompanies, loadUserCompany, login } from '../tenant-auth.js';
+import { ensureBaseCompanies, getUserProfile, login } from '../tenant-auth.js';
+import { COMPANY_ID } from '../company-config.js';
+import { getSelectedCompanyId, loadSelectedCompany, setSelectedCompany } from '../store-context.js';
+import { collection, getDocs, orderBy, query } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { CategoriesTab } from './tabs/CategoriesTab.js';
 import { ProductsTab } from './tabs/ProductsTab.js';
 import { BannersTab } from './tabs/BannersTab.js';
@@ -11,6 +14,33 @@ import { OrdersTab } from './tabs/OrdersTab.js';
 import { AuditTab } from './tabs/AuditTab.js';
 import { AnalyticsTab } from './tabs/AnalyticsTab.js';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
+import { StoresTab } from './tabs/StoresTab.js';
+
+function getHostname() {
+  try {
+    return String(window.location.hostname || '').toLowerCase();
+  } catch (_) {
+    return '';
+  }
+}
+
+function isHqAdminHost(hostname) {
+  const host = String(hostname || '').toLowerCase();
+  return host === 'oako.kg' || host === 'www.oako.kg' || host === 'localhost' || host === '127.0.0.1';
+}
+
+function getCompanyIdFromHost(hostname) {
+  const host = String(hostname || '').toLowerCase();
+
+  if (host === 'oako.kg' || host === 'www.oako.kg') return COMPANY_ID;
+
+  if (host.endsWith('.oako.kg')) {
+    const sub = host.replace(/\.oako\.kg$/, '');
+    if (sub && sub !== 'www') return sub;
+  }
+
+  return null;
+}
 
 class AdminApp {
   constructor() {
@@ -19,6 +49,19 @@ class AdminApp {
     this.loginForm = document.getElementById('loginForm');
     this.logoutBtn = document.getElementById('logoutBtn');
     this.tabs = {};
+
+    // Store Switch UI (superadmin only)
+    this.storePill = document.getElementById('storePill');
+    this.selectStoreBtn = document.getElementById('selectStoreBtn');
+    this.storesTabBtn = document.getElementById('storesTabBtn');
+    this.storeModal = document.getElementById('storeSwitchModal');
+    this.storeModalClose = document.getElementById('closeStoreModal');
+    this.storeSearchInput = document.getElementById('storeSearchInput');
+    this.storeSwitchList = document.getElementById('storeSwitchList');
+
+    this.userProfile = null;
+    this.isSuperAdmin = false;
+    this.companiesCache = [];
 
     // Navigation
     this.navButtons = document.querySelectorAll('.nav-btn'); // Assuming I added class nav-btn to all? 
@@ -32,6 +75,7 @@ class AdminApp {
   async init() {
     this.setupAuth();
     this.setupTabs();
+    this.setupStoreSwitching();
 
     // Global Helper for Mobile Preview Close
     window.closePreview = () => {
@@ -45,13 +89,68 @@ class AdminApp {
       this.mainApp.hidden = !user;
       if (user) {
         try {
-          await loadUserCompany(user);
+          const hostname = getHostname();
+          const hqHost = isHqAdminHost(hostname);
+          const hostCompanyId = getCompanyIdFromHost(hostname);
+
+          const profile = await getUserProfile(user.uid);
+          const role = profile?.role || 'admin';
+          const companyId = profile?.companyId || COMPANY_ID;
+
+          this.userProfile = {
+            userId: user.uid,
+            email: user.email || profile?.email || '',
+            ...profile,
+            role,
+            companyId
+          };
+
+          // Superadmin powers only on the HQ admin domain (oako.kg).
+          this.isSuperAdmin = role === 'superadmin' && hqHost;
+
+          // Hard block: HQ admin portal is only for Kyrgyz Organic (plus superadmins).
+          // Store admins should use their own store subdomain (e.g. dailybread.oako.kg).
+          const isProdHqHost = hostname === 'oako.kg' || hostname === 'www.oako.kg';
+          if (isProdHqHost && !this.isSuperAdmin && companyId !== COMPANY_ID) {
+            throw new Error(`This admin portal is for Kyrgyz Organic only. Please log in on your store website (for example: https://${companyId}.oako.kg/admin/admin.html).`);
+          }
+
+          // Load stored selection (superadmin) or force to the user's company.
+          loadSelectedCompany();
+
+          if (!hqHost) {
+            // Store subdomains: always lock the admin to that store.
+            const forcedCompanyId = hostCompanyId || companyId;
+
+            // If this isn't a superadmin account, ensure they only log into their own store domain.
+            if (role !== 'superadmin' && hostCompanyId && companyId && hostCompanyId !== companyId) {
+              throw new Error(`This admin portal is for "${hostCompanyId}". Please log in on the correct store website.`);
+            }
+
+            setSelectedCompany(forcedCompanyId, { persist: false });
+          } else if (!this.isSuperAdmin) {
+            // Regular admins always stay within their store, even on HQ domain.
+            setSelectedCompany(companyId, { persist: false });
+          } else if (!getSelectedCompanyId()) {
+            // Superadmin on HQ domain: default to Kyrgyz Organic if nothing was saved.
+            setSelectedCompany(COMPANY_ID, { persist: false });
+          }
+
           await ensureBaseCompanies().catch(err => {
             console.warn("Base company seed skipped:", err);
           });
+
+          await this.loadCompaniesForUi().catch(err => {
+            console.warn("Company list load skipped:", err);
+          });
+
+          this.applyRoleUi();
+          this.updateStorePill();
           this.onLogin();
         } catch (err) {
           console.error("Company context failed:", err);
+          const errorP = document.getElementById('loginError');
+          if (errorP) errorP.textContent = err?.message ? String(err.message) : 'Login Failed';
           this.authScreen.hidden = false;
           this.mainApp.hidden = true;
           await signOut(auth);
@@ -80,6 +179,117 @@ class AdminApp {
     }
   }
 
+  setupStoreSwitching() {
+    if (this.selectStoreBtn) {
+      this.selectStoreBtn.addEventListener('click', () => this.openStoreModal());
+    }
+
+    if (this.storeModalClose) {
+      this.storeModalClose.addEventListener('click', () => this.closeStoreModal());
+    }
+
+    if (this.storeModal) {
+      this.storeModal.addEventListener('click', (e) => {
+        if (e.target === this.storeModal) this.closeStoreModal();
+      });
+    }
+
+    if (this.storeSearchInput) {
+      this.storeSearchInput.addEventListener('input', () => this.renderStoreSwitchList());
+    }
+
+    window.addEventListener('oako:store-changed', () => {
+      this.updateStorePill();
+      Object.values(this.tabs).forEach((tab) => {
+        if (typeof tab?.onStoreChanged === 'function') {
+          tab.onStoreChanged();
+        }
+      });
+    });
+  }
+
+  applyRoleUi() {
+    const showSuperAdmin = !!this.isSuperAdmin;
+
+    if (this.selectStoreBtn) {
+      this.selectStoreBtn.style.display = showSuperAdmin ? '' : 'none';
+    }
+
+    if (this.storesTabBtn) {
+      this.storesTabBtn.style.display = showSuperAdmin ? '' : 'none';
+    }
+  }
+
+  async loadCompaniesForUi() {
+    if (!this.isSuperAdmin) return;
+
+    const q = query(collection(db, 'companies'), orderBy('name', 'asc'));
+    const snap = await getDocs(q);
+    this.companiesCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    this.renderStoreSwitchList();
+  }
+
+  getCompanyDisplayName(companyId) {
+    const match = this.companiesCache.find((c) => c.companyId === companyId || c.id === companyId);
+    if (match) return match.name || match.slug || match.companyId || match.id;
+    return companyId || COMPANY_ID;
+  }
+
+  updateStorePill() {
+    if (!this.storePill) return;
+    const selected = getSelectedCompanyId();
+    this.storePill.textContent = `Store: ${this.getCompanyDisplayName(selected)}`;
+  }
+
+  openStoreModal() {
+    if (!this.isSuperAdmin) return;
+    if (!this.storeModal) return;
+    this.renderStoreSwitchList();
+    this.storeModal.classList.remove('hidden');
+    if (this.storeSearchInput) this.storeSearchInput.focus();
+  }
+
+  closeStoreModal() {
+    if (!this.storeModal) return;
+    this.storeModal.classList.add('hidden');
+    if (this.storeSearchInput) this.storeSearchInput.value = '';
+  }
+
+  renderStoreSwitchList() {
+    if (!this.storeSwitchList) return;
+
+    const term = (this.storeSearchInput?.value || '').trim().toLowerCase();
+    const items = (Array.isArray(this.companiesCache) ? this.companiesCache : []).filter((store) => {
+      if (!term) return true;
+      const blob = `${store.name || ''} ${store.contactName || ''} ${store.phone || ''} ${store.address || ''} ${store.companyId || store.id || ''}`.toLowerCase();
+      return blob.includes(term);
+    });
+
+    const selected = getSelectedCompanyId();
+
+    this.storeSwitchList.innerHTML = '';
+    items.forEach((store) => {
+      const id = store.companyId || store.id;
+      const el = document.createElement('div');
+      el.className = 'list-item';
+      el.style.cursor = 'pointer';
+      el.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:0.15rem;">
+          <strong>${store.name || id}</strong>
+          <span style="font-size:0.85rem; color:#666;">${store.plan || 'free'} • ${store.phone || ''}</span>
+        </div>
+        <div style="font-size:0.85rem; color:${id === selected ? '#2e7d32' : '#888'}; font-weight:700;">
+          ${id === selected ? 'Selected' : 'Select'}
+        </div>
+      `;
+      el.addEventListener('click', () => {
+        setSelectedCompany(id);
+        this.closeStoreModal();
+      });
+      this.storeSwitchList.appendChild(el);
+    });
+  }
+
   setupTabs() {
     // Instantiate Tabs
     this.tabs['categories'] = new CategoriesTab();
@@ -92,6 +302,7 @@ class AdminApp {
     this.tabs['audit'] = new AuditTab();
     this.tabs['analytics'] = new AnalyticsTab();
     this.tabs['campaigns'] = new CampaignsTab();
+    this.tabs['stores'] = new StoresTab();
 
     // Listeners for Tab Switching
     // Support both .tabs button and .nav-btn

@@ -37,4 +37,13 @@ export class BaseTab {
     onShow() {
         // no-op by default
     }
+
+    /**
+     * Called when the global store context changes (superadmin store switch).
+     * Tabs that keep live listeners should override this to resubscribe.
+     */
+    onStoreChanged() {
+        if (!this.isInitialized) return;
+        this.onShow();
+    }
 }

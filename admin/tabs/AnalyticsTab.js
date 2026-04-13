@@ -1,7 +1,7 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { COMPANY_ID, matchesCompanyId } from '../../company-config.js';
+import { getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
 
 export class AnalyticsTab extends BaseTab {
     constructor() {
@@ -27,6 +27,7 @@ export class AnalyticsTab extends BaseTab {
             // Fetch verified (paid) orders
             const q = query(
                 collection(db, 'orders'),
+                where('companyId', '==', getCurrentCompanyId()),
                 where('status', '==', 'paid'),
                 orderBy('date', 'desc')
             );
@@ -39,7 +40,7 @@ export class AnalyticsTab extends BaseTab {
                 docs = snap.docs;
             } catch (e) {
                 if (e.message.includes("index")) {
-                    const q2 = query(collection(db, 'orders'), where('status', '==', 'paid'));
+                    const q2 = query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId()), where('status', '==', 'paid'));
                     const snap = await getDocs(q2);
                     docs = snap.docs.sort((a, b) => b.data().date.localeCompare(a.data().date));
                 } else throw e;

@@ -29,11 +29,18 @@
   <div id="mainApp" hidden>
 
     <header class="admin-header">
-      <h1>Content Manager</h1>
-      <button id="logoutBtn">Logout</button>
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <h1 style="margin:0;">Content Manager</h1>
+        <div id="storePill" style="background: rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18); padding:0.35rem 0.75rem; border-radius:999px; font-weight:700; font-size:0.9rem;">Store: kyrgyz-organics</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.5rem;">
+        <button id="selectStoreBtn" class="btn-secondary" type="button" style="display:none;">Select Store</button>
+        <button id="logoutBtn">Logout</button>
+      </div>
     </header>
 
     <nav class="tabs">
+      <button class="nav-btn" id="storesTabBtn" data-tab="stores" style="display:none;">Stores</button>
       <button data-tab="products" class="active">Products</button>
       <button data-tab="categories">Categories</button>
       <button data-tab="banners">Banners</button>
@@ -45,6 +52,125 @@
       <button class="nav-btn" data-tab="analytics">Analytics</button>
       <button class="nav-btn" data-tab="campaigns" style="background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8b00ff); color: white; border-radius: 50px; border: none; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); padding: 8px 20px;">Campaigns</button>
     </nav>
+
+    <!-- STORES (SUPERADMIN) -->
+    <section id="stores" class="tab-content">
+      <div class="admin-card">
+        <h3 style="margin-bottom:1rem;">Stores</h3>
+        <input id="storesSearch" type="text" placeholder="Search stores (name, contact, phone, address)"
+          style="width:100%; padding:0.75rem; border:1px solid #ddd; border-radius:6px; margin-bottom:1rem;">
+        <div style="overflow:auto;">
+          <table id="storesTable" style="width:100%; border-collapse:collapse; font-size:0.9rem;"></table>
+        </div>
+        <div style="display:flex; gap:0.5rem; margin-top:0.75rem; flex-wrap:wrap;">
+          <button type="button" id="refreshStoreMetrics" class="btn-secondary">Refresh Metrics</button>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <h3 id="storeFormTitle" style="margin-bottom:1rem;">Create Store</h3>
+        <form id="storeForm">
+          <input type="hidden" id="storeEditId">
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeCompanyId">Company ID</label>
+              <input type="text" id="storeCompanyId" placeholder="dailybread" required>
+              <small style="display:block; color:#777; margin-top:0.35rem;">Used for data isolation. Must be unique.</small>
+            </div>
+            <div class="form-group">
+              <label for="storeName">Store Name</label>
+              <input type="text" id="storeName" placeholder="Daily Bread" required>
+            </div>
+            <div class="form-group">
+              <label for="storePlan">Plan</label>
+              <select id="storePlan">
+                <option value="free">free</option>
+                <option value="pro">pro</option>
+                <option value="vip">vip</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeContactName">Contact Name</label>
+              <input type="text" id="storeContactName" placeholder="John Doe">
+            </div>
+            <div class="form-group">
+              <label for="storePhone">Phone</label>
+              <input type="text" id="storePhone" placeholder="+996...">
+            </div>
+            <div class="form-group">
+              <label for="storeWebsite">Website</label>
+              <input type="text" id="storeWebsite" placeholder="dailybread.oako.kg">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeAddress">Address</label>
+              <input type="text" id="storeAddress" placeholder="Bishkek...">
+            </div>
+            <div class="form-group">
+              <label for="storeTwoGis">2GIS Link</label>
+              <input type="text" id="storeTwoGis" placeholder="https://2gis.kg/...">
+            </div>
+            <div class="form-group">
+              <label for="storeTags">Tags</label>
+              <input type="text" id="storeTags" placeholder="bakery, cafe, organic">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group" style="flex:2;">
+              <label for="storeNotes">Internal Notes</label>
+              <textarea id="storeNotes" placeholder="client is slow to respond"></textarea>
+            </div>
+            <div class="form-group">
+              <label style="display:flex; align-items:center; gap:0.5rem;">
+                <input type="checkbox" id="storeActive" checked>
+                Active Store
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="submit" id="storeSaveBtn">Save Store</button>
+            <button type="button" id="storeCancelBtn" class="btn-secondary">Cancel</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="admin-card">
+        <h3 style="margin-bottom:1rem;">Users (Basic)</h3>
+        <form id="storeUserForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="userUid">User UID</label>
+              <input type="text" id="userUid" placeholder="Firebase Auth UID" required>
+            </div>
+            <div class="form-group">
+              <label for="userEmail">Email</label>
+              <input type="text" id="userEmail" placeholder="user@email.com">
+            </div>
+            <div class="form-group">
+              <label for="userCompanyId">Company</label>
+              <input type="text" id="userCompanyId" placeholder="dailybread" required>
+            </div>
+            <div class="form-group">
+              <label for="userRole">Role</label>
+              <select id="userRole">
+                <option value="admin">admin</option>
+                <option value="superadmin">superadmin</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn-primary" style="width:auto;">Save User Profile</button>
+        </form>
+        <div id="storeUsersList" class="item-list" style="margin-top:1rem;"></div>
+      </div>
+    </section>
 
     <!-- PRODUCTS -->
     <section id="products" class="tab-content active">
@@ -923,6 +1049,20 @@
       <div class="modal-content mobile-frame">
         <img id="mobilePreviewImg" />
         <button onclick="closePreview()">Close</button>
+      </div>
+    </div>
+
+    <!-- Store Switch Modal (SUPERADMIN) -->
+    <div id="storeSwitchModal" class="modal hidden">
+      <div class="admin-card" style="width:min(720px, 92vw); max-height:80vh; overflow:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+          <h3 style="margin:0;">Select Store</h3>
+          <button type="button" id="closeStoreModal" class="btn-secondary">Close</button>
+        </div>
+        <div style="margin-top:1rem;">
+          <input type="text" id="storeSearchInput" placeholder="Search stores..." style="width:100%; padding:0.75rem; border:1px solid #ddd; border-radius:6px;">
+        </div>
+        <div id="storeSwitchList" class="item-list" style="margin-top:1rem;"></div>
       </div>
     </div>
   </div>

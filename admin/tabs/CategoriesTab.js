@@ -25,6 +25,8 @@ export class CategoriesTab extends BaseTab {
         this.cStyleColor = document.getElementById('cStyleColor');
         this.cActive = document.getElementById('cActive');
         this.catPreview = document.getElementById('catPreview');
+
+        this.unsubscribeCategories = null;
     }
 
     async init() {
@@ -35,6 +37,11 @@ export class CategoriesTab extends BaseTab {
         this.bindEvents();
         this.loadCategories();
         this.updatePreview(); // Initial state
+    }
+
+    onStoreChanged() {
+        this.loadCategories();
+        this.resetForm();
     }
 
     bindEvents() {
@@ -149,7 +156,9 @@ export class CategoriesTab extends BaseTab {
         if (!this.list) return;
         const q = query(collection(db, 'categories'), where('companyId', '==', getCurrentCompanyId()));
 
-        onSnapshot(q, snapshot => {
+        if (this.unsubscribeCategories) this.unsubscribeCategories();
+
+        this.unsubscribeCategories = onSnapshot(q, snapshot => {
             this.list.innerHTML = '';
             const sortedDocs = snapshot.docs.filter(docSnap => {
                 const category = { id: docSnap.id, ...docSnap.data() };

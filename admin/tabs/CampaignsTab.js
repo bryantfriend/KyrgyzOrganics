@@ -1,7 +1,8 @@
 import { db } from '../../firebase-config.js';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { uploadImage } from '../utils.js';
-import { COMPANY_ID, matchesCompanyId } from '../../company-config.js';
+import { COMPANY_ID, getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
+import { getCompanyScopedId } from '../../firestore-paths.js';
 
 export class CampaignsTab {
   constructor() {
@@ -126,6 +127,32 @@ export class CampaignsTab {
     
     this.bindEvents();
     this.updateFieldStates();
+  }
+
+  getCampaignCompanyId() {
+    return getCurrentCompanyId();
+  }
+
+  getCampaignDocId() {
+    const companyId = this.getCampaignCompanyId();
+
+    // Preserve the legacy document ID for Kyrgyz Organic (pre-multi-store).
+    if (companyId === COMPANY_ID) return 'prime-mun';
+
+    // Prevent cross-store overwrites by scoping the doc ID.
+    return getCompanyScopedId(companyId, 'prime-mun');
+  }
+
+  getCampaignDocRef() {
+    return doc(db, 'campaigns', this.getCampaignDocId());
+  }
+
+  onStoreChanged() {
+    // Only reload if the campaigns UI is currently visible.
+    const visible = this.section && this.section.style.display !== 'none';
+    if (visible) {
+      this.show();
+    }
   }
 
   createTimelineSlot(key, status, get) {
@@ -550,8 +577,9 @@ export class CampaignsTab {
 
     try {
       const nextOffset = Math.max(this.currentConversionCount, this.currentConversionOffset + visibleConversions);
-      await setDoc(doc(db, 'campaigns', 'prime-mun'), {
-        companyId: COMPANY_ID,
+      const companyId = this.getCampaignCompanyId();
+      await setDoc(this.getCampaignDocRef(), {
+        companyId: companyId,
         conversionOffset: nextOffset
       }, { merge: true });
 
@@ -569,14 +597,15 @@ export class CampaignsTab {
       return;
     }
 
-    const docRef = doc(db, 'campaigns', 'prime-mun');
+    const docRef = this.getCampaignDocRef();
     try {
       const nextSoldCount = await runTransaction(db, async (transaction) => {
         const snap = await transaction.get(docRef);
         if (!snap.exists()) throw new Error('Campaign not found.');
         const campaignData = snap.data();
-        if (campaignData.companyId && campaignData.companyId !== COMPANY_ID) throw new Error('Campaign belongs to another company.');
-        if (!campaignData.companyId) console.warn('Campaign missing companyId: prime-mun');
+        const companyId = this.getCampaignCompanyId();
+        if (campaignData.companyId && campaignData.companyId !== companyId) throw new Error('Campaign belongs to another company.');
+        if (!campaignData.companyId) console.warn('Campaign missing companyId:', docRef.id);
 
         const currentSold = Math.max(0, Number(campaignData.soldCount || 0));
         const proposed = currentSold + delta;
@@ -584,7 +613,7 @@ export class CampaignsTab {
         if (delta > 0 && maxSales > 0 && proposed > maxSales) return currentSold;
 
         transaction.set(docRef, {
-          companyId: COMPANY_ID,
+          companyId: companyId,
           soldCount: proposed
         }, { merge: true });
         return proposed;
@@ -812,16 +841,17 @@ export class CampaignsTab {
     if (this.campaignUnsubscribe) this.campaignUnsubscribe();
 
     try {
-      const docRef = doc(db, 'campaigns', 'prime-mun');
+      const docRef = this.getCampaignDocRef();
       this.campaignUnsubscribe = onSnapshot(docRef, (snap) => {
         if (!snap.exists() || this.isHydratingCampaign) return;
 
         const data = snap.data();
-        if (data.companyId && data.companyId !== COMPANY_ID) {
-          console.warn('Campaign companyId mismatch: prime-mun');
+        const companyId = this.getCampaignCompanyId();
+        if (data.companyId && data.companyId !== companyId) {
+          console.warn('Campaign companyId mismatch:', docRef.id);
           return;
         }
-        if (!data.companyId) console.warn('Campaign missing companyId: prime-mun');
+        if (!data.companyId) console.warn('Campaign missing companyId:', docRef.id);
         const savedMaxSales = Number(data.maxSales || 0);
         const savedSoldCount = Number(data.soldCount || 0);
         const savedConversionOffset = Number(data.conversionOffset || 0);
@@ -878,15 +908,16 @@ export class CampaignsTab {
   async loadCampaign() {
     try {
       this.isHydratingCampaign = true;
-      const docRef = doc(db, 'campaigns', 'prime-mun');
+      const docRef = this.getCampaignDocRef();
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         const data = snap.data();
-        if (data.companyId && data.companyId !== COMPANY_ID) {
-          console.warn('Campaign companyId mismatch: prime-mun');
+        const companyId = this.getCampaignCompanyId();
+        if (data.companyId && data.companyId !== companyId) {
+          console.warn('Campaign companyId mismatch:', docRef.id);
           return;
         }
-        if (!data.companyId) console.warn('Campaign missing companyId: prime-mun');
+        if (!data.companyId) console.warn('Campaign missing companyId:', docRef.id);
         const s = data.styles || {};
 
         if (this.isActive) this.isActive.checked = data.isActive;
@@ -987,8 +1018,9 @@ export class CampaignsTab {
       }
 
       const maxSalesValue = this.maxSales ? parseInt(this.maxSales.value, 10) || 0 : 0;
+      const companyId = this.getCampaignCompanyId();
       const data = {
-        companyId: COMPANY_ID,
+        companyId: companyId,
         isActive: this.isActive ? this.isActive.checked : false,
         headline: this.headline ? this.headline.value : '',
         headlineEN: this.headlineEN ? this.headlineEN.value : '',
@@ -1033,7 +1065,7 @@ export class CampaignsTab {
         }
       };
 
-      await setDoc(doc(db, 'campaigns', 'prime-mun'), data);
+      await setDoc(this.getCampaignDocRef(), data);
       this.currentImageUrl = finalImageUrl;
       this.currentLogoUrl = finalLogoUrl;
       this.currentLogoUrl2 = finalLogoUrl2 || '';

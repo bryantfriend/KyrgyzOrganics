@@ -3,6 +3,7 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-
 import { initMobileMenu, setupLanguage, t } from './common.js';
 import { formatPrice } from './shop-utils.js';
 import { COMPANY_ID } from './company-config.js';
+import { getCheckoutSettingsDocId } from './firestore-paths.js';
 
 const root = document.getElementById('orderTrackingRoot');
 const whatsAppSupportBtn = document.getElementById('whatsAppSupportBtn');
@@ -45,7 +46,11 @@ async function updateWhatsAppSupportButton() {
     if (!whatsAppSupportBtn) return;
 
     try {
-        const snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
+        const settingsId = getCheckoutSettingsDocId(COMPANY_ID);
+        let snap = await getDoc(doc(db, 'shop_settings', settingsId));
+        if (!snap.exists()) {
+            snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
+        }
         const data = snap.exists() ? snap.data() : {};
         if (data.companyId && data.companyId !== COMPANY_ID) {
             console.warn('Checkout settings companyId mismatch');

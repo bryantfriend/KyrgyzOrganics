@@ -1,7 +1,7 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { collection, query, orderBy, limit, getDocs, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { COMPANY_ID, matchesCompanyId } from '../../company-config.js';
+import { getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
 
 export class AuditTab extends BaseTab {
     constructor() {
@@ -26,11 +26,7 @@ export class AuditTab extends BaseTab {
 
         try {
             // Fetch last 50 logs
-            const q = query(
-                collection(db, 'audit_logs'),
-                orderBy('timestamp', 'desc'),
-                limit(50)
-            );
+            const q = query(collection(db, 'audit_logs'), where('companyId', '==', getCurrentCompanyId()), orderBy('timestamp', 'desc'), limit(50));
 
             let docs = [];
             try {
@@ -41,6 +37,10 @@ export class AuditTab extends BaseTab {
                 const snap = await getDocs(collection(db, 'audit_logs'));
                 docs = snap.docs
                     .sort((a, b) => (b.data().timestamp?.toMillis?.() || 0) - (a.data().timestamp?.toMillis?.() || 0))
+                    .filter(d => {
+                        const log = { id: d.id, ...d.data() };
+                        return matchesCompanyId(log, `audit_logs/${log.id}`);
+                    })
                     .slice(0, 50);
             }
             docs = docs.filter(d => {

@@ -18,20 +18,32 @@ service cloud.firestore {
       return userProfile().data.companyId;
     }
 
+    function userRole() {
+      return userProfile().data.role;
+    }
+
     function isLegacyAdmin() {
       return isSignedIn() && !hasUserProfile();
     }
 
+    function isSuperAdmin() {
+      return hasUserProfile() && userRole() == "superadmin";
+    }
+
+    function canReadAnyCompany() {
+      return isLegacyAdmin() || isSuperAdmin();
+    }
+
     function canReadCompanyData() {
-      return isLegacyAdmin() || (hasUserProfile() && resource.data.companyId == userCompanyId());
+      return canReadAnyCompany() || (hasUserProfile() && resource.data.companyId == userCompanyId());
     }
 
     function canWriteCompanyData() {
-      return isLegacyAdmin() || (hasUserProfile() && request.resource.data.companyId == userCompanyId());
+      return canReadAnyCompany() || (hasUserProfile() && request.resource.data.companyId == userCompanyId());
     }
 
     function canDeleteCompanyData() {
-      return isLegacyAdmin() || (hasUserProfile() && resource.data.companyId == userCompanyId());
+      return canReadAnyCompany() || (hasUserProfile() && resource.data.companyId == userCompanyId());
     }
 
     function isActive() {
@@ -54,36 +66,58 @@ service cloud.firestore {
 
     match /banners/{bannerId} {
       allow read: if isActive();
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
     }
 
     match /payment_methods/{methodId} {
       allow read: if isActive();
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
     }
 
     match /inventory/{dateId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
     }
 
     match /pages/{pageId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
     }
 
     match /shop_settings/{docId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
     }
 
     match /campaigns/{campaignId} {
       allow read: if true;
-      allow write: if isSignedIn();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /campaign_events/{eventId} {
+      allow create: if
+        request.resource.data.companyId is string &&
+        request.resource.data.campaignId is string &&
+        request.resource.data.sessionId is string &&
+        request.resource.data.timestamp != null &&
+        request.resource.data.actionType is string;
+
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow update, delete: if false;
     }
 
     match /inventory_templates/{templateId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
     }
 
     match /orders/{orderId} {
@@ -93,17 +127,19 @@ service cloud.firestore {
     }
 
     match /companies/{companyId} {
-      allow read: if true;
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && (canReadAnyCompany() || (hasUserProfile() && companyId == userCompanyId()));
+      allow write: if isSignedIn() && canReadAnyCompany();
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isLegacyAdmin());
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && (request.auth.uid == userId || canReadAnyCompany());
+      allow write: if isSignedIn() && canReadAnyCompany();
     }
 
     match /audit_logs/{logId} {
-      allow read, write: if isSignedIn();
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create: if isSignedIn() && canWriteCompanyData();
+      allow update, delete: if false;
     }
 
     match /{document=**} {

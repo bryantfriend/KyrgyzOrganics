@@ -4,6 +4,7 @@ import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl } from './product-utils.js';
 import { addCartItem, loadCart, saveCart, saveCartDay } from './shop-utils.js';
 import { COMPANY_ID, matchesCompanyId } from './company-config.js';
+import { getInventoryDocId } from './firestore-paths.js';
 
 const root = document.getElementById('productPageRoot');
 
@@ -44,7 +45,12 @@ async function loadCategories() {
 }
 
 async function loadInventory() {
-    const invSnap = await getDoc(doc(db, 'inventory', getTodayKey()));
+    const today = getTodayKey();
+    const invId = getInventoryDocId(COMPANY_ID, today);
+    let invSnap = await getDoc(doc(db, 'inventory', invId));
+    if (!invSnap.exists()) {
+        invSnap = await getDoc(doc(db, 'inventory', today));
+    }
     if (invSnap.exists()) {
         const inventoryData = invSnap.data();
         if (inventoryData.companyId && inventoryData.companyId !== COMPANY_ID) {

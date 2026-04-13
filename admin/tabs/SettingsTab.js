@@ -1,7 +1,8 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { uploadImage } from '../utils.js';
-import { COMPANY_ID, matchesCompanyId } from '../../company-config.js';
+import { COMPANY_ID, getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
+import { getCheckoutSettingsDocId } from '../../firestore-paths.js';
 import {
     collection, addDoc, deleteDoc, doc, query, orderBy, getDocs, getDoc, setDoc, serverTimestamp, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -86,7 +87,7 @@ export class SettingsTab extends BaseTab {
             }
 
             await addDoc(collection(db, 'payment_methods'), {
-                companyId: COMPANY_ID,
+                companyId: getCurrentCompanyId(),
                 name: document.getElementById('methodBank').value,
                 accountName: document.getElementById('methodAccountName').value,
                 number: document.getElementById('methodNumber').value,
@@ -115,9 +116,16 @@ export class SettingsTab extends BaseTab {
 
     async loadCheckoutSettings() {
         try {
-            const snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
+            const companyId = getCurrentCompanyId();
+            const settingsId = getCheckoutSettingsDocId(companyId);
+            let snap = await getDoc(doc(db, 'shop_settings', settingsId));
+
+            // Back-compat for legacy singleton checkout settings.
+            if (!snap.exists() && companyId === COMPANY_ID) {
+                snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
+            }
             const data = snap.exists() ? snap.data() : {};
-            if (data.companyId && data.companyId !== COMPANY_ID) {
+            if (data.companyId && data.companyId !== companyId) {
                 console.warn('Checkout settings companyId mismatch');
                 return;
             }
@@ -133,14 +141,24 @@ export class SettingsTab extends BaseTab {
 
     async saveCheckoutSettings() {
         try {
-            await setDoc(doc(db, 'shop_settings', 'checkout'), {
-                companyId: COMPANY_ID,
+            const companyId = getCurrentCompanyId();
+            const settingsId = getCheckoutSettingsDocId(companyId);
+
+            const payload = {
+                companyId: companyId,
                 deliveryFee: Number(this.deliveryFee?.value || 0),
                 freeDeliveryThreshold: Number(this.freeThreshold?.value || 0),
                 supportWhatsappNumber: String(this.supportWhatsappNumber?.value || '').trim(),
                 pickupEnabled: true,
                 updatedAt: serverTimestamp()
-            }, { merge: true });
+            };
+
+            await setDoc(doc(db, 'shop_settings', settingsId), payload, { merge: true });
+
+            // Back-compat write for the default company.
+            if (companyId === COMPANY_ID) {
+                await setDoc(doc(db, 'shop_settings', 'checkout'), payload, { merge: true });
+            }
 
             alert('Checkout settings saved');
         } catch (error) {

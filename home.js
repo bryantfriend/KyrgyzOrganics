@@ -4,6 +4,7 @@ import { ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.7.1/fire
 import { $, $$, t, loc, setupLanguage, initMobileMenu } from './common.js';
 import { buildProductPageUrl } from './product-utils.js';
 import { COMPANY_ID, matchesCompanyId } from './company-config.js';
+import { getCheckoutSettingsDocId, getInventoryDocId } from './firestore-paths.js';
 import {
     DEFAULT_CHECKOUT_SETTINGS,
     addCartItem,
@@ -135,8 +136,12 @@ async function loadData() {
         const pmRes = results[2].status === 'fulfilled' ? results[2].value : { docs: [] };
 
 
-        // Fetch Inventory
-        const invSnap = await getDoc(doc(db, 'inventory', todayStr));
+        // Fetch Inventory (company-scoped, with legacy fallback)
+        const invId = getInventoryDocId(COMPANY_ID, todayStr);
+        let invSnap = await getDoc(doc(db, 'inventory', invId));
+        if (!invSnap.exists()) {
+            invSnap = await getDoc(doc(db, 'inventory', todayStr));
+        }
         if (invSnap.exists()) {
             const inventoryData = invSnap.data();
             if (inventoryData.companyId && inventoryData.companyId !== COMPANY_ID) {
@@ -478,7 +483,11 @@ function syncCartWithCatalog() {
 
 async function loadCheckoutSettings() {
     try {
-        const snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
+        const settingsId = getCheckoutSettingsDocId(COMPANY_ID);
+        let snap = await getDoc(doc(db, 'shop_settings', settingsId));
+        if (!snap.exists()) {
+            snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
+        }
         const data = snap.exists() ? snap.data() : {};
         if (data.companyId && data.companyId !== COMPANY_ID) {
             console.warn('Checkout settings companyId mismatch');

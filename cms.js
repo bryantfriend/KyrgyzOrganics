@@ -2,6 +2,7 @@ import { db } from './firebase-config.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { $, setupLanguage, currentLang, initMobileMenu } from './common.js';
 import { COMPANY_ID } from './company-config.js';
+import { getPageDocId } from './firestore-paths.js';
 
 async function init() {
     setupLanguage();
@@ -23,8 +24,11 @@ async function loadDynamicContent(container) {
     if (!pageId) return;
 
     try {
-        const docRef = doc(db, 'pages', pageId);
-        const docSnap = await getDoc(docRef);
+        const scopedId = getPageDocId(COMPANY_ID, pageId);
+        let docSnap = await getDoc(doc(db, 'pages', scopedId));
+        if (!docSnap.exists()) {
+            docSnap = await getDoc(doc(db, 'pages', pageId));
+        }
 
         if (docSnap.exists()) {
             const data = docSnap.data();

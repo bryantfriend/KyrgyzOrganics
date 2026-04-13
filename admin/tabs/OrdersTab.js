@@ -1,6 +1,7 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
-import { getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
+import { COMPANY_ID, getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
+import { getInventoryDocId } from '../../firestore-paths.js';
 import {
     collection, query, where, orderBy, getDocs, getDoc, doc, updateDoc, runTransaction, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -356,12 +357,24 @@ export class OrdersTab extends BaseTab {
                 : (order.productId ? [{ productId: order.productId, quantity: 1 }] : []);
 
             if (dateStr && items.length) {
-                const invRef = doc(db, 'inventory', dateStr);
-                const invSnap = await transaction.get(invRef);
+                const companyId = order.companyId || getCurrentCompanyId();
+                const invRefNew = doc(db, 'inventory', getInventoryDocId(companyId, dateStr));
+                let invRef = invRefNew;
+                let invSnap = await transaction.get(invRefNew);
+
+                // Back-compat: legacy single-tenant inventory used date-only IDs.
+                if (!invSnap.exists() && companyId === COMPANY_ID) {
+                    const invRefOld = doc(db, 'inventory', dateStr);
+                    const invSnapOld = await transaction.get(invRefOld);
+                    if (invSnapOld.exists()) {
+                        invRef = invRefOld;
+                        invSnap = invSnapOld;
+                    }
+                }
 
                 if (invSnap.exists()) {
                     const invData = invSnap.data();
-                    if (invData.companyId && !matchesCompanyId(invData, `inventory/${dateStr}`)) throw "Inventory belongs to another company";
+                    if (invData.companyId && !matchesCompanyId(invData, `inventory/${invRef.id}`)) throw "Inventory belongs to another company";
                     if (!invData.companyId) console.warn('Inventory missing companyId:', dateStr);
                     const updates = {};
 
