@@ -11,8 +11,8 @@
       document.documentElement.classList.remove('storefront-booting');
     }, 3500);
   </script>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="styles.css?v=2.5">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/styles.css?v=2.5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -164,6 +164,10 @@
         <!-- Products injected here -->
       </div>
 
+      <section id="productCollectionsSection" class="product-collections-section" hidden>
+        <h2 class="section-title">Collections</h2>
+        <div id="productCollectionsGrid"></div>
+      </section>
 
     </div>
   </main>
@@ -183,19 +187,21 @@
   </section>
 
   <!-- Footer -->
-  <footer class="footer">
+  <footer class="footer" id="contact">
     <div class="container">
       <div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: space-between;">
         <div>
           <h3 style="color: white; margin-bottom: 1rem;" id="footAboutTitle">OA Kyrgyz Organic</h3>
           <p id="footAboutText">Connecting you with the best<br>organic producers in Kyrgyzstan.</p>
         </div>
-        <div>
-          <h4 style="color: white; margin-bottom: 0.5rem;">Contact</h4>
-          <p>info@kyrgyzorganic.kg</p>
-          <p>+996 555 123 456</p>
-          <p>Bishkek, Kyrgyzstan</p>
-        </div>
+          <div>
+            <h4 style="color: white; margin-bottom: 0.5rem;">Contact</h4>
+            <p id="footerEmail">info@kyrgyzorganic.kg</p>
+            <p id="footerPhone">+996 555 123 456</p>
+            <p id="footerAddress">Bishkek, Kyrgyzstan</p>
+            <p id="footerHours" hidden></p>
+            <p id="footerSocial" hidden></p>
+          </div>
       </div>
       <div style="margin-top: 2rem; border-top: 1px solid #444; padding-top: 1rem; font-size: 0.8rem;">
         <p><span id="copyrightText">© 2025 OA Kyrgyz Organic. All rights reserved. | </span><a href="admin/admin.html"
@@ -344,7 +350,7 @@
     </div>
   </div>
 
-  <script type="module" src="home.js?v=2.8"></script>
+  <script type="module" src="/home.js?v=2.8"></script>
 </body>
 
 </html>

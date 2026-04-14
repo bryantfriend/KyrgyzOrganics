@@ -102,6 +102,16 @@
                 <option value="vip">vip</option>
               </select>
             </div>
+            <div class="form-group">
+              <label for="storeLaunchStatus">Launch Status</label>
+              <select id="storeLaunchStatus">
+                <option value="draft">draft</option>
+                <option value="ready">ready</option>
+                <option value="live">live</option>
+                <option value="paused">paused</option>
+              </select>
+              <small style="display:block; color:#777; margin-top:0.35rem;">Only live stores are public. Preview still works in admin.</small>
+            </div>
           </div>
 
           <div class="form-row">
@@ -132,6 +142,64 @@
               <label for="storeTags">Tags</label>
               <input type="text" id="storeTags" placeholder="bakery, cafe, organic">
             </div>
+          </div>
+
+          <h4 style="margin:1.5rem 0 1rem;">Public Contact & Social Links</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeEmail">Public Email</label>
+              <input type="email" id="storeEmail" placeholder="hello@dailybread.kg">
+            </div>
+            <div class="form-group">
+              <label for="storeWhatsapp">WhatsApp Number</label>
+              <input type="text" id="storeWhatsapp" placeholder="+996...">
+            </div>
+            <div class="form-group">
+              <label for="storeInstagram">Instagram</label>
+              <input type="text" id="storeInstagram" placeholder="https://instagram.com/dailybread">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeOpeningHours">Opening Hours</label>
+              <input type="text" id="storeOpeningHours" placeholder="Mon-Sat 08:00-20:00">
+            </div>
+          </div>
+
+          <h4 style="margin:1.5rem 0 1rem;">Hosting & Domain Planning</h4>
+          <p style="color:#666; margin-top:-0.5rem; font-size:0.9rem;">Track the future public domain and DNS/GitHub setup work for this store.</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeCustomDomain">Custom Domain</label>
+              <input type="text" id="storeCustomDomain" placeholder="dailybread.kg">
+            </div>
+            <div class="form-group">
+              <label for="storeGithubTarget">GitHub / Hosting Target</label>
+              <input type="text" id="storeGithubTarget" placeholder="bryantfriend.github.io/KyrgyzOrganics or oako.kg/dailybread">
+            </div>
+            <div class="form-group">
+              <label for="storeDnsStatus">DNS Status</label>
+              <select id="storeDnsStatus">
+                <option value="not_started">not_started</option>
+                <option value="domain_needed">domain_needed</option>
+                <option value="purchased">purchased</option>
+                <option value="dns_pending">dns_pending</option>
+                <option value="connected">connected</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeHostingNotes">Hosting Notes</label>
+              <textarea id="storeHostingNotes" placeholder="Buy dailybread.kg, point DNS to hosting, then verify SSL."></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeDomainPurchased"> Domain Purchased</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeDnsConfigured"> DNS Configured</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeHostingConnected"> Hosting Connected</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeSslActive"> SSL Active</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFinalTested"> Final Test Passed</label>
           </div>
 
           <div class="form-row">
@@ -236,6 +304,28 @@
               <label for="storeLogoUpload">Upload Logo</label>
               <input type="file" id="storeLogoUpload" accept="image/*">
               <small style="display:block; color:#777; margin-top:0.35rem;">Upload first, then save the store.</small>
+            </div>
+          </div>
+
+          <h4 style="margin:1.5rem 0 1rem;">Storefront SEO</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeSeoTitle">SEO Title</label>
+              <input type="text" id="storeSeoTitle" placeholder="Daily Bread | Fresh bread in Bishkek">
+            </div>
+            <div class="form-group">
+              <label for="storeSeoImage">SEO Share Image URL</label>
+              <input type="url" id="storeSeoImage" placeholder="https://...">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeSeoDescription">SEO Description</label>
+              <textarea id="storeSeoDescription" placeholder="Fresh bread baked daily and delivered around Bishkek."></textarea>
+            </div>
+            <div class="form-group">
+              <label for="storeSeoKeywords">SEO Keywords</label>
+              <textarea id="storeSeoKeywords" placeholder="bread, bakery, Bishkek, daily bread"></textarea>
             </div>
           </div>
 
@@ -487,6 +577,27 @@
             </div>
           </div>
 
+          <h4 style="margin:1.5rem 0 1rem;">Availability Planning</h4>
+          <div class="form-row">
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" class="pAvailDay" value="1"> Monday</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" class="pAvailDay" value="2"> Tuesday</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" class="pAvailDay" value="3"> Wednesday</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" class="pAvailDay" value="4"> Thursday</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" class="pAvailDay" value="5"> Friday</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" class="pAvailDay" value="6"> Saturday</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" class="pAvailDay" value="0"> Sunday</label>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="pLeadTimeHours">Lead Time (hours)</label>
+              <input type="number" id="pLeadTimeHours" min="0" value="0">
+            </div>
+            <div class="form-group">
+              <label for="pAvailabilityNote">Availability Note</label>
+              <input type="text" id="pAvailabilityNote" placeholder="Available by preorder on weekends">
+            </div>
+          </div>
+
           <div class="form-row">
             <div class="form-group">
               <label>Packaging Photo</label>
@@ -545,6 +656,47 @@
           </select>
         </div>
         <div id="productList" class="item-list"></div>
+      </div>
+
+      <div class="admin-card">
+        <h3 style="margin-bottom:1rem;">Product Collections</h3>
+        <p style="color:#666; margin-top:-0.5rem;">Create homepage-ready groups like Best Sellers, Breakfast, Gift Boxes, or Fresh Today.</p>
+        <form id="collectionForm">
+          <input type="hidden" id="collectionId">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="collectionName">Collection Name</label>
+              <input type="text" id="collectionName" placeholder="Best Sellers" required>
+            </div>
+            <div class="form-group">
+              <label for="collectionSlug">Slug</label>
+              <input type="text" id="collectionSlug" placeholder="best-sellers">
+            </div>
+            <div class="form-group">
+              <label for="collectionOrder">Order</label>
+              <input type="number" id="collectionOrder" value="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="collectionDescription">Description</label>
+              <textarea id="collectionDescription" placeholder="A short note for this collection"></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="collectionActive" checked> Active Collection</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="collectionHomepage"> Show on Homepage</label>
+          </div>
+          <div class="form-group">
+            <label>Products in Collection</label>
+            <div id="collectionProductPicker" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.35rem; max-height:260px; overflow:auto; border:1px solid #eee; border-radius:8px; padding:0.75rem; background:#fafafa;"></div>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:1rem;">
+            <button type="submit" id="collectionSubmitBtn">Save Collection</button>
+            <button type="button" id="collectionCancelBtn" class="btn-secondary" style="display:none;">Cancel</button>
+          </div>
+        </form>
+        <div id="collectionList" class="item-list" style="margin-top:1rem;"></div>
       </div>
     </section>
 
@@ -900,7 +1052,7 @@
     <!-- AUDIT TAB -->
     <section id="audit" class="tab-content" style="display:none;">
       <div class="admin-card">
-        <h3>Audit Logs</h3>
+        <h3>Admin Activity Feed</h3>
         <button id="btnRefreshAudit" class="btn-secondary" style="margin-bottom:1rem;">🔄 Refresh Logs</button>
         <div id="auditList" class="item-list">
           <!-- Injected -->

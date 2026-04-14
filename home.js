@@ -1,5 +1,5 @@
 import { db, storage, functions, httpsCallable } from './firebase-config.js';
-import { collection, getDocs, query, where, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, getDocs, query, where, doc, getDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { $, $$, t, loc, setupLanguage, initMobileMenu } from './common.js';
 import { buildProductPageUrl } from './product-utils.js';
@@ -28,6 +28,7 @@ import {
 let products = [];
 let bannerData = [];
 let categories = [];
+let productCollections = [];
 let categoriesMap = {}; // ID -> Data
 let dailyInventory = {}; // { prodId: { available, sold } }
 let todayStr = "";
@@ -40,9 +41,110 @@ let cartNoticeMessage = '';
 let campaignTimeline = [];
 let activeStoreName = 'OA Kyrgyz Organic';
 let activeStoreConfig = null;
+let storefrontSessionId = '';
 
 function revealStorefront() {
     document.documentElement.classList.remove('storefront-booting');
+}
+
+function isPreviewMode() {
+    try {
+        return new URLSearchParams(window.location.search).has('preview');
+    } catch (_) {
+        return false;
+    }
+}
+
+function getStoreHomeUrl() {
+    const companyId = getCurrentCompanyId();
+    if (!companyId || companyId === COMPANY_ID) return '/';
+    return `/${companyId}/`;
+}
+
+function applyStoreLinks() {
+    const homeUrl = getStoreHomeUrl();
+    const isDefaultStore = getCurrentCompanyId() === COMPANY_ID;
+    const linkMap = {
+        navHome: homeUrl,
+        mobHome: homeUrl,
+        navAbout: isDefaultStore ? '/about.html' : `${homeUrl}#fullCatalog`,
+        mobAbout: isDefaultStore ? '/about.html' : `${homeUrl}#fullCatalog`,
+        navContact: isDefaultStore ? '/contact.html' : `${homeUrl}#contact`,
+        mobContact: isDefaultStore ? '/contact.html' : `${homeUrl}#contact`
+    };
+
+    Object.entries(linkMap).forEach(([id, href]) => {
+        const link = document.getElementById(id);
+        if (link) link.href = href;
+    });
+
+    document.querySelectorAll('.logo').forEach((logo) => {
+        logo.href = homeUrl;
+    });
+}
+
+function getStorefrontSessionId() {
+    if (storefrontSessionId) return storefrontSessionId;
+    const key = 'oako_storefront_session';
+    storefrontSessionId = localStorage.getItem(key) || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(key, storefrontSessionId);
+    return storefrontSessionId;
+}
+
+async function trackStoreEvent(actionType, actionValue = '', extra = {}) {
+    try {
+        await addDoc(collection(db, 'storefront_events'), {
+            companyId: getCurrentCompanyId(),
+            actionType,
+            actionValue,
+            sessionId: getStorefrontSessionId(),
+            path: window.location.pathname,
+            createdAt: serverTimestamp(),
+            timestamp: serverTimestamp(),
+            ...extra
+        });
+    } catch (error) {
+        console.warn('Store analytics event failed:', error);
+    }
+}
+
+function upsertMeta(selector, attrName, attrValue, content) {
+    if (!content) return;
+    let tag = document.head.querySelector(selector);
+    if (!tag) {
+        tag = document.createElement('meta');
+        tag.setAttribute(attrName, attrValue);
+        document.head.appendChild(tag);
+    }
+    tag.setAttribute('content', content);
+}
+
+function applyStoreSeo() {
+    const seo = activeStoreConfig?.seo || {};
+    const title = seo.title || `${activeStoreName} - Grocery Catalog`;
+    const description = seo.description || activeStoreConfig?.content?.hero?.subtitle || '';
+    document.title = title;
+    upsertMeta('meta[name="description"]', 'name', 'description', description);
+    upsertMeta('meta[property="og:title"]', 'property', 'og:title', title);
+    upsertMeta('meta[property="og:description"]', 'property', 'og:description', description);
+    upsertMeta('meta[property="og:type"]', 'property', 'og:type', 'website');
+    if (seo.imageUrl) upsertMeta('meta[property="og:image"]', 'property', 'og:image', seo.imageUrl);
+    if (Array.isArray(seo.keywords) && seo.keywords.length) {
+        upsertMeta('meta[name="keywords"]', 'name', 'keywords', seo.keywords.join(', '));
+    }
+}
+
+function renderStoreUnavailable() {
+    const status = activeStoreConfig?.launchStatus || 'draft';
+    const storeName = activeStoreConfig?.name || activeStoreName || 'This store';
+    document.body.innerHTML = `
+        <main style="min-height:100vh; display:grid; place-items:center; padding:2rem; background:var(--color-bg); color:var(--color-text);">
+            <section style="max-width:560px; background:white; border:1px solid var(--color-border); border-radius:var(--radius); padding:2rem; box-shadow:var(--shadow-md); text-align:center;">
+                <h1 style="color:var(--color-primary-dark); margin-bottom:0.75rem;">${storeName} is not live yet</h1>
+                <p style="font-size:1.05rem; line-height:1.6;">This storefront is currently <strong>${status}</strong>. Please check back soon.</p>
+            </section>
+        </main>
+    `;
 }
 
 function updateStorefrontLoader(storeConfig = {}) {
@@ -94,6 +196,8 @@ const stickyCartTotal = $('stickyCartTotal');
 const whatsAppSupportBtn = $('whatsAppSupportBtn');
 const homeCampaignSection = $('homeCampaignSection');
 const homeCampaignTimeline = $('homeCampaignTimeline');
+const productCollectionsSection = $('productCollectionsSection');
+const productCollectionsGrid = $('productCollectionsGrid');
 
 // --- INIT ---
 async function init() {
@@ -110,8 +214,15 @@ async function init() {
         activeStoreName = activeStoreConfig.name || activeStoreName;
         applyStoreTheme(activeStoreConfig);
         updateStorefrontLoader(activeStoreConfig);
+
+        if (getCurrentCompanyId() !== COMPANY_ID && activeStoreConfig.launchStatus !== 'live' && !isPreviewMode()) {
+            renderStoreUnavailable();
+            return;
+        }
+
         setupLanguage();
         initMobileMenu();
+        applyStoreLinks();
 
         // Special handling for Mobile Categories Toggle on Home
         const mobCatBtn = document.getElementById('mobCategories');
@@ -126,6 +237,7 @@ async function init() {
         await loadData();
         renderAll();
         setupEventListeners();
+        trackStoreEvent('page_view', window.location.pathname);
         maybeOpenCartFromUrl();
     } catch (error) {
         console.error('Storefront startup failed:', error);
@@ -174,13 +286,15 @@ async function loadData() {
         const results = await Promise.allSettled([
             getDocs(query(collection(db, "products"), where("active", "==", true))),
             getDocs(query(collection(db, "categories"), where("active", "==", true))),
-            getDocs(query(collection(db, "payment_methods"), where("active", "==", true)))
+            getDocs(query(collection(db, "payment_methods"), where("active", "==", true))),
+            getDocs(query(collection(db, "product_collections"), where("active", "==", true), where("showOnHomepage", "==", true)))
         ]);
 
         const pRes = results[0].status === 'fulfilled' ? results[0].value : { docs: [] };
         const cRes = results[1].status === 'fulfilled' ? results[1].value : { docs: [] };
         // Banners removed from here
         const pmRes = results[2].status === 'fulfilled' ? results[2].value : { docs: [] };
+        const collectionRes = results[3].status === 'fulfilled' ? results[3].value : { docs: [] };
 
 
         // Fetch Inventory (company-scoped, with legacy fallback)
@@ -222,6 +336,10 @@ async function loadData() {
         paymentMethods = pmRes.docs
             .map(d => ({ id: d.id, ...d.data() }))
             .filter(pm => matchesCompanyId(pm, `payment_methods/${pm.id}`));
+        productCollections = collectionRes.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(col => matchesCompanyId(col, `product_collections/${col.id}`))
+            .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
         await loadCampaignTimeline();
         await loadCheckoutSettings();
         syncCartWithCatalog();
@@ -241,9 +359,40 @@ function renderAll() {
     renderQuickActions();
     renderFeatured();
     renderProducts(products);
+    renderProductCollections();
     renderCampaignTimeline();
     updateStaticUI();
     renderCart();
+}
+
+function renderProductCollections() {
+    if (!productCollectionsSection || !productCollectionsGrid) return;
+    const visible = productCollections
+        .map(collectionItem => ({
+            ...collectionItem,
+            products: products.filter(product => Array.isArray(collectionItem.productIds) && collectionItem.productIds.includes(product.id)).slice(0, 4)
+        }))
+        .filter(collectionItem => collectionItem.products.length > 0);
+
+    if (!visible.length) {
+        productCollectionsSection.hidden = true;
+        return;
+    }
+
+    productCollectionsSection.hidden = false;
+    productCollectionsGrid.innerHTML = visible.map(collectionItem => `
+        <article class="collection-card">
+            <div>
+                <h3>${collectionItem.name || 'Collection'}</h3>
+                ${collectionItem.description ? `<p>${collectionItem.description}</p>` : ''}
+            </div>
+            <div class="collection-card-products">
+                ${collectionItem.products.map(product => `
+                    <img src="${product.imageUrl || ''}" alt="${loc(product, 'name') || 'Product'}">
+                `).join('')}
+            </div>
+        </article>
+    `).join('');
 }
 
 function isFeatureEnabled(featureName, fallback = true) {
@@ -455,18 +604,42 @@ function renderCampaignTimeline() {
 }
 
 function updateStaticUI() {
-    document.title = `${activeStoreName} - Grocery Catalog`;
     const content = activeStoreConfig?.content || {};
     const logoUrl = activeStoreConfig?.logoUrl || content.logoUrl || '';
+    applyStoreSeo();
 
     document.querySelectorAll('.logo').forEach((logo) => {
         logo.innerHTML = logoUrl
             ? `<img class="store-logo-img" src="${logoUrl}" alt="${activeStoreName} logo"><span>${activeStoreName}</span>`
             : activeStoreName;
+        logo.href = getStoreHomeUrl();
     });
 
     const footAboutTitle = document.getElementById('footAboutTitle');
     if (footAboutTitle) footAboutTitle.textContent = activeStoreName;
+    const footAboutText = document.getElementById('footAboutText');
+    if (footAboutText && content.hero?.subtitle) footAboutText.textContent = content.hero.subtitle;
+    const footerEmail = document.getElementById('footerEmail');
+    const footerPhone = document.getElementById('footerPhone');
+    const footerAddress = document.getElementById('footerAddress');
+    const footerHours = document.getElementById('footerHours');
+    const footerSocial = document.getElementById('footerSocial');
+    const contact = activeStoreConfig?.contact || {};
+    const social = activeStoreConfig?.social || {};
+    if (footerEmail) footerEmail.textContent = contact.email || 'info@kyrgyzorganic.kg';
+    if (footerPhone) footerPhone.textContent = contact.phone || contact.whatsapp || supportWhatsappNumber || '+996 555 123 456';
+    if (footerAddress) footerAddress.textContent = activeStoreConfig?.address || activeStoreConfig?.contact?.address || 'Bishkek, Kyrgyzstan';
+    if (footerHours) {
+        footerHours.textContent = contact.openingHours || '';
+        footerHours.hidden = !contact.openingHours;
+    }
+    if (footerSocial) {
+        const instagram = social.instagram || '';
+        footerSocial.innerHTML = instagram
+            ? `<a href="${instagram.startsWith('http') ? instagram : `https://instagram.com/${instagram.replace(/^@/, '')}`}" target="_blank" rel="noopener" style="color:white;">Instagram</a>`
+            : '';
+        footerSocial.hidden = !instagram;
+    }
 
     const copyrightText = document.getElementById('copyrightText');
     if (copyrightText) copyrightText.textContent = `© 2025 ${activeStoreName}. All rights reserved. | `;
@@ -608,7 +781,7 @@ async function loadCheckoutSettings() {
         }
         if (snap.exists() && !data.companyId && activeCompanyId === COMPANY_ID) console.warn('Checkout settings missing companyId');
         checkoutSettings = { ...DEFAULT_CHECKOUT_SETTINGS, ...data };
-        supportWhatsappNumber = String(data.supportWhatsappNumber || '').trim();
+        supportWhatsappNumber = String(data.supportWhatsappNumber || activeStoreConfig?.contact?.whatsapp || activeStoreConfig?.contact?.phone || '').trim();
         updateWhatsAppSupportButton();
     } catch (error) {
         console.error('Checkout settings load error:', error);
@@ -738,16 +911,21 @@ function createCard(product, tag = '') {
                 <span class="product-weight">${product.weight}</span>
                 ${display.showPrice !== false ? `<span class="product-price">${product.price} ${t('price_currency')}</span>` : ''}
             </div>
+            ${product.availability?.note ? `<p class="product-availability-note">${product.availability.note}</p>` : ''}
             <div class="product-card-actions">
                 <a class="text-link-inline" href="${productPageUrl}">${t('view_product_page')}</a>
             </div>
         </div>
     `;
-    card.addEventListener('click', () => openModal(product));
+    card.addEventListener('click', () => {
+        trackStoreEvent('product_click', product.id, { productName: loc(product, 'name') });
+        openModal(product);
+    });
     const pageLink = card.querySelector('a');
     if (pageLink) {
         pageLink.addEventListener('click', (event) => {
             event.stopPropagation();
+            trackStoreEvent('product_page_click', product.id, { productName: loc(product, 'name') });
         });
     }
     return card;
@@ -844,6 +1022,7 @@ function setupEventListeners() {
 
     if (cartButton) {
         cartButton.addEventListener('click', () => {
+            trackStoreEvent('cart_open', 'header');
             if (isFeatureEnabled('cart', true)) openCartModal();
         });
     }
@@ -854,7 +1033,14 @@ function setupEventListeners() {
 
     if (stickyCartButton) {
         stickyCartButton.addEventListener('click', () => {
+            trackStoreEvent('cart_open', 'sticky');
             if (isFeatureEnabled('cart', true)) openCartModal();
+        });
+    }
+
+    if (whatsAppSupportBtn) {
+        whatsAppSupportBtn.addEventListener('click', () => {
+            trackStoreEvent('whatsapp_click', 'support');
         });
     }
 
@@ -1112,6 +1298,7 @@ function openModal(product) {
                 <div class="modal-description">
                     ${loc(product, 'description') || 'No description available.'}
                 </div>
+                ${product.availability?.note ? `<div class="modal-meta-box" style="margin-bottom:1rem;"><div class="modal-meta-item"><span class="modal-meta-label">Availability</span><span>${product.availability.note}</span></div></div>` : ''}
 
                 <div class="product-page-actions modal-share-actions" style="margin-bottom:1rem;">
                     <a href="${productPageUrl}" class="cta-btn">${t('view_product_page')}</a>
@@ -1184,6 +1371,10 @@ function openModal(product) {
         cart = addCartItem(cart, product.id, requestedQuantity);
         persistCart();
         setCartNotice('');
+        trackStoreEvent(openCartAfter ? 'buy_now_click' : 'add_to_cart', product.id, {
+            productName: loc(product, 'name'),
+            quantity: requestedQuantity
+        });
 
         if (openCartAfter) {
             closeModalFn();

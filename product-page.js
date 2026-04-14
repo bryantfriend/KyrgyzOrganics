@@ -124,8 +124,8 @@ function updateStoreBranding() {
 
 function getStoreHomeUrl() {
     const companyId = getCurrentCompanyId();
-    if (companyId === 'dailybread') return 'dailybread/';
-    return 'index.html';
+    if (!companyId || companyId === COMPANY_ID) return '/';
+    return `/${companyId}/`;
 }
 
 function renderMissingState() {
@@ -174,7 +174,7 @@ function renderProductPage(product) {
             </div>
 
             <div class="product-page-info">
-                <a href="index.html" class="text-link-inline">${t('back_to_catalog')}</a>
+                <a href="${getStoreHomeUrl()}" class="text-link-inline">${t('back_to_catalog')}</a>
                 <div class="modal-category" style="margin-top:1rem;">${categoryName}</div>
                 <h1 class="product-page-title">${loc(product, 'name')}</h1>
                 <div class="product-page-price-row">
@@ -185,6 +185,7 @@ function renderProductPage(product) {
                     ${isInStock ? `${t('stock_in')}${stock !== null ? `: ${stock}` : ''}` : t('stock_out')}
                 </div>
                 <p class="product-page-description">${loc(product, 'description') || 'No description available.'}</p>
+                ${product.availability?.note ? `<p class="product-availability-note">${product.availability.note}</p>` : ''}
 
                 ${isInStock ? `
                 <div class="product-order-panel">
@@ -223,6 +224,11 @@ function renderProductPage(product) {
                         <span class="modal-meta-label">Origin</span>
                         <span>Kyrgyzstan</span>
                     </div>
+                    ${product.availability?.leadTimeHours ? `
+                    <div class="modal-meta-item">
+                        <span class="modal-meta-label">Lead time</span>
+                        <span>${product.availability.leadTimeHours} hours</span>
+                    </div>` : ''}
                     <div class="modal-meta-item">
                         <span class="modal-meta-label">URL</span>
                         <span>${shareUrl}</span>
@@ -269,7 +275,7 @@ function bindPageInteractions(product, shareUrl) {
         saveCartForToday(nextCart);
 
         if (redirectToCart) {
-            const cartUrl = new URL('index.html', window.location.href);
+            const cartUrl = new URL(getStoreHomeUrl(), window.location.origin);
             cartUrl.searchParams.set('cart', 'open');
             window.location.href = cartUrl.toString();
             return;

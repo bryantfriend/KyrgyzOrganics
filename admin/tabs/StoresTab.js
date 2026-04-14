@@ -4,6 +4,7 @@ import { COMPANY_ID } from '../../company-config.js';
 import { getSelectedCompanyId, setSelectedCompany } from '../../store-context.js';
 import { getInventoryDocId } from '../../firestore-paths.js';
 import { THEME_PRESETS, getFallbackStoreConfig } from '../../storefront/defaults/default-store-config.js';
+import { logAudit } from '../utils.js';
 import {
   collection,
   doc,
@@ -57,11 +58,25 @@ export class StoresTab extends BaseTab {
     this.companyId = document.getElementById('storeCompanyId');
     this.name = document.getElementById('storeName');
     this.plan = document.getElementById('storePlan');
+    this.launchStatus = document.getElementById('storeLaunchStatus');
     this.contactName = document.getElementById('storeContactName');
     this.phone = document.getElementById('storePhone');
     this.address = document.getElementById('storeAddress');
     this.twoGisLink = document.getElementById('storeTwoGis');
     this.website = document.getElementById('storeWebsite');
+    this.email = document.getElementById('storeEmail');
+    this.whatsapp = document.getElementById('storeWhatsapp');
+    this.instagram = document.getElementById('storeInstagram');
+    this.openingHours = document.getElementById('storeOpeningHours');
+    this.customDomain = document.getElementById('storeCustomDomain');
+    this.githubTarget = document.getElementById('storeGithubTarget');
+    this.dnsStatus = document.getElementById('storeDnsStatus');
+    this.hostingNotes = document.getElementById('storeHostingNotes');
+    this.domainPurchased = document.getElementById('storeDomainPurchased');
+    this.dnsConfigured = document.getElementById('storeDnsConfigured');
+    this.hostingConnected = document.getElementById('storeHostingConnected');
+    this.sslActive = document.getElementById('storeSslActive');
+    this.finalTested = document.getElementById('storeFinalTested');
     this.tags = document.getElementById('storeTags');
     this.notes = document.getElementById('storeNotes');
     this.active = document.getElementById('storeActive');
@@ -81,6 +96,10 @@ export class StoresTab extends BaseTab {
     this.buttonStyle = document.getElementById('storeButtonStyle');
     this.logoUrl = document.getElementById('storeLogoUrl');
     this.logoUpload = document.getElementById('storeLogoUpload');
+    this.seoTitle = document.getElementById('storeSeoTitle');
+    this.seoDescription = document.getElementById('storeSeoDescription');
+    this.seoImage = document.getElementById('storeSeoImage');
+    this.seoKeywords = document.getElementById('storeSeoKeywords');
     this.featureCampaign = document.getElementById('storeFeatureCampaign');
     this.featureInvestment = document.getElementById('storeFeatureInvestment');
     this.featureQuickActions = document.getElementById('storeFeatureQuickActions');
@@ -285,7 +304,7 @@ export class StoresTab extends BaseTab {
     if (!term) return stores;
 
     return stores.filter((store) => {
-      const blob = `${store.name || ''} ${store.contactName || ''} ${store.phone || ''} ${store.address || ''} ${store.companyId || store.id || ''}`.toLowerCase();
+      const blob = `${store.name || ''} ${store.contactName || ''} ${store.phone || ''} ${store.address || ''} ${store.email || ''} ${store.companyId || store.id || ''}`.toLowerCase();
       return blob.includes(term);
     });
   }
@@ -320,6 +339,7 @@ export class StoresTab extends BaseTab {
       const ordersCount = metrics?.ordersCount ?? '...';
       const revenue = metrics?.revenue != null ? `${metrics.revenue} som` : '...';
       const productsCount = metrics?.productsCount ?? '...';
+      const pageViews = metrics?.pageViews ?? '...';
 
       const alertParts = [];
       if (store.active === false) alertParts.push('Inactive');
@@ -334,7 +354,7 @@ export class StoresTab extends BaseTab {
           <td style="padding:10px; border-bottom:1px solid #eee;">
             <div style="display:flex; flex-direction:column; gap:0.15rem;">
               <strong>${store.name || id}</strong>
-              <span style="font-size:0.85rem; color:#666;">${id}${isSelected ? ' • selected' : ''}</span>
+              <span style="font-size:0.85rem; color:#666;">${id}${isSelected ? ' • selected' : ''} • ${store.launchStatus || store.status || 'live'}</span>
               ${Array.isArray(store.tags) && store.tags.length ? `<span style="font-size:0.8rem; color:#888;">Tags: ${store.tags.join(', ')}</span>` : ''}
             </div>
           </td>
@@ -347,13 +367,18 @@ export class StoresTab extends BaseTab {
           </td>
           <td style="padding:10px; border-bottom:1px solid #eee;">${store.plan || 'free'}</td>
           <td style="padding:10px; border-bottom:1px solid #eee;">
-            ${store.website ? `<a href="${store.website.startsWith('http') ? store.website : `https://${store.website}`}" target="_blank" rel="noopener" style="color:#2e7d32; font-weight:700; text-decoration:none;">${store.website}</a>` : ''}
+            <div style="display:flex; flex-direction:column; gap:0.15rem;">
+              ${store.website ? `<a href="${store.website.startsWith('http') ? store.website : `https://${store.website}`}" target="_blank" rel="noopener" style="color:#2e7d32; font-weight:700; text-decoration:none;">${store.website}</a>` : ''}
+              ${store.customDomain || store.hosting?.customDomain ? `<span style="font-size:0.85rem; color:#666;">Domain: ${store.customDomain || store.hosting.customDomain}</span>` : ''}
+              ${store.hosting?.dnsStatus ? `<span style="font-size:0.8rem; color:#888;">DNS: ${store.hosting.dnsStatus}</span>` : ''}
+            </div>
           </td>
           <td style="padding:10px; border-bottom:1px solid #eee;">
             <div style="display:flex; flex-direction:column; gap:0.15rem;">
               <span><strong>${ordersCount}</strong> orders</span>
               <span><strong>${revenue}</strong> revenue</span>
               <span><strong>${productsCount}</strong> products</span>
+              <span><strong>${pageViews}</strong> visits</span>
             </div>
           </td>
           <td style="padding:10px; border-bottom:1px solid #eee; color:${alerts === 'OK' ? '#2e7d32' : '#c62828'}; font-weight:700;">${alerts}</td>
@@ -401,17 +426,20 @@ export class StoresTab extends BaseTab {
     try {
       const ordersBase = query(collection(db, 'orders'), where('companyId', '==', companyId));
       const productsBase = query(collection(db, 'products'), where('companyId', '==', companyId));
+      const eventsBase = query(collection(db, 'storefront_events'), where('companyId', '==', companyId));
 
       const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
 
-      const [ordersSnap, productsSnap, lowInv] = await Promise.all([
+      const [ordersSnap, productsSnap, eventsSnap, lowInv] = await Promise.all([
         getDocs(ordersBase),
         getDocs(productsBase),
+        getDocs(eventsBase).catch(() => ({ docs: [] })),
         this.computeLowInventory(companyId).catch(() => null)
       ]);
 
       const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       const products = productsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const events = eventsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       const ordersCount = orders.length;
       const productsCount = products.length;
@@ -432,6 +460,8 @@ export class StoresTab extends BaseTab {
         ordersCount,
         revenue,
         productsCount,
+        pageViews: events.filter((event) => event.actionType === 'page_view').length,
+        analyticsEvents: events.length,
         noOrders3d,
         lowInventoryCount: lowInv,
         updatedAt: Date.now()
@@ -442,6 +472,7 @@ export class StoresTab extends BaseTab {
         ordersCount: 'ERR',
         revenue: 'ERR',
         productsCount: 'ERR',
+        pageViews: 'ERR',
         noOrders3d: null,
         lowInventoryCount: null,
         updatedAt: Date.now()
@@ -487,6 +518,7 @@ export class StoresTab extends BaseTab {
     }
     if (this.formTitle) this.formTitle.textContent = 'Create Store';
     if (this.active) this.active.checked = true;
+    if (this.launchStatus) this.launchStatus.value = 'draft';
     this.applyStorefrontConfigToForm(getFallbackStoreConfig(COMPANY_ID));
     this.refreshPreview();
     this.renderLaunchChecklist();
@@ -518,11 +550,26 @@ export class StoresTab extends BaseTab {
     }
     if (this.name) this.name.value = store.name || '';
     if (this.plan) this.plan.value = store.plan || 'free';
+    if (this.launchStatus) this.launchStatus.value = store.launchStatus || store.status || 'live';
     if (this.contactName) this.contactName.value = store.contactName || '';
     if (this.phone) this.phone.value = store.phone || '';
     if (this.address) this.address.value = store.address || '';
     if (this.twoGisLink) this.twoGisLink.value = store.twoGisLink || '';
     if (this.website) this.website.value = store.website || '';
+    if (this.email) this.email.value = store.contact?.email || store.email || '';
+    if (this.whatsapp) this.whatsapp.value = store.contact?.whatsapp || store.whatsapp || store.phone || '';
+    if (this.instagram) this.instagram.value = store.social?.instagram || store.instagram || '';
+    if (this.openingHours) this.openingHours.value = store.contact?.openingHours || store.openingHours || '';
+    if (this.customDomain) this.customDomain.value = store.hosting?.customDomain || store.customDomain || '';
+    if (this.githubTarget) this.githubTarget.value = store.hosting?.githubTarget || '';
+    if (this.dnsStatus) this.dnsStatus.value = store.hosting?.dnsStatus || 'not_started';
+    if (this.hostingNotes) this.hostingNotes.value = store.hosting?.notes || '';
+    const checklist = store.hosting?.checklist || {};
+    if (this.domainPurchased) this.domainPurchased.checked = checklist.domainPurchased === true;
+    if (this.dnsConfigured) this.dnsConfigured.checked = checklist.dnsConfigured === true;
+    if (this.hostingConnected) this.hostingConnected.checked = checklist.hostingConnected === true;
+    if (this.sslActive) this.sslActive.checked = checklist.sslActive === true;
+    if (this.finalTested) this.finalTested.checked = checklist.finalTested === true;
     if (this.tags) this.tags.value = Array.isArray(store.tags) ? store.tags.join(', ') : '';
     if (this.notes) this.notes.value = store.notes || '';
     if (this.active) this.active.checked = store.active !== false;
@@ -567,6 +614,7 @@ export class StoresTab extends BaseTab {
     const theme = config.theme || {};
     const features = config.features || {};
     const hero = config.content?.hero || {};
+    const seo = config.seo || {};
     const productDisplay = config.productDisplay || {};
     const layout = Array.isArray(config.layout) ? config.layout : [];
     const hasSection = (type, fallback = false) => {
@@ -584,6 +632,10 @@ export class StoresTab extends BaseTab {
     if (this.themeRadius) this.themeRadius.value = theme.borderRadius || '8px';
     if (this.buttonStyle) this.buttonStyle.value = theme.buttonStyle || 'rounded';
     if (this.logoUrl) this.logoUrl.value = config.logoUrl || config.content?.logoUrl || '';
+    if (this.seoTitle) this.seoTitle.value = seo.title || '';
+    if (this.seoDescription) this.seoDescription.value = seo.description || '';
+    if (this.seoImage) this.seoImage.value = seo.imageUrl || '';
+    if (this.seoKeywords) this.seoKeywords.value = Array.isArray(seo.keywords) ? seo.keywords.join(', ') : (seo.keywords || '');
 
     if (this.featureCampaign) this.featureCampaign.checked = features.campaign === true;
     if (this.featureInvestment) this.featureInvestment.checked = features.investmentSection === true;
@@ -714,6 +766,13 @@ export class StoresTab extends BaseTab {
     if (this.ctaText) this.ctaText.value = type === 'organic' ? 'Join our community of investors and support local organic production.' : 'Message us for office boxes, events, and special bread orders.';
     if (this.ctaButton) this.ctaButton.value = type === 'organic' ? 'Learn More' : 'Contact Us';
     if (this.ctaHref) this.ctaHref.value = type === 'organic' ? 'biscotti.html' : '#products';
+    if (this.seoTitle) this.seoTitle.value = type === 'organic' ? 'OA Kyrgyz Organic | Organic groceries in Bishkek' : 'Daily Bread | Fresh bread in Bishkek';
+    if (this.seoDescription) this.seoDescription.value = type === 'organic'
+      ? 'Fresh local organic products from Kyrgyzstan delivered around Bishkek.'
+      : 'Fresh bread baked daily and delivered around Bishkek.';
+    if (this.seoKeywords) this.seoKeywords.value = type === 'organic'
+      ? 'organic, groceries, Bishkek, Kyrgyzstan'
+      : 'bread, bakery, Bishkek, daily bread';
     this.renderLaunchChecklist();
   }
 
@@ -728,6 +787,8 @@ export class StoresTab extends BaseTab {
       ['Cart enabled', this.featureCart?.checked !== false],
       ['WhatsApp support enabled', this.featureWhatsapp?.checked !== false],
       ['Delivery copy added', !!String(this.deliveryTitle?.value || '').trim()],
+      ['SEO title added', !!String(this.seoTitle?.value || '').trim()],
+      ['Domain plan started', !!String(this.customDomain?.value || this.website?.value || '').trim()],
       ['Preview checked', !!this.previewFrame?.src]
     ];
 
@@ -780,7 +841,24 @@ export class StoresTab extends BaseTab {
       name: storeData.name || fallback.name,
       slug: storeData.slug || companyId,
       domain: storeData.website || fallback.domain,
+      customDomain: storeData.customDomain || '',
+      hosting: storeData.hosting || {},
+      contact: storeData.contact || {},
+      social: storeData.social || {},
+      address: storeData.address || '',
+      twoGisLink: storeData.twoGisLink || '',
+      seo: {
+        title: String(this.seoTitle?.value || `${storeData.name || fallback.name} | Oako`).trim(),
+        description: String(this.seoDescription?.value || fallback.seo?.description || '').trim(),
+        imageUrl: String(this.seoImage?.value || '').trim(),
+        keywords: String(this.seoKeywords?.value || '')
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .slice(0, 20)
+      },
       status: storeData.active === false ? 'inactive' : 'active',
+      launchStatus: storeData.launchStatus || 'draft',
       logoUrl: String(this.logoUrl?.value || '').trim(),
       theme: {
         primaryColor: this.themePrimary?.value || fallback.theme.primaryColor,
@@ -860,11 +938,40 @@ export class StoresTab extends BaseTab {
       name: String(this.name?.value || '').trim(),
       slug: companyId,
       plan: String(this.plan?.value || 'free'),
+      launchStatus: String(this.launchStatus?.value || 'draft'),
       contactName: String(this.contactName?.value || '').trim(),
       phone: String(this.phone?.value || '').trim(),
       address: String(this.address?.value || '').trim(),
       twoGisLink: String(this.twoGisLink?.value || '').trim(),
       website: String(this.website?.value || '').trim(),
+      email: String(this.email?.value || '').trim(),
+      whatsapp: String(this.whatsapp?.value || '').trim(),
+      instagram: String(this.instagram?.value || '').trim(),
+      openingHours: String(this.openingHours?.value || '').trim(),
+      contact: {
+        name: String(this.contactName?.value || '').trim(),
+        phone: String(this.phone?.value || '').trim(),
+        email: String(this.email?.value || '').trim(),
+        whatsapp: String(this.whatsapp?.value || '').trim(),
+        openingHours: String(this.openingHours?.value || '').trim()
+      },
+      social: {
+        instagram: String(this.instagram?.value || '').trim()
+      },
+      hosting: {
+        customDomain: String(this.customDomain?.value || '').trim(),
+        githubTarget: String(this.githubTarget?.value || '').trim(),
+        dnsStatus: String(this.dnsStatus?.value || 'not_started'),
+        notes: String(this.hostingNotes?.value || '').trim(),
+        checklist: {
+          domainPurchased: this.domainPurchased ? this.domainPurchased.checked : false,
+          dnsConfigured: this.dnsConfigured ? this.dnsConfigured.checked : false,
+          hostingConnected: this.hostingConnected ? this.hostingConnected.checked : false,
+          sslActive: this.sslActive ? this.sslActive.checked : false,
+          finalTested: this.finalTested ? this.finalTested.checked : false
+        }
+      },
+      customDomain: String(this.customDomain?.value || '').trim(),
       logoUrl: String(this.logoUrl?.value || '').trim(),
       tags: parseTags(this.tags?.value),
       notes: String(this.notes?.value || '').trim(),
@@ -891,6 +998,7 @@ export class StoresTab extends BaseTab {
       alert(storefrontSaved
         ? 'Store saved.'
         : 'Store saved, but storefront customization did not save. Check Firestore rules for storefront_configs.');
+      await logAudit(existing.exists() || isEdit ? 'Store Updated' : 'Store Created', `${storeData.name || companyId} (${storeData.launchStatus})`);
       this.resetForm();
     } catch (err) {
       console.error(err);

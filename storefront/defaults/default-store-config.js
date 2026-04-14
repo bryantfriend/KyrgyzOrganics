@@ -63,6 +63,21 @@ export const DEFAULT_STORE_CONFIGS = {
         name: "OA Kyrgyz Organic",
         slug: "oako",
         domain: "oako.kg",
+        launchStatus: "live",
+        contact: {
+            email: "",
+            whatsapp: "",
+            openingHours: ""
+        },
+        social: {
+            instagram: ""
+        },
+        seo: {
+            title: "OA Kyrgyz Organic | Organic groceries in Bishkek",
+            description: "Fresh local organic products from Kyrgyzstan delivered around Bishkek.",
+            imageUrl: "",
+            keywords: ["organic", "groceries", "Bishkek", "Kyrgyzstan"]
+        },
         theme: {
             primaryColor: "#2F6B2F",
             secondaryColor: "#F3F7EA",
@@ -133,6 +148,21 @@ export const DEFAULT_STORE_CONFIGS = {
         name: "Daily Bread",
         slug: "dailybread",
         domain: "oako.kg/dailybread",
+        launchStatus: "live",
+        contact: {
+            email: "",
+            whatsapp: "",
+            openingHours: "Baked fresh daily"
+        },
+        social: {
+            instagram: ""
+        },
+        seo: {
+            title: "Daily Bread | Fresh bread in Bishkek",
+            description: "Fresh bread baked daily and delivered around Bishkek.",
+            imageUrl: "",
+            keywords: ["bread", "bakery", "Bishkek", "daily bread"]
+        },
         theme: {
             primaryColor: "#C47A2C",
             secondaryColor: "#FFF3E0",
@@ -221,6 +251,7 @@ export function getFallbackStoreConfig(companyId = "kyrgyz-organics") {
         name: companyId,
         slug: companyId,
         domain: `oako.kg/${companyId}`,
+        launchStatus: "draft",
         content: {
             ...DEFAULT_STORE_CONFIGS.dailybread.content,
             hero: {

@@ -4,7 +4,7 @@ import { uploadImage, logAudit } from '../utils.js';
 import { buildProductPageUrl, getPreferredProductName, slugifyProductName } from '../../product-utils.js';
 import { getSelectedCompanyId, matchesSelectedCompany } from '../../store-context.js';
 import {
-    collection, addDoc, updateDoc, deleteDoc, doc, query, onSnapshot, getDoc, serverTimestamp, where
+    collection, addDoc, updateDoc, deleteDoc, doc, query, onSnapshot, getDoc, serverTimestamp, where, orderBy
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 export class ProductsTab extends BaseTab {
@@ -29,10 +29,27 @@ export class ProductsTab extends BaseTab {
         this.filePack = document.getElementById('pImgPack');
         this.fileContent = document.getElementById('pImgContent');
         this.autoCompress = document.getElementById('pAutoCompress');
+        this.availabilityDayInputs = Array.from(document.querySelectorAll('.pAvailDay'));
+        this.leadTimeHours = document.getElementById('pLeadTimeHours');
+        this.availabilityNote = document.getElementById('pAvailabilityNote');
+        this.collectionForm = document.getElementById('collectionForm');
+        this.collectionId = document.getElementById('collectionId');
+        this.collectionName = document.getElementById('collectionName');
+        this.collectionSlug = document.getElementById('collectionSlug');
+        this.collectionDescription = document.getElementById('collectionDescription');
+        this.collectionOrder = document.getElementById('collectionOrder');
+        this.collectionActive = document.getElementById('collectionActive');
+        this.collectionHomepage = document.getElementById('collectionHomepage');
+        this.collectionPicker = document.getElementById('collectionProductPicker');
+        this.collectionList = document.getElementById('collectionList');
+        this.collectionSubmitBtn = document.getElementById('collectionSubmitBtn');
+        this.collectionCancelBtn = document.getElementById('collectionCancelBtn');
 
         this.allProductsCache = [];
+        this.collectionsCache = [];
         this.unsubscribeProducts = null;
         this.unsubscribeCategories = null;
+        this.unsubscribeCollections = null;
         this.slugTouched = false;
     }
 
@@ -43,6 +60,7 @@ export class ProductsTab extends BaseTab {
         this.bindEvents();
         this.loadCategories(); // Populates dropdowns
         this.loadProducts();
+        this.loadCollections();
     }
 
     onStoreChanged() {
@@ -50,11 +68,19 @@ export class ProductsTab extends BaseTab {
         this.allProductsCache = [];
         this.loadCategories();
         this.loadProducts();
+        this.loadCollections();
     }
 
     bindEvents() {
         if (this.form) this.form.addEventListener('submit', (e) => this.handleSubmit(e));
         if (this.cancelBtn) this.cancelBtn.addEventListener('click', () => this.resetForm());
+        if (this.collectionForm) this.collectionForm.addEventListener('submit', (e) => this.saveCollection(e));
+        if (this.collectionCancelBtn) this.collectionCancelBtn.addEventListener('click', () => this.resetCollectionForm());
+        if (this.collectionName && this.collectionSlug) {
+            this.collectionName.addEventListener('input', () => {
+                if (!this.collectionId?.value) this.collectionSlug.value = slugifyProductName(this.collectionName.value);
+            });
+        }
 
         // File Previews
         this.handleFileSelect(this.filePack, this.pPreviewPack, this.previewContainerPack, this.fNamePack);
@@ -194,6 +220,32 @@ export class ProductsTab extends BaseTab {
                 }
             });
             this.renderProductList();
+            this.renderCollectionProductPicker();
+        });
+    }
+
+    loadCollections() {
+        const selectedCompanyId = getSelectedCompanyId();
+        const q = query(collection(db, 'product_collections'), where('companyId', '==', selectedCompanyId), orderBy('order', 'asc'));
+
+        if (this.unsubscribeCollections) this.unsubscribeCollections();
+
+        this.unsubscribeCollections = onSnapshot(q, (snapshot) => {
+            this.collectionsCache = snapshot.docs
+                .map(d => ({ id: d.id, ...d.data() }))
+                .filter(c => matchesSelectedCompany(c, `product_collections/${c.id}`));
+            this.renderCollections();
+        }, async (error) => {
+            console.warn('Collections snapshot failed, retrying without order:', error);
+            const fallback = query(collection(db, 'product_collections'), where('companyId', '==', selectedCompanyId));
+            if (this.unsubscribeCollections) this.unsubscribeCollections();
+            this.unsubscribeCollections = onSnapshot(fallback, (snapshot) => {
+                this.collectionsCache = snapshot.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(c => matchesSelectedCompany(c, `product_collections/${c.id}`))
+                    .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+                this.renderCollections();
+            });
         });
     }
 
@@ -213,7 +265,7 @@ export class ProductsTab extends BaseTab {
         }
 
         filtered.forEach(p => {
-            const pageUrl = `../${buildProductPageUrl(p)}`;
+            const pageUrl = buildProductPageUrl(p);
             const el = document.createElement('div');
             el.className = 'list-item';
             el.innerHTML = `
@@ -230,6 +282,130 @@ export class ProductsTab extends BaseTab {
             `;
             this.list.appendChild(el);
         });
+        this.renderCollectionProductPicker();
+    }
+
+    renderCollectionProductPicker(selectedIds = null) {
+        if (!this.collectionPicker) return;
+        const selected = new Set(selectedIds || this.getSelectedCollectionProductIds());
+        if (!this.allProductsCache.length) {
+            this.collectionPicker.innerHTML = '<p style="color:#666;">Add products first, then create collections.</p>';
+            return;
+        }
+        this.collectionPicker.innerHTML = this.allProductsCache
+            .slice()
+            .sort((a, b) => getPreferredProductName(a).localeCompare(getPreferredProductName(b)))
+            .map(product => `
+                <label style="display:flex; align-items:center; gap:0.45rem;">
+                    <input type="checkbox" value="${product.id}" ${selected.has(product.id) ? 'checked' : ''}>
+                    ${getPreferredProductName(product)}
+                </label>
+            `).join('');
+    }
+
+    getSelectedCollectionProductIds() {
+        if (!this.collectionPicker) return [];
+        return Array.from(this.collectionPicker.querySelectorAll('input[type="checkbox"]:checked')).map(input => input.value);
+    }
+
+    renderCollections() {
+        if (!this.collectionList) return;
+        if (!this.collectionsCache.length) {
+            this.collectionList.innerHTML = '<p style="color:#666;">No collections yet.</p>';
+            return;
+        }
+        this.collectionList.innerHTML = '';
+        this.collectionsCache.forEach(collectionData => {
+            const productCount = Array.isArray(collectionData.productIds) ? collectionData.productIds.length : 0;
+            const el = document.createElement('div');
+            el.className = 'list-item';
+            el.innerHTML = `
+                <div style="flex:1;">
+                    <strong>${collectionData.name || collectionData.slug || collectionData.id}</strong>
+                    <div style="color:#666; font-size:0.9rem;">${productCount} products • ${collectionData.showOnHomepage ? 'Homepage' : 'Hidden from homepage'} • ${collectionData.active === false ? 'Inactive' : 'Active'}</div>
+                    ${collectionData.description ? `<div style="color:#777; font-size:0.85rem;">${collectionData.description}</div>` : ''}
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                    <button class="btn-secondary" type="button" data-action="edit-collection" data-id="${collectionData.id}">Edit</button>
+                    <button class="btn-danger" type="button" data-action="delete-collection" data-id="${collectionData.id}">Delete</button>
+                </div>
+            `;
+            el.querySelector('[data-action="edit-collection"]')?.addEventListener('click', () => this.editCollection(collectionData.id));
+            el.querySelector('[data-action="delete-collection"]')?.addEventListener('click', () => this.deleteCollection(collectionData.id));
+            this.collectionList.appendChild(el);
+        });
+    }
+
+    async saveCollection(e) {
+        e.preventDefault();
+        const name = String(this.collectionName?.value || '').trim();
+        if (!name) return alert('Collection name is required.');
+
+        const id = this.collectionId?.value || '';
+        const data = {
+            companyId: getSelectedCompanyId(),
+            name,
+            slug: slugifyProductName(this.collectionSlug?.value || name),
+            description: String(this.collectionDescription?.value || '').trim(),
+            order: Number(this.collectionOrder?.value || 0),
+            active: this.collectionActive ? this.collectionActive.checked : true,
+            showOnHomepage: this.collectionHomepage ? this.collectionHomepage.checked : false,
+            productIds: this.getSelectedCollectionProductIds(),
+            updatedAt: serverTimestamp()
+        };
+
+        try {
+            if (id) {
+                await updateDoc(doc(db, 'product_collections', id), data);
+                await logAudit('Collection Updated', `${data.name} (${data.productIds.length} products)`);
+            } else {
+                await addDoc(collection(db, 'product_collections'), {
+                    ...data,
+                    createdAt: serverTimestamp()
+                });
+                await logAudit('Collection Created', `${data.name} (${data.productIds.length} products)`);
+            }
+            this.resetCollectionForm();
+        } catch (err) {
+            console.error(err);
+            alert('Error saving collection: ' + err.message);
+        }
+    }
+
+    editCollection(id) {
+        const collectionData = this.collectionsCache.find(c => c.id === id);
+        if (!collectionData) return;
+
+        if (this.collectionId) this.collectionId.value = id;
+        if (this.collectionName) this.collectionName.value = collectionData.name || '';
+        if (this.collectionSlug) this.collectionSlug.value = collectionData.slug || '';
+        if (this.collectionDescription) this.collectionDescription.value = collectionData.description || '';
+        if (this.collectionOrder) this.collectionOrder.value = collectionData.order || 0;
+        if (this.collectionActive) this.collectionActive.checked = collectionData.active !== false;
+        if (this.collectionHomepage) this.collectionHomepage.checked = collectionData.showOnHomepage === true;
+        if (this.collectionSubmitBtn) this.collectionSubmitBtn.textContent = 'Update Collection';
+        if (this.collectionCancelBtn) this.collectionCancelBtn.style.display = 'inline-block';
+        this.renderCollectionProductPicker(collectionData.productIds || []);
+        this.collectionForm?.scrollIntoView?.({ behavior: 'smooth' });
+    }
+
+    async deleteCollection(id) {
+        const collectionData = this.collectionsCache.find(c => c.id === id);
+        if (!collectionData) return;
+        if (!confirm(`Delete collection "${collectionData.name || id}"?`)) return;
+        await deleteDoc(doc(db, 'product_collections', id));
+        await logAudit('Collection Deleted', collectionData.name || id);
+    }
+
+    resetCollectionForm() {
+        this.collectionForm?.reset?.();
+        if (this.collectionId) this.collectionId.value = '';
+        if (this.collectionActive) this.collectionActive.checked = true;
+        if (this.collectionHomepage) this.collectionHomepage.checked = false;
+        if (this.collectionOrder) this.collectionOrder.value = 0;
+        if (this.collectionSubmitBtn) this.collectionSubmitBtn.textContent = 'Save Collection';
+        if (this.collectionCancelBtn) this.collectionCancelBtn.style.display = 'none';
+        this.renderCollectionProductPicker([]);
     }
 
     async handleSubmit(e) {
@@ -265,6 +441,14 @@ export class ProductsTab extends BaseTab {
                 description_ru: document.getElementById('pDescRU').value,
                 description_en: document.getElementById('pDescEN').value,
                 description_kg: document.getElementById('pDescKG').value,
+                availability: {
+                    days: this.availabilityDayInputs
+                        .filter(input => input.checked)
+                        .map(input => Number(input.value))
+                        .filter(value => Number.isFinite(value)),
+                    leadTimeHours: Math.max(0, Number(this.leadTimeHours?.value || 0) || 0),
+                    note: String(this.availabilityNote?.value || '').trim()
+                },
                 slug: this.generateUniqueSlug(
                     this.pSlug.value || getPreferredProductName({
                         name_en: document.getElementById('pNameEN').value,
@@ -313,6 +497,11 @@ export class ProductsTab extends BaseTab {
         this.fNameContent.textContent = 'No file chosen';
         if (this.pSlug) this.pSlug.value = '';
         if (this.autoCompress) this.autoCompress.checked = true;
+        this.availabilityDayInputs.forEach(input => {
+            input.checked = false;
+        });
+        if (this.leadTimeHours) this.leadTimeHours.value = 0;
+        if (this.availabilityNote) this.availabilityNote.value = '';
         this.slugTouched = false;
     }
 
@@ -330,6 +519,12 @@ export class ProductsTab extends BaseTab {
         document.getElementById('pDescRU').value = p.description_ru || '';
         document.getElementById('pDescEN').value = p.description_en || '';
         document.getElementById('pDescKG').value = p.description_kg || '';
+        const availabilityDays = new Set(Array.isArray(p.availability?.days) ? p.availability.days.map(Number) : []);
+        this.availabilityDayInputs.forEach(input => {
+            input.checked = availabilityDays.has(Number(input.value));
+        });
+        if (this.leadTimeHours) this.leadTimeHours.value = p.availability?.leadTimeHours || 0;
+        if (this.availabilityNote) this.availabilityNote.value = p.availability?.note || '';
         if (this.pSlug) this.pSlug.value = p.slug || this.generateUniqueSlug(getPreferredProductName(p), id);
         this.slugTouched = !!p.slug;
 

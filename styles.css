@@ -1027,6 +1027,14 @@ body.has-sticky-cart .footer {
     margin-top: 0.75rem;
 }
 
+.product-availability-note {
+    margin: 0.65rem 0 0;
+    color: var(--color-primary-dark);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
 .delivery-badge {
     position: absolute;
     top: 0.5rem;
@@ -1177,6 +1185,50 @@ body.has-sticky-cart .footer {
     object-fit: contain;
     background: white;
     border: 1px solid var(--color-border);
+}
+
+.product-collections-section {
+    margin-top: 3rem;
+}
+
+#productCollectionsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+}
+
+.collection-card {
+    background: var(--color-white);
+    border: 1px solid var(--color-border);
+    border-radius: calc(var(--radius) * 1.2);
+    box-shadow: var(--shadow-sm);
+    padding: 1rem;
+    display: grid;
+    gap: 1rem;
+}
+
+.collection-card h3 {
+    color: var(--color-primary-dark);
+    margin: 0 0 0.35rem;
+}
+
+.collection-card p {
+    color: var(--color-text-light);
+    margin: 0;
+}
+
+.collection-card-products {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.35rem;
+}
+
+.collection-card-products img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: calc(var(--radius) * 0.75);
+    background: var(--color-bg);
 }
 
 .carousel-slide {

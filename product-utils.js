@@ -23,8 +23,8 @@ export function buildProductPageUrl(product) {
     const companyParam = companyId && companyId !== COMPANY_ID ? `&company=${encodeURIComponent(companyId)}` : '';
     const slug = product?.slug;
     if (slug) {
-        return `product.html?slug=${encodeURIComponent(slug)}${companyParam}`;
+        return `/product.html?slug=${encodeURIComponent(slug)}${companyParam}`;
     }
 
-    return `product.html?id=${encodeURIComponent(product?.id || '')}${companyParam}`;
+    return `/product.html?id=${encodeURIComponent(product?.id || '')}${companyParam}`;
 }
