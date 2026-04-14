@@ -1071,6 +1071,24 @@ body.has-sticky-cart .footer {
     object-fit: cover;
 }
 
+.store-feature-card {
+    background: var(--color-card, #fff);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    padding: 1.25rem;
+}
+
+.store-feature-card h3 {
+    color: var(--color-primary-dark);
+    margin: 0 0 0.4rem;
+}
+
+.store-feature-card p {
+    color: var(--color-text);
+    margin: 0;
+}
+
 .carousel-slide {
     position: absolute;
     inset: 0;

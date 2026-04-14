@@ -3,7 +3,7 @@ import { db } from '../../firebase-config.js';
 import { COMPANY_ID } from '../../company-config.js';
 import { getSelectedCompanyId, setSelectedCompany } from '../../store-context.js';
 import { getInventoryDocId } from '../../firestore-paths.js';
-import { getFallbackStoreConfig } from '../../storefront/defaults/default-store-config.js';
+import { THEME_PRESETS, getFallbackStoreConfig } from '../../storefront/defaults/default-store-config.js';
 import {
   collection,
   doc,
@@ -32,6 +32,11 @@ function parseTags(raw) {
     .slice(0, 20);
 }
 
+function getStorePreviewPath(companyId) {
+  if (!companyId || companyId === COMPANY_ID) return '/';
+  return `/${String(companyId).replace(/^\/+|\/+$/g, '')}/`;
+}
+
 export class StoresTab extends BaseTab {
   constructor() {
     super('stores');
@@ -55,6 +60,11 @@ export class StoresTab extends BaseTab {
     this.notes = document.getElementById('storeNotes');
     this.active = document.getElementById('storeActive');
     this.cancelBtn = document.getElementById('storeCancelBtn');
+    this.themePreset = document.getElementById('storeThemePreset');
+    this.applyPresetBtn = document.getElementById('storeApplyPresetBtn');
+    this.previewBtn = document.getElementById('storePreviewBtn');
+    this.wizardBakeryBtn = document.getElementById('storeWizardBakeryBtn');
+    this.wizardOrganicBtn = document.getElementById('storeWizardOrganicBtn');
     this.themePrimary = document.getElementById('storeThemePrimary');
     this.themeSecondary = document.getElementById('storeThemeSecondary');
     this.themeAccent = document.getElementById('storeThemeAccent');
@@ -70,6 +80,12 @@ export class StoresTab extends BaseTab {
     this.featureCart = document.getElementById('storeFeatureCart');
     this.featureWhatsapp = document.getElementById('storeFeatureWhatsapp');
     this.featureSubscriptions = document.getElementById('storeFeatureSubscriptions');
+    this.layoutHero = document.getElementById('storeLayoutHero');
+    this.layoutQuickActions = document.getElementById('storeLayoutQuickActions');
+    this.layoutCampaign = document.getElementById('storeLayoutCampaign');
+    this.layoutProducts = document.getElementById('storeLayoutProducts');
+    this.layoutCta = document.getElementById('storeLayoutCta');
+    this.layoutOrder = document.getElementById('storeLayoutOrder');
     this.heroTitle = document.getElementById('storeHeroTitle');
     this.heroSubtitle = document.getElementById('storeHeroSubtitle');
     this.heroCta = document.getElementById('storeHeroCta');
@@ -153,6 +169,7 @@ export class StoresTab extends BaseTab {
         if (action === 'edit') this.editStore(id);
         if (action === 'switch') setSelectedCompany(id);
         if (action === 'metrics') this.ensureMetricsLoaded(id);
+        if (action === 'preview') window.open(getStorePreviewPath(id), '_blank', 'noopener');
       });
     }
 
@@ -162,6 +179,25 @@ export class StoresTab extends BaseTab {
 
     if (this.cancelBtn) {
       this.cancelBtn.addEventListener('click', () => this.resetForm());
+    }
+
+    if (this.applyPresetBtn) {
+      this.applyPresetBtn.addEventListener('click', () => this.applySelectedThemePreset());
+    }
+
+    if (this.previewBtn) {
+      this.previewBtn.addEventListener('click', () => {
+        const companyId = String(this.companyId?.value || getSelectedCompanyId()).trim();
+        window.open(getStorePreviewPath(companyId), '_blank', 'noopener');
+      });
+    }
+
+    if (this.wizardBakeryBtn) {
+      this.wizardBakeryBtn.addEventListener('click', () => this.applyStarter('bakery'));
+    }
+
+    if (this.wizardOrganicBtn) {
+      this.wizardOrganicBtn.addEventListener('click', () => this.applyStarter('organic'));
     }
 
     if (this.userForm) {
@@ -279,6 +315,7 @@ export class StoresTab extends BaseTab {
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
               <button type="button" class="btn-secondary" data-action="switch" data-id="${id}">Switch</button>
               <button type="button" class="btn-secondary" data-action="edit" data-id="${id}">Edit</button>
+              <button type="button" class="btn-secondary" data-action="preview" data-id="${id}">Preview</button>
               <button type="button" class="btn-secondary" data-action="metrics" data-id="${id}">Metrics</button>
             </div>
           </td>
@@ -465,7 +502,13 @@ export class StoresTab extends BaseTab {
     const features = config.features || {};
     const hero = config.content?.hero || {};
     const productDisplay = config.productDisplay || {};
+    const layout = Array.isArray(config.layout) ? config.layout : [];
+    const hasSection = (type, fallback = false) => {
+      const section = layout.find((item) => item.type === type);
+      return section ? section.enabled !== false : fallback;
+    };
 
+    if (this.themePreset) this.themePreset.value = '';
     if (this.themePrimary) this.themePrimary.value = theme.primaryColor || '#76bc21';
     if (this.themeSecondary) this.themeSecondary.value = theme.secondaryColor || '#f3f7ea';
     if (this.themeAccent) this.themeAccent.value = theme.accentColor || '#f57c00';
@@ -482,6 +525,16 @@ export class StoresTab extends BaseTab {
     if (this.featureCart) this.featureCart.checked = features.cart !== false;
     if (this.featureWhatsapp) this.featureWhatsapp.checked = features.whatsappSupport !== false;
     if (this.featureSubscriptions) this.featureSubscriptions.checked = features.subscriptions === true;
+
+    if (this.layoutHero) this.layoutHero.checked = hasSection('hero', true);
+    if (this.layoutQuickActions) this.layoutQuickActions.checked = hasSection('quickActions', features.quickActions === true);
+    if (this.layoutCampaign) this.layoutCampaign.checked = hasSection('campaign', features.campaign === true);
+    if (this.layoutProducts) this.layoutProducts.checked = hasSection('products', true);
+    if (this.layoutCta) this.layoutCta.checked = hasSection('cta', features.investmentSection === true);
+    if (this.layoutOrder) {
+      const order = layout.length ? layout.map((item) => item.type).join(',') : 'hero,quickActions,campaign,products,cta';
+      this.layoutOrder.value = order;
+    }
 
     if (this.heroTitle) this.heroTitle.value = hero.title || '';
     if (this.heroSubtitle) this.heroSubtitle.value = hero.subtitle || '';
@@ -502,6 +555,57 @@ export class StoresTab extends BaseTab {
     });
   }
 
+  applyThemePreset(presetKey) {
+    const preset = THEME_PRESETS[presetKey];
+    if (!preset) return false;
+
+    if (this.themePreset) this.themePreset.value = presetKey;
+    if (this.themePrimary) this.themePrimary.value = preset.primaryColor;
+    if (this.themeSecondary) this.themeSecondary.value = preset.secondaryColor;
+    if (this.themeAccent) this.themeAccent.value = preset.accentColor;
+    if (this.themeBackground) this.themeBackground.value = preset.backgroundColor;
+    if (this.themeText) this.themeText.value = preset.textColor;
+    if (this.themeFont) this.themeFont.value = preset.fontFamily;
+    if (this.themeRadius) this.themeRadius.value = preset.borderRadius;
+    if (this.buttonStyle) this.buttonStyle.value = preset.buttonStyle;
+    return true;
+  }
+
+  applySelectedThemePreset() {
+    const presetKey = this.themePreset?.value;
+    if (!presetKey) return alert('Choose a theme preset first.');
+    this.applyThemePreset(presetKey);
+  }
+
+  applyStarter(type) {
+    const starter = type === 'organic'
+      ? getFallbackStoreConfig(COMPANY_ID)
+      : getFallbackStoreConfig('dailybread');
+
+    this.applyStorefrontConfigToForm(starter);
+    this.applyThemePreset(type === 'organic' ? 'organic' : 'bakery');
+
+    if (this.layoutHero) this.layoutHero.checked = true;
+    if (this.layoutProducts) this.layoutProducts.checked = true;
+    if (this.layoutQuickActions) this.layoutQuickActions.checked = type === 'organic';
+    if (this.layoutCampaign) this.layoutCampaign.checked = type === 'organic';
+    if (this.layoutCta) this.layoutCta.checked = type === 'organic';
+    if (this.layoutOrder) this.layoutOrder.value = type === 'organic'
+      ? 'hero,campaign,quickActions,products,cta'
+      : 'hero,products,quickActions,campaign,cta';
+
+    if (this.featureCampaign) this.featureCampaign.checked = type === 'organic';
+    if (this.featureInvestment) this.featureInvestment.checked = type === 'organic';
+    if (this.featureQuickActions) this.featureQuickActions.checked = type === 'organic';
+    if (this.featureDelivery) this.featureDelivery.checked = true;
+    if (this.featureCart) this.featureCart.checked = true;
+    if (this.featureWhatsapp) this.featureWhatsapp.checked = true;
+
+    if (this.heroTitle && !this.heroTitle.value.trim()) {
+      this.heroTitle.value = type === 'organic' ? 'Organic groceries from Kyrgyzstan' : 'Fresh Bread Daily';
+    }
+  }
+
   parseQuickActionInput(value) {
     const raw = String(value || '').trim();
     if (!raw) return null;
@@ -516,6 +620,22 @@ export class StoresTab extends BaseTab {
 
   buildStorefrontConfig(companyId, storeData) {
     const fallback = getFallbackStoreConfig(companyId);
+    const layoutMap = {
+      hero: { type: 'hero', variant: companyId === COMPANY_ID ? 'carousel' : 'image', enabled: this.layoutHero ? this.layoutHero.checked : true },
+      quickActions: { type: 'quickActions', variant: 'cards', enabled: this.layoutQuickActions ? this.layoutQuickActions.checked : false },
+      campaign: { type: 'campaign', variant: 'timeline', enabled: this.layoutCampaign ? this.layoutCampaign.checked : false },
+      products: { type: 'products', variant: this.productView?.value || 'grid', enabled: this.layoutProducts ? this.layoutProducts.checked : true },
+      cta: { type: 'cta', variant: 'investment', enabled: this.layoutCta ? this.layoutCta.checked : false }
+    };
+    const requestedOrder = String(this.layoutOrder?.value || 'hero,quickActions,campaign,products,cta')
+      .split(',')
+      .map((type) => type.trim())
+      .filter((type, index, arr) => layoutMap[type] && arr.indexOf(type) === index);
+    const finalOrder = requestedOrder.length ? requestedOrder : ['hero', 'quickActions', 'campaign', 'products', 'cta'];
+    const layout = [
+      ...finalOrder.map((type) => layoutMap[type]),
+      ...Object.keys(layoutMap).filter((type) => !finalOrder.includes(type)).map((type) => layoutMap[type])
+    ];
 
     return {
       companyId,
@@ -533,7 +653,7 @@ export class StoresTab extends BaseTab {
         borderRadius: this.themeRadius?.value || fallback.theme.borderRadius,
         buttonStyle: this.buttonStyle?.value || fallback.theme.buttonStyle
       },
-      layout: fallback.layout,
+      layout,
       features: {
         campaign: this.featureCampaign ? this.featureCampaign.checked : false,
         subscriptions: this.featureSubscriptions ? this.featureSubscriptions.checked : false,

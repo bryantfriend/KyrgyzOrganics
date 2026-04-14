@@ -218,6 +218,12 @@ function isFeatureEnabled(featureName, fallback = true) {
         : fallback;
 }
 
+function isSectionEnabled(sectionType, fallback = true) {
+    const layout = Array.isArray(activeStoreConfig?.layout) ? activeStoreConfig.layout : [];
+    const section = layout.find(item => item.type === sectionType);
+    return section ? section.enabled !== false : fallback;
+}
+
 function getProductDisplayConfig() {
     return {
         view: 'grid',
@@ -377,7 +383,7 @@ function buildCampaignSilhouette(title = 'Coming Soon') {
 }
 
 function renderCampaignTimeline() {
-    if (!homeCampaignSection || !homeCampaignTimeline || !campaignTimeline.length || !isFeatureEnabled('campaign', getCurrentCompanyId() === COMPANY_ID)) {
+    if (!homeCampaignSection || !homeCampaignTimeline || !campaignTimeline.length || !isFeatureEnabled('campaign', getCurrentCompanyId() === COMPANY_ID) || !isSectionEnabled('campaign', getCurrentCompanyId() === COMPANY_ID)) {
         if (homeCampaignSection) homeCampaignSection.hidden = true;
         return;
     }
@@ -441,7 +447,7 @@ function updateStaticUI() {
     const ctaBtn = document.querySelector('.investment-cta .cta-btn');
     if (ctaBtn) ctaBtn.textContent = t('learn_more');
     const investmentCta = document.querySelector('.investment-cta');
-    if (investmentCta) investmentCta.hidden = !isFeatureEnabled('investmentSection', getCurrentCompanyId() === COMPANY_ID);
+    if (investmentCta) investmentCta.hidden = !isFeatureEnabled('investmentSection', getCurrentCompanyId() === COMPANY_ID) || !isSectionEnabled('cta', getCurrentCompanyId() === COMPANY_ID);
 
     const deliveryBanner = document.querySelector('.delivery-banner');
     if (deliveryBanner) deliveryBanner.hidden = !isFeatureEnabled('deliveryBanner', true);
@@ -472,7 +478,7 @@ function renderQuickActions() {
     const quickActions = document.querySelector('.quick-actions-row');
     if (!quickActions) return;
 
-    if (!isFeatureEnabled('quickActions', getCurrentCompanyId() === COMPANY_ID)) {
+    if (!isFeatureEnabled('quickActions', getCurrentCompanyId() === COMPANY_ID) || !isSectionEnabled('quickActions', getCurrentCompanyId() === COMPANY_ID)) {
         quickActions.hidden = true;
         return;
     }
@@ -509,6 +515,14 @@ function renderFeatured() {
 
 function renderProducts(data) {
     if (!productGrid) return;
+    const fullCatalog = document.getElementById('fullCatalog');
+    if (!isSectionEnabled('products', true)) {
+        productGrid.hidden = true;
+        if (fullCatalog) fullCatalog.hidden = true;
+        return;
+    }
+    productGrid.hidden = false;
+    if (fullCatalog) fullCatalog.hidden = false;
     productGrid.innerHTML = '';
     const display = getProductDisplayConfig();
     productGrid.classList.toggle('product-grid-list', display.view === 'list');

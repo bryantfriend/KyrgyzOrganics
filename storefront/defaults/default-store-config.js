@@ -1,3 +1,61 @@
+export const THEME_PRESETS = {
+    organic: {
+        label: "Organic Market",
+        primaryColor: "#2F6B2F",
+        secondaryColor: "#F3F7EA",
+        accentColor: "#D4A017",
+        backgroundColor: "#FFFFFF",
+        textColor: "#1F2A1F",
+        fontFamily: "Outfit",
+        borderRadius: "14px",
+        buttonStyle: "rounded"
+    },
+    bakery: {
+        label: "Bakery",
+        primaryColor: "#C47A2C",
+        secondaryColor: "#FFF3E0",
+        accentColor: "#8B4513",
+        backgroundColor: "#FFF9F0",
+        textColor: "#2B1B10",
+        fontFamily: "Playfair Display",
+        borderRadius: "10px",
+        buttonStyle: "rounded"
+    },
+    cafe: {
+        label: "Cafe",
+        primaryColor: "#5B3A29",
+        secondaryColor: "#F7EFE7",
+        accentColor: "#D59A57",
+        backgroundColor: "#FFFCF7",
+        textColor: "#2A1A12",
+        fontFamily: "Lora",
+        borderRadius: "18px",
+        buttonStyle: "rounded"
+    },
+    luxury: {
+        label: "Luxury",
+        primaryColor: "#111111",
+        secondaryColor: "#F5E7BF",
+        accentColor: "#C9A227",
+        backgroundColor: "#FCFAF4",
+        textColor: "#181818",
+        fontFamily: "Playfair Display",
+        borderRadius: "4px",
+        buttonStyle: "minimal"
+    },
+    minimal: {
+        label: "Minimal",
+        primaryColor: "#263238",
+        secondaryColor: "#F4F6F7",
+        accentColor: "#607D8B",
+        backgroundColor: "#FFFFFF",
+        textColor: "#263238",
+        fontFamily: "Nunito",
+        borderRadius: "6px",
+        buttonStyle: "sharp"
+    }
+};
+
 export const DEFAULT_STORE_CONFIGS = {
     "kyrgyz-organics": {
         id: "kyrgyz-organics",

@@ -139,7 +139,35 @@
 
           <hr style="margin:1.5rem 0; border:none; border-top:1px solid #eee;">
 
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
+            <div>
+              <h4 style="margin:0;">Store Setup Wizard</h4>
+              <p style="margin:0.25rem 0 0; color:#666; font-size:0.9rem;">Quickly apply a starter identity, layout, and launch checklist for a new store.</p>
+            </div>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <button type="button" id="storeWizardBakeryBtn" class="btn-secondary">Apply Bakery Starter</button>
+              <button type="button" id="storeWizardOrganicBtn" class="btn-secondary">Apply Organic Starter</button>
+              <button type="button" id="storePreviewBtn" class="btn-secondary">Preview Store</button>
+            </div>
+          </div>
+
           <h4 style="margin:0 0 1rem;">Public Storefront Theme</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeThemePreset">Theme Preset</label>
+              <select id="storeThemePreset">
+                <option value="">Custom</option>
+                <option value="organic">Organic Market</option>
+                <option value="bakery">Bakery</option>
+                <option value="cafe">Cafe</option>
+                <option value="luxury">Luxury</option>
+                <option value="minimal">Minimal</option>
+              </select>
+            </div>
+            <div class="form-group" style="display:flex; align-items:flex-end;">
+              <button type="button" id="storeApplyPresetBtn" class="btn-secondary" style="width:100%;">Apply Theme Preset</button>
+            </div>
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label for="storeThemePrimary">Primary Color</label>
@@ -196,6 +224,23 @@
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureCart" checked> Cart</label>
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureWhatsapp" checked> WhatsApp Support</label>
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureSubscriptions"> Subscriptions</label>
+          </div>
+
+          <h4 style="margin:1.5rem 0 1rem;">Homepage Layout Sections</h4>
+          <p style="color:#666; margin-top:-0.5rem; font-size:0.9rem;">Turn sections on/off for this store. The order is saved for the storefront engine.</p>
+          <div class="form-row">
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutHero" checked> Hero</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutQuickActions"> Quick Actions</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutCampaign"> Campaign</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutProducts" checked> Products</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutCta"> CTA</label>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeLayoutOrder">Section Order</label>
+              <input type="text" id="storeLayoutOrder" value="hero,quickActions,campaign,products,cta" placeholder="hero,quickActions,campaign,products,cta">
+              <small style="display:block; color:#777; margin-top:0.35rem;">Valid sections: hero, quickActions, campaign, products, cta</small>
+            </div>
           </div>
 
           <h4 style="margin:1.5rem 0 1rem;">Homepage Hero Content</h4>
@@ -764,7 +809,13 @@
             <option value="reserved">Legacy Reserved</option>
             <option value="cancelled">Cancelled</option>
           </select>
+          <select id="orderStoreScope" style="padding:8px; border-radius:4px;">
+            <option value="selected">Selected Store Only</option>
+            <option value="all">All Stores</option>
+          </select>
         </div>
+
+        <div id="ordersDashboard" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.75rem; margin:1rem 0;"></div>
 
         <div id="ordersList" class="item-list">
           <!-- Injected -->

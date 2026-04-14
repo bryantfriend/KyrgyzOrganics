@@ -12,7 +12,9 @@ export class OrdersTab extends BaseTab {
     constructor() {
         super('orders');
         this.list = document.getElementById('ordersList');
+        this.dashboard = document.getElementById('ordersDashboard');
         this.filterSelect = document.getElementById('orderFilterStatus');
+        this.storeScope = document.getElementById('orderStoreScope');
         this.btnRefresh = document.getElementById('btnRefreshOrders');
         this.btnReleaseExpired = document.getElementById('btnReleaseExpired');
         this.receiptUrlCache = new Map();
@@ -21,6 +23,7 @@ export class OrdersTab extends BaseTab {
     async init() {
         if (this.btnRefresh) this.btnRefresh.addEventListener('click', () => this.loadOrders());
         if (this.filterSelect) this.filterSelect.addEventListener('change', () => this.loadOrders());
+        if (this.storeScope) this.storeScope.addEventListener('change', () => this.loadOrders());
         if (this.btnReleaseExpired) this.btnReleaseExpired.addEventListener('click', () => this.releaseExpiredOrders());
 
         // Expose global actions
@@ -43,17 +46,24 @@ export class OrdersTab extends BaseTab {
         this.list.innerHTML = '<p>Loading orders...</p>';
 
         const statusFilter = this.filterSelect ? this.filterSelect.value : 'all';
+        const scope = this.storeScope ? this.storeScope.value : 'selected';
 
         try {
             let q;
-            if (statusFilter === 'all') {
+            if (scope === 'all') {
+                q = statusFilter === 'all'
+                    ? query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
+                    : query(collection(db, 'orders'), where('status', '==', statusFilter), orderBy('createdAt', 'desc'));
+            } else if (statusFilter === 'all') {
                 q = query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId()), orderBy('createdAt', 'desc'));
             } else {
                 q = query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId()), where('status', '==', statusFilter), orderBy('createdAt', 'desc'));
             }
 
             const snap = await getDocs(q);
-            await this.renderList(this.filterCompanyDocs(snap.docs, 'orders'));
+            const docs = scope === 'all' ? snap.docs : this.filterCompanyDocs(snap.docs, 'orders');
+            this.renderDashboard(docs);
+            await this.renderList(docs, { showCompany: scope === 'all' });
         } catch (e) {
             console.error("Load Orders Error:", e);
             this.list.innerHTML = `<p style="color:red">Error: ${e.message}</p>`;
@@ -62,11 +72,16 @@ export class OrdersTab extends BaseTab {
             if (e.message.includes("requires an index")) {
                 this.list.innerHTML += `<p style="font-size:0.8rem; color:#666;">(Missing Index for current filter)</p>`;
                 // Fallback: client side filter
-                const allSnap = await getDocs(query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId())));
+                const fallbackQuery = scope === 'all'
+                    ? query(collection(db, 'orders'))
+                    : query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId()));
+                const allSnap = await getDocs(fallbackQuery);
                 const filtered = allSnap.docs
                     .filter(d => statusFilter === 'all' || d.data().status === statusFilter)
                     .sort((a, b) => (b.data().createdAt?.toMillis?.() || 0) - (a.data().createdAt?.toMillis?.() || 0));
-                await this.renderList(this.filterCompanyDocs(filtered, 'orders'));
+                const docs = scope === 'all' ? filtered : this.filterCompanyDocs(filtered, 'orders');
+                this.renderDashboard(docs);
+                await this.renderList(docs, { showCompany: scope === 'all' });
             }
         }
     }
@@ -78,7 +93,35 @@ export class OrdersTab extends BaseTab {
         });
     }
 
-    async renderList(docs) {
+    renderDashboard(docs = []) {
+        if (!this.dashboard) return;
+
+        const orders = docs.map((d) => d.data ? d.data() : d);
+        const totalRevenue = orders.reduce((sum, order) => {
+            const value = Number(order.total ?? order.price ?? 0);
+            return sum + (Number.isFinite(value) ? value : 0);
+        }, 0);
+        const pending = orders.filter((order) => ['pending_payment', 'pending_verification', 'reserved'].includes(order.status)).length;
+        const paid = orders.filter((order) => ['paid', 'preparing', 'out_for_delivery', 'delivered'].includes(order.status)).length;
+        const stores = new Set(orders.map((order) => order.companyId || COMPANY_ID));
+
+        const cards = [
+            ['Orders', orders.length],
+            ['Revenue', `${totalRevenue} som`],
+            ['Pending', pending],
+            ['Paid/Active', paid],
+            ['Stores', stores.size]
+        ];
+
+        this.dashboard.innerHTML = cards.map(([label, value]) => `
+            <div style="background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:0.9rem;">
+                <div style="font-size:0.75rem; color:#666; text-transform:uppercase; font-weight:800;">${label}</div>
+                <div style="font-size:1.35rem; font-weight:900; color:#2e7d32;">${value}</div>
+            </div>
+        `).join('');
+    }
+
+    async renderList(docs, { showCompany = false } = {}) {
         if (docs.length === 0) {
             this.list.innerHTML = '<p style="color:#666; padding:1rem;">No orders found.</p>';
             return;
@@ -146,6 +189,7 @@ export class OrdersTab extends BaseTab {
                     <div>
                         <strong>Order #${id}</strong> <span style="color:#666;">(${date.toLocaleString()})</span>
                         <div style="font-size:0.85rem; color:#888;">Order ID: ${id} • ${date.toLocaleString()}</div>
+                        ${showCompany ? `<div style="font-size:0.85rem; color:#2e7d32; font-weight:700;">Store: ${order.companyId || COMPANY_ID}</div>` : ''}
                     </div>
                     <div style="text-align:right;">
                         <span class="status-badge status-${order.status}" 
