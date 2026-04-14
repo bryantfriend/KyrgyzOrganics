@@ -8,24 +8,48 @@ const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
 const COMPANY_ID = "kyrgyz-organics";
+const COMPANY_ID_PATTERN = /^[a-z0-9-]{2,80}$/;
 
 const DEFAULT_CHECKOUT_SETTINGS = {
     deliveryFee: 200,
     freeDeliveryThreshold: 3000
 };
 
-function ensureCompanyDoc(data, label, id) {
-    if (data?.companyId && data.companyId !== COMPANY_ID) {
+function ensureCompanyDoc(data, label, id, expectedCompanyId = COMPANY_ID) {
+    if (data?.companyId && data.companyId !== expectedCompanyId) {
         throw new functions.https.HttpsError('permission-denied', `${label} belongs to another company`);
     }
 
     if (!data?.companyId) {
         console.warn(`${label} missing companyId:`, id);
+        if (expectedCompanyId !== COMPANY_ID) {
+            throw new functions.https.HttpsError('permission-denied', `${label} is missing company ownership`);
+        }
     }
 }
 
 function asTrimmedString(value, maxLength = 500) {
     return String(value || '').trim().slice(0, maxLength);
+}
+
+function resolveCompanyId(value) {
+    const companyId = asTrimmedString(value, 80).toLowerCase();
+    return COMPANY_ID_PATTERN.test(companyId) ? companyId : COMPANY_ID;
+}
+
+function getCompanyScopedId(companyId, id) {
+    return `${companyId || COMPANY_ID}__${id}`;
+}
+
+async function getCompanyScopedDoc(collectionName, id, companyId) {
+    const scopedRef = db.doc(`${collectionName}/${getCompanyScopedId(companyId, id)}`);
+    const scopedSnap = await scopedRef.get();
+    if (scopedSnap.exists || companyId !== COMPANY_ID) {
+        return { ref: scopedRef, snap: scopedSnap };
+    }
+
+    const legacyRef = db.doc(`${collectionName}/${id}`);
+    return { ref: legacyRef, snap: await legacyRef.get() };
 }
 
 function readMoney(value) {
@@ -66,13 +90,13 @@ function calculateDeliveryFee(subtotal, deliveryMethod, settings) {
     return readMoney(settings.deliveryFee);
 }
 
-async function getCheckoutSettings() {
+async function getCheckoutSettings(companyId = COMPANY_ID) {
     try {
-        const snap = await db.doc('shop_settings/checkout').get();
+        const { snap } = await getCompanyScopedDoc('shop_settings', 'checkout', companyId);
         if (!snap.exists) return { ...DEFAULT_CHECKOUT_SETTINGS };
 
         const data = snap.data() || {};
-        ensureCompanyDoc(data, 'Checkout settings', 'shop_settings/checkout');
+        ensureCompanyDoc(data, 'Checkout settings', 'shop_settings/checkout', companyId);
         return { ...DEFAULT_CHECKOUT_SETTINGS, ...data };
     } catch (error) {
         console.warn('Checkout settings fallback:', error);
@@ -165,15 +189,20 @@ function getTrackingEvents(order) {
     ];
 }
 
-async function releaseInventory(tx, dateStr, items) {
+async function releaseInventory(tx, dateStr, items, companyId = COMPANY_ID) {
     if (!dateStr || !items.length) return;
 
-    const inventoryRef = db.doc(`inventory/${dateStr}`);
+    let inventoryRef = db.doc(`inventory/${getCompanyScopedId(companyId, dateStr)}`);
     const inventorySnap = await tx.get(inventoryRef);
-    if (!inventorySnap.exists) return;
+    let activeInventorySnap = inventorySnap;
+    if (!activeInventorySnap.exists && companyId === COMPANY_ID) {
+        inventoryRef = db.doc(`inventory/${dateStr}`);
+        activeInventorySnap = await tx.get(inventoryRef);
+    }
+    if (!activeInventorySnap.exists) return;
 
-    const inventoryData = inventorySnap.data() || {};
-    ensureCompanyDoc(inventoryData, 'Inventory', dateStr);
+    const inventoryData = activeInventorySnap.data() || {};
+    ensureCompanyDoc(inventoryData, 'Inventory', dateStr, companyId);
     const inventoryUpdates = {};
 
     items.forEach((item) => {
@@ -189,6 +218,7 @@ async function releaseInventory(tx, dateStr, items) {
 }
 
 exports.createOrder = functions.https.onCall(async (data) => {
+    const companyId = resolveCompanyId(data?.companyId);
     const dateStr = asTrimmedString(data?.dateStr, 20);
     const deliveryMethod = data?.fulfillment?.method === 'pickup' ? 'pickup' : 'delivery';
     const customerName = asTrimmedString(data?.customer?.name, 120);
@@ -209,19 +239,23 @@ exports.createOrder = functions.https.onCall(async (data) => {
         throw new functions.https.HttpsError('invalid-argument', 'Delivery address is required');
     }
 
-    const checkoutSettings = await getCheckoutSettings();
+    const checkoutSettings = await getCheckoutSettings(companyId);
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     return db.runTransaction(async (tx) => {
-        const inventoryRef = db.doc(`inventory/${dateStr}`);
-        const inventorySnap = await tx.get(inventoryRef);
+        let inventoryRef = db.doc(`inventory/${getCompanyScopedId(companyId, dateStr)}`);
+        let inventorySnap = await tx.get(inventoryRef);
+        if (!inventorySnap.exists && companyId === COMPANY_ID) {
+            inventoryRef = db.doc(`inventory/${dateStr}`);
+            inventorySnap = await tx.get(inventoryRef);
+        }
 
         if (!inventorySnap.exists) {
             throw new functions.https.HttpsError('not-found', 'Inventory is not available for this date');
         }
 
         const inventoryData = inventorySnap.data() || {};
-        ensureCompanyDoc(inventoryData, 'Inventory', dateStr);
+        ensureCompanyDoc(inventoryData, 'Inventory', dateStr, companyId);
         const productSnaps = await Promise.all(
             normalizedItems.map((item) => tx.get(db.doc(`products/${item.productId}`)))
         );
@@ -238,7 +272,7 @@ exports.createOrder = functions.https.onCall(async (data) => {
             }
 
             const product = productSnap.data();
-            ensureCompanyDoc(product, 'Product', item.productId);
+            ensureCompanyDoc(product, 'Product', item.productId, companyId);
             if (product.active === false) {
                 throw new functions.https.HttpsError('failed-precondition', 'One of the products is inactive');
             }
@@ -276,7 +310,7 @@ exports.createOrder = functions.https.onCall(async (data) => {
 
         tx.update(inventoryRef, inventoryUpdates);
         tx.set(orderRef, {
-            companyId: COMPANY_ID,
+            companyId,
             date: dateStr,
             itemCount,
             items: orderItems,
@@ -328,15 +362,6 @@ exports.submitPaymentProof = functions.https.onCall(async (data) => {
         throw new functions.https.HttpsError('permission-denied', 'Invalid receipt path');
     }
 
-    if (paymentMethodId) {
-        const methodSnap = await db.doc(`payment_methods/${paymentMethodId}`).get();
-        const method = methodSnap.data() || {};
-        if (!methodSnap.exists || method.active === false) {
-            throw new functions.https.HttpsError('failed-precondition', 'Payment method is unavailable');
-        }
-        ensureCompanyDoc(method, 'Payment method', paymentMethodId);
-    }
-
     const file = admin.storage().bucket().file(receiptPath);
     const [exists] = await file.exists();
     if (!exists) {
@@ -363,8 +388,18 @@ exports.submitPaymentProof = functions.https.onCall(async (data) => {
         }
 
         const order = orderSnap.data();
-        ensureCompanyDoc(order, 'Order', orderId);
+        const orderCompanyId = order.companyId || COMPANY_ID;
+        ensureCompanyDoc(order, 'Order', orderId, orderCompanyId);
         ensureOrderToken(order, orderToken);
+
+        if (paymentMethodId) {
+            const methodSnap = await tx.get(db.doc(`payment_methods/${paymentMethodId}`));
+            const method = methodSnap.data() || {};
+            if (!methodSnap.exists || method.active === false) {
+                throw new functions.https.HttpsError('failed-precondition', 'Payment method is unavailable');
+            }
+            ensureCompanyDoc(method, 'Payment method', paymentMethodId, orderCompanyId);
+        }
 
         if (!['pending_payment', 'reserved'].includes(order.status)) {
             throw new functions.https.HttpsError('failed-precondition', 'Order is not awaiting payment');
@@ -406,14 +441,15 @@ exports.cancelOrder = functions.https.onCall(async (data) => {
         }
 
         const order = orderSnap.data();
-        ensureCompanyDoc(order, 'Order', orderId);
+        const orderCompanyId = order.companyId || COMPANY_ID;
+        ensureCompanyDoc(order, 'Order', orderId, orderCompanyId);
         ensureOrderToken(order, orderToken);
 
         if (!['pending_payment', 'reserved'].includes(order.status)) {
             throw new functions.https.HttpsError('failed-precondition', 'Order can no longer be cancelled');
         }
 
-        await releaseInventory(tx, order.date, getOrderLineItems(order));
+        await releaseInventory(tx, order.date, getOrderLineItems(order), orderCompanyId);
 
         tx.update(orderRef, {
             status: 'cancelled',
@@ -441,7 +477,8 @@ exports.getOrderStatus = functions.https.onCall(async (data) => {
     }
 
     const order = orderSnap.data();
-    ensureCompanyDoc(order, 'Order', orderId);
+    const orderCompanyId = order.companyId || COMPANY_ID;
+    ensureCompanyDoc(order, 'Order', orderId, orderCompanyId);
     ensureOrderToken(order, orderToken);
 
     return {

@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OA Kyrgyz Organic - Grocery Catalog</title>
+  <title>Daily Bread - Grocery Catalog</title>
+  <base href="../">
   <link rel="stylesheet" href="styles.css?v=2.4">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,11 +17,11 @@
   <!-- Top Header -->
   <header class="header">
     <div class="container header-inner">
-      <a href="index.html" class="logo">OA Kyrgyz Organic</a>
+      <a href="dailybread/" class="logo">Daily Bread</a>
 
       <!-- Desktop Nav -->
       <nav class="nav-links">
-        <a href="index.html" id="navHome">Home</a>
+        <a href="dailybread/" id="navHome">Home</a>
 
         <a href="about.html" id="navAbout">About</a>
         <a href="contact.html" id="navContact">Contact</a>
@@ -37,7 +38,7 @@
       <div class="mobile-menu">
         <button class="close-menu">&times;</button>
         <nav class="mobile-nav-links">
-          <a href="index.html" id="mobHome">Home</a>
+          <a href="dailybread/" id="mobHome">Home</a>
           <a href="#" id="mobCategories">Categories ▾</a>
           <div id="mobCategoryList" class="mobile-sub-menu"
             style="display:none; padding-left: 1.5rem; flex-direction: column; gap: 0.5rem;">
@@ -171,7 +172,7 @@
     <div class="container">
       <div style="display: flex; flex-wrap: wrap; gap: 2rem; justify-content: space-between;">
         <div>
-          <h3 style="color: white; margin-bottom: 1rem;" id="footAboutTitle">OA Kyrgyz Organic</h3>
+          <h3 style="color: white; margin-bottom: 1rem;" id="footAboutTitle">Daily Bread</h3>
           <p id="footAboutText">Connecting you with the best<br>organic producers in Kyrgyzstan.</p>
         </div>
         <div>
@@ -182,7 +183,7 @@
         </div>
       </div>
       <div style="margin-top: 2rem; border-top: 1px solid #444; padding-top: 1rem; font-size: 0.8rem;">
-        <p><span id="copyrightText">© 2025 OA Kyrgyz Organic. All rights reserved. | </span><a href="admin/admin.html"
+        <p><span id="copyrightText">© 2025 Daily Bread. All rights reserved. | </span><a href="admin/admin.html"
             style="color: #666; text-decoration: none;">Admin Login</a></p>
       </div>
     </div>
@@ -328,6 +329,10 @@
     </div>
   </div>
 
+  <script>
+    window.OAKO_COMPANY_ID = 'dailybread';
+    window.OAKO_STORE_NAME = 'Daily Bread';
+  </script>
   <script type="module" src="home.js?v=2.6"></script>
 </body>
 

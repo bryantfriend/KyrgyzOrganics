@@ -1,3 +1,5 @@
+import { COMPANY_ID, getCurrentCompanyId } from './company-config.js';
+
 export function getPreferredProductName(product) {
     return product?.name_en || product?.name_ru || product?.name_kg || product?.name || '';
 }
@@ -17,10 +19,12 @@ export function ensureProductSlug(product) {
 }
 
 export function buildProductPageUrl(product) {
+    const companyId = getCurrentCompanyId();
+    const companyParam = companyId && companyId !== COMPANY_ID ? `&company=${encodeURIComponent(companyId)}` : '';
     const slug = product?.slug;
     if (slug) {
-        return `product.html?slug=${encodeURIComponent(slug)}`;
+        return `product.html?slug=${encodeURIComponent(slug)}${companyParam}`;
     }
 
-    return `product.html?id=${encodeURIComponent(product?.id || '')}`;
+    return `product.html?id=${encodeURIComponent(product?.id || '')}${companyParam}`;
 }

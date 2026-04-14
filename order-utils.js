@@ -1,6 +1,6 @@
 import { db } from './firebase-config.js';
 import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { COMPANY_ID } from './company-config.js';
+import { getCurrentCompanyId } from './company-config.js';
 
 function readPrice(item) {
     const value = item.price ?? item.unitPrice ?? item.product?.price ?? 0;
@@ -28,7 +28,7 @@ export async function createOrder(cartItems) {
     const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
     const orderData = {
-        companyId: COMPANY_ID,
+        companyId: getCurrentCompanyId(),
         items,
         total,
         status: "pending",

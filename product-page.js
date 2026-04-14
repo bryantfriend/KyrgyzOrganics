@@ -3,7 +3,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from "https://w
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl } from './product-utils.js';
 import { addCartItem, loadCart, saveCart, saveCartDay } from './shop-utils.js';
-import { COMPANY_ID, matchesCompanyId } from './company-config.js';
+import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
 import { getInventoryDocId } from './firestore-paths.js';
 
 const root = document.getElementById('productPageRoot');
@@ -12,6 +12,7 @@ let categoriesMap = {};
 let dailyInventory = {};
 
 async function init() {
+    initCompanyFromLocation();
     setupLanguage();
     initMobileMenu();
 
@@ -46,18 +47,19 @@ async function loadCategories() {
 
 async function loadInventory() {
     const today = getTodayKey();
-    const invId = getInventoryDocId(COMPANY_ID, today);
+    const activeCompanyId = getCurrentCompanyId();
+    const invId = getInventoryDocId(activeCompanyId, today);
     let invSnap = await getDoc(doc(db, 'inventory', invId));
-    if (!invSnap.exists()) {
+    if (!invSnap.exists() && activeCompanyId === COMPANY_ID) {
         invSnap = await getDoc(doc(db, 'inventory', today));
     }
     if (invSnap.exists()) {
         const inventoryData = invSnap.data();
-        if (inventoryData.companyId && inventoryData.companyId !== COMPANY_ID) {
+        if (inventoryData.companyId && inventoryData.companyId !== activeCompanyId) {
             console.warn('Inventory companyId mismatch:', getTodayKey());
             dailyInventory = {};
         } else {
-            if (!inventoryData.companyId) console.warn('Inventory missing companyId:', getTodayKey());
+            if (!inventoryData.companyId && activeCompanyId === COMPANY_ID) console.warn('Inventory missing companyId:', getTodayKey());
             dailyInventory = inventoryData;
         }
     }
@@ -85,11 +87,7 @@ async function loadProductFromUrl() {
         const productDoc = await getDoc(doc(db, 'products', productId));
         if (productDoc.exists()) {
             const productData = productDoc.data();
-            if (productData.companyId && productData.companyId !== COMPANY_ID) {
-                console.warn('Product companyId mismatch:', productId);
-                return null;
-            }
-            if (!productData.companyId) console.warn('Product missing companyId:', productId);
+            if (!matchesCompanyId(productData, `products/${productId}`)) return null;
             return { id: productDoc.id, ...productData };
         }
     }
@@ -97,9 +95,15 @@ async function loadProductFromUrl() {
     return null;
 }
 
+function getStoreHomeUrl() {
+    const companyId = getCurrentCompanyId();
+    if (companyId === 'dailybread') return 'dailybread/';
+    return 'index.html';
+}
+
 function renderMissingState() {
     root.innerHTML = `
-        <a href="index.html" class="text-link-inline">${t('back_to_catalog')}</a>
+        <a href="${getStoreHomeUrl()}" class="text-link-inline">${t('back_to_catalog')}</a>
         <div class="product-page-layout" style="margin-top:1rem;">
             <div class="product-page-info">
                 <h1 class="section-title" style="margin-top:0;">${t('product_not_found')}</h1>
@@ -114,7 +118,7 @@ function renderProductPage(product) {
     const stock = dailyInventory[product.id]?.available ?? null;
     const isInStock = stock === null ? true : stock > 0;
     const maxQty = stock !== null && stock > 0 ? stock : 99;
-    const cartUrl = new URL('index.html', window.location.href);
+    const cartUrl = new URL(getStoreHomeUrl(), window.location.origin + '/');
     cartUrl.searchParams.set('cart', 'open');
     const shareUrl = new URL(buildProductPageUrl(product), window.location.origin + window.location.pathname.replace(/[^/]+$/, '')).toString();
     const imagePack = product.imageUrl || 'https://placehold.co/800x600?text=Packaging';
@@ -122,7 +126,7 @@ function renderProductPage(product) {
 
     root.innerHTML = `
         <nav class="product-breadcrumbs">
-            <a href="index.html">${t('home')}</a>
+            <a href="${getStoreHomeUrl()}">${t('home')}</a>
             <span>/</span>
             <span>${categoryName || t('product_details')}</span>
         </nav>

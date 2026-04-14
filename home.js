@@ -3,7 +3,7 @@ import { collection, getDocs, query, where, doc, getDoc } from "https://www.gsta
 import { ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { $, $$, t, loc, setupLanguage, initMobileMenu } from './common.js';
 import { buildProductPageUrl } from './product-utils.js';
-import { COMPANY_ID, matchesCompanyId } from './company-config.js';
+import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
 import { getCheckoutSettingsDocId, getInventoryDocId } from './firestore-paths.js';
 import {
     DEFAULT_CHECKOUT_SETTINGS,
@@ -34,6 +34,7 @@ let checkoutSettings = { ...DEFAULT_CHECKOUT_SETTINGS };
 let supportWhatsappNumber = '';
 let cartNoticeMessage = '';
 let campaignTimeline = [];
+let activeStoreName = 'OA Kyrgyz Organic';
 
 // --- DOM ELEMENTS ---
 const productGrid = $('productGrid');
@@ -70,6 +71,8 @@ const homeCampaignTimeline = $('homeCampaignTimeline');
 
 // --- INIT ---
 async function init() {
+    const companyConfig = initCompanyFromLocation();
+    activeStoreName = companyConfig.name || activeStoreName;
     setupLanguage();
     initMobileMenu();
 
@@ -90,6 +93,8 @@ async function init() {
 }
 
 async function loadData() {
+    const activeCompanyId = getCurrentCompanyId();
+
     // 1. Load Banners Separately & Immediately
     getDocs(collection(db, "banners")).then(snap => {
         const now = new Date();
@@ -137,18 +142,18 @@ async function loadData() {
 
 
         // Fetch Inventory (company-scoped, with legacy fallback)
-        const invId = getInventoryDocId(COMPANY_ID, todayStr);
+        const invId = getInventoryDocId(activeCompanyId, todayStr);
         let invSnap = await getDoc(doc(db, 'inventory', invId));
-        if (!invSnap.exists()) {
+        if (!invSnap.exists() && activeCompanyId === COMPANY_ID) {
             invSnap = await getDoc(doc(db, 'inventory', todayStr));
         }
         if (invSnap.exists()) {
             const inventoryData = invSnap.data();
-            if (inventoryData.companyId && inventoryData.companyId !== COMPANY_ID) {
+            if (inventoryData.companyId && inventoryData.companyId !== activeCompanyId) {
                 console.warn('Inventory companyId mismatch:', todayStr);
                 dailyInventory = {};
             } else {
-                if (!inventoryData.companyId) console.warn('Inventory missing companyId:', todayStr);
+                if (!inventoryData.companyId && activeCompanyId === COMPANY_ID) console.warn('Inventory missing companyId:', todayStr);
                 dailyInventory = inventoryData;
             }
         } else {
@@ -368,6 +373,18 @@ function renderCampaignTimeline() {
 }
 
 function updateStaticUI() {
+    document.title = `${activeStoreName} - Grocery Catalog`;
+
+    document.querySelectorAll('.logo').forEach((logo) => {
+        logo.textContent = activeStoreName;
+    });
+
+    const footAboutTitle = document.getElementById('footAboutTitle');
+    if (footAboutTitle) footAboutTitle.textContent = activeStoreName;
+
+    const copyrightText = document.getElementById('copyrightText');
+    if (copyrightText) copyrightText.textContent = `© 2025 ${activeStoreName}. All rights reserved. | `;
+
     const availableTodayTitle = document.getElementById('availableTodayTitle');
     const fullCatalogTitle = document.getElementById('fullCatalog');
     if (availableTodayTitle) availableTodayTitle.textContent = t('available_today');
@@ -483,17 +500,18 @@ function syncCartWithCatalog() {
 
 async function loadCheckoutSettings() {
     try {
-        const settingsId = getCheckoutSettingsDocId(COMPANY_ID);
+        const activeCompanyId = getCurrentCompanyId();
+        const settingsId = getCheckoutSettingsDocId(activeCompanyId);
         let snap = await getDoc(doc(db, 'shop_settings', settingsId));
-        if (!snap.exists()) {
+        if (!snap.exists() && activeCompanyId === COMPANY_ID) {
             snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
         }
         const data = snap.exists() ? snap.data() : {};
-        if (data.companyId && data.companyId !== COMPANY_ID) {
+        if (data.companyId && data.companyId !== activeCompanyId) {
             console.warn('Checkout settings companyId mismatch');
             throw new Error('Checkout settings unavailable for this company');
         }
-        if (snap.exists() && !data.companyId) console.warn('Checkout settings missing companyId');
+        if (snap.exists() && !data.companyId && activeCompanyId === COMPANY_ID) console.warn('Checkout settings missing companyId');
         checkoutSettings = { ...DEFAULT_CHECKOUT_SETTINGS, ...data };
         supportWhatsappNumber = String(data.supportWhatsappNumber || '').trim();
         updateWhatsAppSupportButton();
@@ -1108,6 +1126,7 @@ async function handleCheckoutSubmit(event) {
     try {
         const createOrder = httpsCallable(functions, 'createOrder');
         const result = await createOrder({
+            companyId: getCurrentCompanyId(),
             dateStr: todayStr,
             items: totals.items.map((item) => ({
                 productId: item.productId,
