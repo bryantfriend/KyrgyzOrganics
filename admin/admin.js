@@ -16,6 +16,8 @@ import { AnalyticsTab } from './tabs/AnalyticsTab.js';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js';
 
+const ADMIN_VERSION = '2.9';
+
 function getHostname() {
   try {
     return String(window.location.hostname || '').toLowerCase();
@@ -54,6 +56,7 @@ class AdminApp {
     this.storePill = document.getElementById('storePill');
     this.selectStoreBtn = document.getElementById('selectStoreBtn');
     this.storesTabBtn = document.getElementById('storesTabBtn');
+    this.adminVersionPill = document.getElementById('adminVersionPill');
     this.storeModal = document.getElementById('storeSwitchModal');
     this.storeModalClose = document.getElementById('closeStoreModal');
     this.storeSearchInput = document.getElementById('storeSearchInput');
@@ -73,6 +76,7 @@ class AdminApp {
   }
 
   async init() {
+    this.updateAdminVersion();
     this.setupAuth();
     this.setupTabs();
     this.setupStoreSwitching();
@@ -81,6 +85,12 @@ class AdminApp {
     window.closePreview = () => {
       document.getElementById('mobilePreview')?.classList.add('hidden');
     };
+  }
+
+  updateAdminVersion() {
+    if (this.adminVersionPill) {
+      this.adminVersionPill.textContent = `Admin v${ADMIN_VERSION}`;
+    }
   }
 
   setupAuth() {

@@ -12,6 +12,18 @@ body {
   align-items: center;
 }
 
+.admin-version-pill {
+  background: rgba(124, 179, 66, 0.18);
+  border: 1px solid rgba(174, 213, 129, 0.45);
+  border-radius: 999px;
+  color: #dcedc8;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 0.35rem 0.75rem;
+  white-space: nowrap;
+}
+
 #logoutBtn {
   background: #e53935;
   color: white;
