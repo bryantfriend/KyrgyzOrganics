@@ -5,14 +5,21 @@ import { buildProductPageUrl } from './product-utils.js';
 import { addCartItem, loadCart, saveCart, saveCartDay } from './shop-utils.js';
 import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
 import { getInventoryDocId } from './firestore-paths.js';
+import { loadStoreConfig } from './storefront/store-loader.js';
+import { applyStoreTheme } from './storefront/theme-engine.js';
 
 const root = document.getElementById('productPageRoot');
 
 let categoriesMap = {};
 let dailyInventory = {};
+let activeStoreName = 'OA Kyrgyz Organic';
 
 async function init() {
-    initCompanyFromLocation();
+    const companyConfig = initCompanyFromLocation();
+    const storeConfig = await loadStoreConfig(companyConfig.companyId);
+    activeStoreName = storeConfig.name || companyConfig.name || activeStoreName;
+    applyStoreTheme(storeConfig);
+    updateStoreBranding();
     setupLanguage();
     initMobileMenu();
 
@@ -93,6 +100,26 @@ async function loadProductFromUrl() {
     }
 
     return null;
+}
+
+function updateStoreBranding() {
+    const homeUrl = getStoreHomeUrl();
+
+    document.querySelectorAll('.logo').forEach((logo) => {
+        logo.textContent = activeStoreName;
+        logo.href = homeUrl;
+    });
+
+    ['navHome', 'mobHome'].forEach((id) => {
+        const link = document.getElementById(id);
+        if (link) link.href = homeUrl;
+    });
+
+    const footAboutTitle = document.getElementById('footAboutTitle');
+    if (footAboutTitle) footAboutTitle.textContent = activeStoreName;
+
+    const footCopyright = document.getElementById('footCopyright');
+    if (footCopyright) footCopyright.textContent = `© 2025 ${activeStoreName}. All rights reserved.`;
 }
 
 function getStoreHomeUrl() {
@@ -285,8 +312,8 @@ function bindPageInteractions(product, shareUrl) {
 
 function updateMeta(product) {
     const name = loc(product, 'name');
-    const description = loc(product, 'description') || 'Organic product from Kyrgyz Organic.';
-    document.title = `${name} | OA Kyrgyz Organic`;
+    const description = loc(product, 'description') || `Product from ${activeStoreName}.`;
+    document.title = `${name} | ${activeStoreName}`;
 
     const descriptionMeta = document.querySelector('meta[name="description"]');
     if (descriptionMeta) {

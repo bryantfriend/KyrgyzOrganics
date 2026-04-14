@@ -5,6 +5,8 @@ import { $, $$, t, loc, setupLanguage, initMobileMenu } from './common.js';
 import { buildProductPageUrl } from './product-utils.js';
 import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
 import { getCheckoutSettingsDocId, getInventoryDocId } from './firestore-paths.js';
+import { loadStoreConfig } from './storefront/store-loader.js';
+import { applyStoreTheme } from './storefront/theme-engine.js';
 import {
     DEFAULT_CHECKOUT_SETTINGS,
     addCartItem,
@@ -35,6 +37,7 @@ let supportWhatsappNumber = '';
 let cartNoticeMessage = '';
 let campaignTimeline = [];
 let activeStoreName = 'OA Kyrgyz Organic';
+let activeStoreConfig = null;
 
 // --- DOM ELEMENTS ---
 const productGrid = $('productGrid');
@@ -73,6 +76,9 @@ const homeCampaignTimeline = $('homeCampaignTimeline');
 async function init() {
     const companyConfig = initCompanyFromLocation();
     activeStoreName = companyConfig.name || activeStoreName;
+    activeStoreConfig = await loadStoreConfig(companyConfig.companyId);
+    activeStoreName = activeStoreConfig.name || activeStoreName;
+    applyStoreTheme(activeStoreConfig);
     setupLanguage();
     initMobileMenu();
 
@@ -203,6 +209,13 @@ function renderAll() {
     renderCart();
 }
 
+function isFeatureEnabled(featureName, fallback = true) {
+    const features = activeStoreConfig?.features || {};
+    return Object.prototype.hasOwnProperty.call(features, featureName)
+        ? features[featureName] === true
+        : fallback;
+}
+
 function toCampaignDate(value) {
     if (!value) return null;
     if (typeof value.toDate === 'function') return value.toDate();
@@ -306,6 +319,11 @@ function buildCampaignTimelineFromDocs(campaigns, currentCampaign) {
 
 async function loadCampaignTimeline() {
     try {
+        if (!isFeatureEnabled('campaign', getCurrentCompanyId() === COMPANY_ID)) {
+            campaignTimeline = [];
+            return;
+        }
+
         const activeCompanyId = getCurrentCompanyId();
         const isDefaultCompany = activeCompanyId === COMPANY_ID;
         const campaignsSnap = await getDocs(collection(db, 'campaigns'));
@@ -345,7 +363,7 @@ function buildCampaignSilhouette(title = 'Coming Soon') {
 }
 
 function renderCampaignTimeline() {
-    if (!homeCampaignSection || !homeCampaignTimeline || !campaignTimeline.length) {
+    if (!homeCampaignSection || !homeCampaignTimeline || !campaignTimeline.length || !isFeatureEnabled('campaign', getCurrentCompanyId() === COMPANY_ID)) {
         if (homeCampaignSection) homeCampaignSection.hidden = true;
         return;
     }
@@ -409,7 +427,12 @@ function updateStaticUI() {
     const ctaBtn = document.querySelector('.investment-cta .cta-btn');
     if (ctaBtn) ctaBtn.textContent = t('learn_more');
     const investmentCta = document.querySelector('.investment-cta');
-    if (investmentCta) investmentCta.hidden = getCurrentCompanyId() !== COMPANY_ID;
+    if (investmentCta) investmentCta.hidden = !isFeatureEnabled('investmentSection', getCurrentCompanyId() === COMPANY_ID);
+
+    const deliveryBanner = document.querySelector('.delivery-banner');
+    if (deliveryBanner) deliveryBanner.hidden = !isFeatureEnabled('deliveryBanner', true);
+
+    if (cartButton) cartButton.hidden = !isFeatureEnabled('cart', true);
 
     const allBtn = document.querySelector('.filter-pill[data-category="all"]');
     if (allBtn) allBtn.textContent = t('all');
@@ -540,6 +563,11 @@ function normalizeWhatsappNumber(value) {
 
 function updateWhatsAppSupportButton() {
     if (!whatsAppSupportBtn) return;
+
+    if (!isFeatureEnabled('whatsappSupport', true)) {
+        whatsAppSupportBtn.hidden = true;
+        return;
+    }
 
     const phone = normalizeWhatsappNumber(supportWhatsappNumber);
     if (!phone) {
@@ -751,7 +779,9 @@ function setupEventListeners() {
     }
 
     if (cartButton) {
-        cartButton.addEventListener('click', openCartModal);
+        cartButton.addEventListener('click', () => {
+            if (isFeatureEnabled('cart', true)) openCartModal();
+        });
     }
 
     if (closeCartModal && cartModal) {
@@ -759,7 +789,9 @@ function setupEventListeners() {
     }
 
     if (stickyCartButton) {
-        stickyCartButton.addEventListener('click', openCartModal);
+        stickyCartButton.addEventListener('click', () => {
+            if (isFeatureEnabled('cart', true)) openCartModal();
+        });
     }
 
     if (cartItems) {
@@ -872,6 +904,13 @@ function buildOrderTrackingUrl(orderId, orderToken) {
 }
 
 function renderCart() {
+    if (!isFeatureEnabled('cart', true)) {
+        if (cartButton) cartButton.hidden = true;
+        if (stickyCartSummary) stickyCartSummary.hidden = true;
+        document.body.classList.remove('has-sticky-cart');
+        return;
+    }
+
     if (cartCount) cartCount.textContent = String(getCartItemCount(cart));
     if (!cartItems) return;
 
