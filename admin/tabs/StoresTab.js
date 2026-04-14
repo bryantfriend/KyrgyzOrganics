@@ -1,5 +1,5 @@
 import { BaseTab } from './BaseTab.js';
-import { db } from '../../firebase-config.js';
+import { db, storage } from '../../firebase-config.js';
 import { COMPANY_ID } from '../../company-config.js';
 import { getSelectedCompanyId, setSelectedCompany } from '../../store-context.js';
 import { getInventoryDocId } from '../../firestore-paths.js';
@@ -16,6 +16,7 @@ import {
   setDoc,
   where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getDownloadURL, ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
 function toLocalDateId(date = new Date()) {
   const year = date.getFullYear();
@@ -44,6 +45,9 @@ export class StoresTab extends BaseTab {
     this.searchInput = document.getElementById('storesSearch');
     this.table = document.getElementById('storesTable');
     this.refreshMetricsBtn = document.getElementById('refreshStoreMetrics');
+    this.previewFrame = document.getElementById('storePreviewFrame');
+    this.previewRefreshBtn = document.getElementById('storePreviewRefreshBtn');
+    this.previewOpenBtn = document.getElementById('storePreviewOpenBtn');
 
     this.formTitle = document.getElementById('storeFormTitle');
     this.form = document.getElementById('storeForm');
@@ -73,6 +77,8 @@ export class StoresTab extends BaseTab {
     this.themeFont = document.getElementById('storeThemeFont');
     this.themeRadius = document.getElementById('storeThemeRadius');
     this.buttonStyle = document.getElementById('storeButtonStyle');
+    this.logoUrl = document.getElementById('storeLogoUrl');
+    this.logoUpload = document.getElementById('storeLogoUpload');
     this.featureCampaign = document.getElementById('storeFeatureCampaign');
     this.featureInvestment = document.getElementById('storeFeatureInvestment');
     this.featureQuickActions = document.getElementById('storeFeatureQuickActions');
@@ -90,6 +96,15 @@ export class StoresTab extends BaseTab {
     this.heroSubtitle = document.getElementById('storeHeroSubtitle');
     this.heroCta = document.getElementById('storeHeroCta');
     this.heroImage = document.getElementById('storeHeroImage');
+    this.productHeading = document.getElementById('storeProductHeading');
+    this.availableTitle = document.getElementById('storeAvailableTitle');
+    this.availableLabel = document.getElementById('storeAvailableLabel');
+    this.deliveryTitle = document.getElementById('storeDeliveryTitle');
+    this.deliverySubtitle = document.getElementById('storeDeliverySubtitle');
+    this.ctaTitle = document.getElementById('storeCtaTitle');
+    this.ctaText = document.getElementById('storeCtaText');
+    this.ctaButton = document.getElementById('storeCtaButton');
+    this.ctaHref = document.getElementById('storeCtaHref');
     this.productView = document.getElementById('storeProductView');
     this.productCardSize = document.getElementById('storeProductCardSize');
     this.productShowPrice = document.getElementById('storeProductShowPrice');
@@ -101,6 +116,7 @@ export class StoresTab extends BaseTab {
       document.getElementById('storeQuickAction3'),
       document.getElementById('storeQuickAction4')
     ];
+    this.launchChecklist = document.getElementById('storeLaunchChecklist');
 
     // Users (basic)
     this.userForm = document.getElementById('storeUserForm');
@@ -135,6 +151,8 @@ export class StoresTab extends BaseTab {
 
   onShow() {
     this.hydrateUserCompanyInput();
+    this.refreshPreview();
+    this.renderLaunchChecklist();
     this.render();
   }
 
@@ -142,6 +160,8 @@ export class StoresTab extends BaseTab {
     // Called by AdminApp on global store change.
     this.hydrateUserCompanyInput();
     this.loadUsersForSelectedCompany();
+    this.refreshPreview();
+    this.renderLaunchChecklist();
     this.render();
   }
 
@@ -173,8 +193,21 @@ export class StoresTab extends BaseTab {
       });
     }
 
+    if (this.previewRefreshBtn) {
+      this.previewRefreshBtn.addEventListener('click', () => this.refreshPreview());
+    }
+
+    if (this.previewOpenBtn) {
+      this.previewOpenBtn.addEventListener('click', () => {
+        const companyId = String(this.companyId?.value || getSelectedCompanyId()).trim();
+        window.open(getStorePreviewPath(companyId), '_blank', 'noopener');
+      });
+    }
+
     if (this.form) {
       this.form.addEventListener('submit', (e) => this.saveStore(e));
+      this.form.addEventListener('input', () => this.renderLaunchChecklist());
+      this.form.addEventListener('change', () => this.renderLaunchChecklist());
     }
 
     if (this.cancelBtn) {
@@ -198,6 +231,10 @@ export class StoresTab extends BaseTab {
 
     if (this.wizardOrganicBtn) {
       this.wizardOrganicBtn.addEventListener('click', () => this.applyStarter('organic'));
+    }
+
+    if (this.logoUpload) {
+      this.logoUpload.addEventListener('change', () => this.uploadLogo());
     }
 
     if (this.userForm) {
@@ -442,6 +479,14 @@ export class StoresTab extends BaseTab {
     if (this.formTitle) this.formTitle.textContent = 'Create Store';
     if (this.active) this.active.checked = true;
     this.applyStorefrontConfigToForm(getFallbackStoreConfig(COMPANY_ID));
+    this.refreshPreview();
+    this.renderLaunchChecklist();
+  }
+
+  refreshPreview() {
+    if (!this.previewFrame) return;
+    const companyId = String(this.companyId?.value || getSelectedCompanyId()).trim();
+    this.previewFrame.src = `${getStorePreviewPath(companyId)}?preview=${Date.now()}`;
   }
 
   async editStore(companyId) {
@@ -466,6 +511,8 @@ export class StoresTab extends BaseTab {
     if (this.formTitle) this.formTitle.textContent = `Edit Store: ${store.name || companyId}`;
     const publicConfig = await this.loadStorefrontConfig(companyId, store);
     this.applyStorefrontConfigToForm(publicConfig);
+    this.refreshPreview();
+    this.renderLaunchChecklist();
     this.form?.scrollIntoView?.({ behavior: 'smooth' });
   }
 
@@ -517,6 +564,7 @@ export class StoresTab extends BaseTab {
     if (this.themeFont) this.themeFont.value = theme.fontFamily || 'Outfit';
     if (this.themeRadius) this.themeRadius.value = theme.borderRadius || '8px';
     if (this.buttonStyle) this.buttonStyle.value = theme.buttonStyle || 'rounded';
+    if (this.logoUrl) this.logoUrl.value = config.logoUrl || config.content?.logoUrl || '';
 
     if (this.featureCampaign) this.featureCampaign.checked = features.campaign === true;
     if (this.featureInvestment) this.featureInvestment.checked = features.investmentSection === true;
@@ -540,6 +588,15 @@ export class StoresTab extends BaseTab {
     if (this.heroSubtitle) this.heroSubtitle.value = hero.subtitle || '';
     if (this.heroCta) this.heroCta.value = hero.ctaText || '';
     if (this.heroImage) this.heroImage.value = hero.imageUrl || '';
+    if (this.productHeading) this.productHeading.value = config.content?.productHeading || '';
+    if (this.availableTitle) this.availableTitle.value = config.content?.availableTodayTitle || '';
+    if (this.availableLabel) this.availableLabel.value = config.content?.availableTodayLabel || '';
+    if (this.deliveryTitle) this.deliveryTitle.value = config.content?.deliveryBanner?.title || '';
+    if (this.deliverySubtitle) this.deliverySubtitle.value = config.content?.deliveryBanner?.subtitle || '';
+    if (this.ctaTitle) this.ctaTitle.value = config.content?.cta?.title || '';
+    if (this.ctaText) this.ctaText.value = config.content?.cta?.text || '';
+    if (this.ctaButton) this.ctaButton.value = config.content?.cta?.buttonText || '';
+    if (this.ctaHref) this.ctaHref.value = config.content?.cta?.href || '';
 
     if (this.productView) this.productView.value = productDisplay.view || 'grid';
     if (this.productCardSize) this.productCardSize.value = productDisplay.cardSize || 'medium';
@@ -553,6 +610,7 @@ export class StoresTab extends BaseTab {
       const action = quickActions[index] || {};
       input.value = [action.icon, action.title].filter(Boolean).join(' ').trim();
     });
+    this.renderLaunchChecklist();
   }
 
   applyThemePreset(presetKey) {
@@ -575,6 +633,30 @@ export class StoresTab extends BaseTab {
     const presetKey = this.themePreset?.value;
     if (!presetKey) return alert('Choose a theme preset first.');
     this.applyThemePreset(presetKey);
+  }
+
+  async uploadLogo() {
+    const file = this.logoUpload?.files?.[0];
+    if (!file) return;
+
+    const companyId = String(this.companyId?.value || '').trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
+    if (!companyId) {
+      this.logoUpload.value = '';
+      return alert('Enter a Company ID before uploading a logo.');
+    }
+
+    try {
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+      const logoRef = ref(storage, `stores/${companyId}/branding/logo-${Date.now()}.${ext}`);
+      await uploadBytes(logoRef, file);
+      const url = await getDownloadURL(logoRef);
+      if (this.logoUrl) this.logoUrl.value = url;
+      this.renderLaunchChecklist();
+      alert('Logo uploaded. Save the store to publish it.');
+    } catch (err) {
+      console.error(err);
+      alert('Logo upload failed: ' + err.message);
+    }
   }
 
   applyStarter(type) {
@@ -604,6 +686,43 @@ export class StoresTab extends BaseTab {
     if (this.heroTitle && !this.heroTitle.value.trim()) {
       this.heroTitle.value = type === 'organic' ? 'Organic groceries from Kyrgyzstan' : 'Fresh Bread Daily';
     }
+    if (this.productHeading) this.productHeading.value = type === 'organic' ? 'Full Catalog' : 'Fresh from Daily Bread';
+    if (this.availableTitle) this.availableTitle.value = type === 'organic' ? 'Available Today' : 'Baked Today';
+    if (this.availableLabel) this.availableLabel.value = type === 'organic' ? 'Fresh Stock' : 'Warm from the oven';
+    if (this.deliveryTitle) this.deliveryTitle.value = type === 'organic' ? 'Delivery across Bishkek and nearby areas' : 'Fresh bread delivered around Bishkek';
+    if (this.deliverySubtitle) this.deliverySubtitle.value = type === 'organic' ? 'Eco-friendly local producers at your doorstep' : 'Order today for soft, fresh bakery favorites';
+    if (this.ctaTitle) this.ctaTitle.value = type === 'organic' ? 'Invest in Biscotti Miste' : 'Need a custom bakery order?';
+    if (this.ctaText) this.ctaText.value = type === 'organic' ? 'Join our community of investors and support local organic production.' : 'Message us for office boxes, events, and special bread orders.';
+    if (this.ctaButton) this.ctaButton.value = type === 'organic' ? 'Learn More' : 'Contact Us';
+    if (this.ctaHref) this.ctaHref.value = type === 'organic' ? 'biscotti.html' : '#products';
+    this.renderLaunchChecklist();
+  }
+
+  renderLaunchChecklist() {
+    if (!this.launchChecklist) return;
+
+    const checks = [
+      ['Store name added', !!String(this.name?.value || '').trim()],
+      ['Logo added', !!String(this.logoUrl?.value || '').trim()],
+      ['Hero title added', !!String(this.heroTitle?.value || '').trim()],
+      ['Products section enabled', this.layoutProducts?.checked !== false],
+      ['Cart enabled', this.featureCart?.checked !== false],
+      ['WhatsApp support enabled', this.featureWhatsapp?.checked !== false],
+      ['Delivery copy added', !!String(this.deliveryTitle?.value || '').trim()],
+      ['Preview checked', !!this.previewFrame?.src]
+    ];
+
+    const complete = checks.filter(([, ok]) => ok).length;
+    this.launchChecklist.innerHTML = `
+      <strong>Launch Checklist (${complete}/${checks.length})</strong>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:0.4rem; margin-top:0.75rem;">
+        ${checks.map(([label, ok]) => `
+          <div style="color:${ok ? '#2e7d32' : '#777'}; font-weight:${ok ? '700' : '500'};">
+            ${ok ? '&check;' : '&cir;'} ${label}
+          </div>
+        `).join('')}
+      </div>
+    `;
   }
 
   parseQuickActionInput(value) {
@@ -643,6 +762,7 @@ export class StoresTab extends BaseTab {
       slug: storeData.slug || companyId,
       domain: storeData.website || fallback.domain,
       status: storeData.active === false ? 'inactive' : 'active',
+      logoUrl: String(this.logoUrl?.value || '').trim(),
       theme: {
         primaryColor: this.themePrimary?.value || fallback.theme.primaryColor,
         secondaryColor: this.themeSecondary?.value || fallback.theme.secondaryColor,
@@ -673,6 +793,16 @@ export class StoresTab extends BaseTab {
       },
       content: {
         ...fallback.content,
+        logoUrl: String(this.logoUrl?.value || '').trim(),
+        productHeading: String(this.productHeading?.value || fallback.content.productHeading || '').trim(),
+        availableTodayTitle: String(this.availableTitle?.value || fallback.content.availableTodayTitle || '').trim(),
+        availableTodayLabel: String(this.availableLabel?.value || fallback.content.availableTodayLabel || '').trim(),
+        loadingText: String(fallback.content.loadingText || '').trim(),
+        deliveryBanner: {
+          ...(fallback.content.deliveryBanner || {}),
+          title: String(this.deliveryTitle?.value || fallback.content.deliveryBanner?.title || '').trim(),
+          subtitle: String(this.deliverySubtitle?.value || fallback.content.deliveryBanner?.subtitle || '').trim()
+        },
         hero: {
           ...fallback.content.hero,
           title: String(this.heroTitle?.value || fallback.content.hero.title || '').trim(),
@@ -680,6 +810,13 @@ export class StoresTab extends BaseTab {
           imageUrl: String(this.heroImage?.value || '').trim(),
           ctaText: String(this.heroCta?.value || fallback.content.hero.ctaText || '').trim(),
           ctaTarget: fallback.content.hero.ctaTarget || '#products'
+        },
+        cta: {
+          ...(fallback.content.cta || {}),
+          title: String(this.ctaTitle?.value || fallback.content.cta?.title || '').trim(),
+          text: String(this.ctaText?.value || fallback.content.cta?.text || '').trim(),
+          buttonText: String(this.ctaButton?.value || fallback.content.cta?.buttonText || '').trim(),
+          href: String(this.ctaHref?.value || fallback.content.cta?.href || '').trim()
         },
         quickActions: this.quickActions
           .map((input) => this.parseQuickActionInput(input?.value))
@@ -709,6 +846,7 @@ export class StoresTab extends BaseTab {
       address: String(this.address?.value || '').trim(),
       twoGisLink: String(this.twoGisLink?.value || '').trim(),
       website: String(this.website?.value || '').trim(),
+      logoUrl: String(this.logoUrl?.value || '').trim(),
       tags: parseTags(this.tags?.value),
       notes: String(this.notes?.value || '').trim(),
       active: this.active ? !!this.active.checked : true,

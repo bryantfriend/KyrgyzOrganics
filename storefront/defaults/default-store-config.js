@@ -97,6 +97,15 @@ export const DEFAULT_STORE_CONFIGS = {
             showStock: true
         },
         content: {
+            logoUrl: "",
+            loadingText: "Preparing OA Kyrgyz Organic.",
+            productHeading: "Full Catalog",
+            availableTodayTitle: "Available Today",
+            availableTodayLabel: "Fresh Stock",
+            deliveryBanner: {
+                title: "Delivery across Bishkek and nearby areas",
+                subtitle: "Eco-friendly local producers at your doorstep"
+            },
             hero: {
                 title: "Organic groceries from Kyrgyzstan",
                 subtitle: "Fresh local products delivered to your door",
@@ -113,7 +122,8 @@ export const DEFAULT_STORE_CONFIGS = {
             cta: {
                 title: "Invest in Biscotti Miste",
                 text: "Join our community of investors and support local organic production.",
-                buttonText: "Learn More"
+                buttonText: "Learn More",
+                href: "biscotti.html"
             }
         }
     },
@@ -157,6 +167,15 @@ export const DEFAULT_STORE_CONFIGS = {
             showStock: true
         },
         content: {
+            logoUrl: "",
+            loadingText: "Preparing fresh bread.",
+            productHeading: "Fresh from Daily Bread",
+            availableTodayTitle: "Baked Today",
+            availableTodayLabel: "Warm from the oven",
+            deliveryBanner: {
+                title: "Fresh bread delivered around Bishkek",
+                subtitle: "Order today for soft, fresh bakery favorites"
+            },
             hero: {
                 title: "Fresh Bread Daily",
                 subtitle: "Baked every morning in Bishkek",
@@ -183,7 +202,8 @@ export const DEFAULT_STORE_CONFIGS = {
             cta: {
                 title: "Need a custom order?",
                 text: "Message us on WhatsApp",
-                buttonText: "Contact Us"
+                buttonText: "Contact Us",
+                href: "#products"
             }
         }
     }

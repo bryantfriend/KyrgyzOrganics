@@ -7,6 +7,7 @@ import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompan
 import { getCheckoutSettingsDocId, getInventoryDocId } from './firestore-paths.js';
 import { loadStoreConfig } from './storefront/store-loader.js';
 import { applyStoreTheme } from './storefront/theme-engine.js';
+import { getFallbackStoreConfig } from './storefront/defaults/default-store-config.js';
 import { renderStoreSection } from './storefront/section-renderer.js';
 import {
     DEFAULT_CHECKOUT_SETTINGS,
@@ -39,6 +40,27 @@ let cartNoticeMessage = '';
 let campaignTimeline = [];
 let activeStoreName = 'OA Kyrgyz Organic';
 let activeStoreConfig = null;
+
+function revealStorefront() {
+    document.documentElement.classList.remove('storefront-booting');
+}
+
+function updateStorefrontLoader(storeConfig = {}) {
+    const title = $('storefrontLoaderTitle');
+    const text = $('storefrontLoaderText');
+    const logo = $('storefrontLoaderLogo');
+    const storeName = storeConfig.name || activeStoreName || 'Store';
+    const loadingText = storeConfig.content?.loadingText || `Preparing ${storeName}.`;
+
+    if (title) title.textContent = storeName;
+    if (text) text.textContent = loadingText;
+    if (logo) {
+        const logoUrl = storeConfig.logoUrl || storeConfig.content?.logoUrl || '';
+        logo.innerHTML = logoUrl
+            ? `<img src="${logoUrl}" alt="${storeName} logo">`
+            : storeName.split(/\s+/).map(word => word[0]).join('').slice(0, 2).toUpperCase();
+    }
+}
 
 // --- DOM ELEMENTS ---
 const productGrid = $('productGrid');
@@ -75,28 +97,41 @@ const homeCampaignTimeline = $('homeCampaignTimeline');
 
 // --- INIT ---
 async function init() {
-    const companyConfig = initCompanyFromLocation();
-    activeStoreName = companyConfig.name || activeStoreName;
-    activeStoreConfig = await loadStoreConfig(companyConfig.companyId);
-    activeStoreName = activeStoreConfig.name || activeStoreName;
-    applyStoreTheme(activeStoreConfig);
-    setupLanguage();
-    initMobileMenu();
+    try {
+        const companyConfig = initCompanyFromLocation();
+        activeStoreName = companyConfig.name || activeStoreName;
+        const fallbackStoreConfig = getFallbackStoreConfig(companyConfig.companyId);
+        activeStoreConfig = fallbackStoreConfig;
+        activeStoreName = fallbackStoreConfig.name || activeStoreName;
+        applyStoreTheme(fallbackStoreConfig);
+        updateStorefrontLoader(fallbackStoreConfig);
 
-    // Special handling for Mobile Categories Toggle on Home
-    const mobCatBtn = document.getElementById('mobCategories');
-    const mobCatList = document.getElementById('mobCategoryList');
-    if (mobCatBtn && mobCatList) {
-        mobCatBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            mobCatList.style.display = mobCatList.style.display === 'none' ? 'flex' : 'none';
-        });
+        activeStoreConfig = await loadStoreConfig(companyConfig.companyId);
+        activeStoreName = activeStoreConfig.name || activeStoreName;
+        applyStoreTheme(activeStoreConfig);
+        updateStorefrontLoader(activeStoreConfig);
+        setupLanguage();
+        initMobileMenu();
+
+        // Special handling for Mobile Categories Toggle on Home
+        const mobCatBtn = document.getElementById('mobCategories');
+        const mobCatList = document.getElementById('mobCategoryList');
+        if (mobCatBtn && mobCatList) {
+            mobCatBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                mobCatList.style.display = mobCatList.style.display === 'none' ? 'flex' : 'none';
+            });
+        }
+
+        await loadData();
+        renderAll();
+        setupEventListeners();
+        maybeOpenCartFromUrl();
+    } catch (error) {
+        console.error('Storefront startup failed:', error);
+    } finally {
+        revealStorefront();
     }
-
-    await loadData();
-    renderAll();
-    setupEventListeners();
-    maybeOpenCartFromUrl();
 }
 
 async function loadData() {
@@ -421,9 +456,13 @@ function renderCampaignTimeline() {
 
 function updateStaticUI() {
     document.title = `${activeStoreName} - Grocery Catalog`;
+    const content = activeStoreConfig?.content || {};
+    const logoUrl = activeStoreConfig?.logoUrl || content.logoUrl || '';
 
     document.querySelectorAll('.logo').forEach((logo) => {
-        logo.textContent = activeStoreName;
+        logo.innerHTML = logoUrl
+            ? `<img class="store-logo-img" src="${logoUrl}" alt="${activeStoreName} logo"><span>${activeStoreName}</span>`
+            : activeStoreName;
     });
 
     const footAboutTitle = document.getElementById('footAboutTitle');
@@ -434,23 +473,30 @@ function updateStaticUI() {
 
     const availableTodayTitle = document.getElementById('availableTodayTitle');
     const fullCatalogTitle = document.getElementById('fullCatalog');
-    if (availableTodayTitle) availableTodayTitle.textContent = t('available_today');
-    if (fullCatalogTitle) fullCatalogTitle.textContent = t('full_catalog');
+    if (availableTodayTitle) availableTodayTitle.textContent = content.availableTodayTitle || t('available_today');
+    if (fullCatalogTitle) fullCatalogTitle.textContent = content.productHeading || t('full_catalog');
 
     const availableTodayLabel = document.getElementById('availableTodayLabel');
-    if (availableTodayLabel) availableTodayLabel.textContent = t('available_today_label');
+    if (availableTodayLabel) availableTodayLabel.textContent = content.availableTodayLabel || t('available_today_label');
 
     const ctaTitle = document.querySelector('.cta-title');
-    if (ctaTitle) ctaTitle.textContent = t('invest_title');
+    if (ctaTitle) ctaTitle.textContent = content.cta?.title || t('invest_title');
     const ctaText = document.querySelector('.cta-text');
-    if (ctaText) ctaText.textContent = t('invest_text');
+    if (ctaText) ctaText.textContent = content.cta?.text || t('invest_text');
     const ctaBtn = document.querySelector('.investment-cta .cta-btn');
-    if (ctaBtn) ctaBtn.textContent = t('learn_more');
+    if (ctaBtn) {
+        ctaBtn.textContent = content.cta?.buttonText || t('learn_more');
+        ctaBtn.href = content.cta?.href || ctaBtn.href;
+    }
     const investmentCta = document.querySelector('.investment-cta');
     if (investmentCta) investmentCta.hidden = !isFeatureEnabled('investmentSection', getCurrentCompanyId() === COMPANY_ID) || !isSectionEnabled('cta', getCurrentCompanyId() === COMPANY_ID);
 
     const deliveryBanner = document.querySelector('.delivery-banner');
     if (deliveryBanner) deliveryBanner.hidden = !isFeatureEnabled('deliveryBanner', true);
+    const deliveryTitle = document.getElementById('bannerDelivTitle');
+    const deliverySub = document.getElementById('bannerDelivSub');
+    if (deliveryTitle) deliveryTitle.textContent = content.deliveryBanner?.title || 'Delivery across Bishkek and nearby areas';
+    if (deliverySub) deliverySub.textContent = content.deliveryBanner?.subtitle || 'Eco-friendly local producers at your doorstep';
 
     if (cartButton) cartButton.hidden = !isFeatureEnabled('cart', true);
 

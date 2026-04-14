@@ -23,6 +23,81 @@
     --font-main: 'Outfit', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
+html.storefront-booting body {
+    overflow: hidden;
+}
+
+body {
+    transition: opacity 0.18s ease;
+}
+
+.storefront-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(circle at top left, color-mix(in srgb, var(--color-primary-light) 80%, white), transparent 34rem),
+        linear-gradient(135deg, var(--color-bg), var(--color-primary-light));
+}
+
+html.storefront-booting .storefront-loader {
+    display: flex;
+}
+
+html.storefront-booting > body > *:not(.storefront-loader) {
+    opacity: 0;
+}
+
+.storefront-loader-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    max-width: min(92vw, 420px);
+    padding: 1rem 1.25rem;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 24%, transparent);
+    border-radius: calc(var(--radius) * 1.4);
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: var(--shadow-md);
+}
+
+.storefront-loader-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--color-primary);
+    color: white;
+    font-weight: 900;
+    letter-spacing: -0.06em;
+    overflow: hidden;
+}
+
+.storefront-loader-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.storefront-loader-card strong,
+.storefront-loader-card span {
+    display: block;
+}
+
+.storefront-loader-card strong {
+    color: var(--color-primary-dark);
+    font-size: 1.05rem;
+}
+
+.storefront-loader-card span {
+    color: var(--color-text);
+    font-size: 0.92rem;
+    margin-top: 0.2rem;
+}
+
 /* Generic Modal Overlay */
 .modal-overlay {
     position: fixed;
@@ -1087,6 +1162,21 @@ body.has-sticky-cart .footer {
 .store-feature-card p {
     color: var(--color-text);
     margin: 0;
+}
+
+.logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.store-logo-img {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: contain;
+    background: white;
+    border: 1px solid var(--color-border);
 }
 
 .carousel-slide {

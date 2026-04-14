@@ -1,10 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="storefront-booting">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OA Kyrgyz Organic - Grocery Catalog</title>
+  <script>
+    document.documentElement.classList.add('storefront-booting');
+    window.setTimeout(function () {
+      document.documentElement.classList.remove('storefront-booting');
+    }, 3500);
+  </script>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="styles.css?v=2.5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,6 +19,15 @@
 </head>
 
 <body>
+  <div id="storefrontLoader" class="storefront-loader" role="status" aria-live="polite">
+    <div class="storefront-loader-card">
+      <div id="storefrontLoaderLogo" class="storefront-loader-logo">OA</div>
+      <div>
+        <strong id="storefrontLoaderTitle">Loading store...</strong>
+        <span id="storefrontLoaderText">Preparing your storefront.</span>
+      </div>
+    </div>
+  </div>
 
   <!-- Top Header -->
   <header class="header">
