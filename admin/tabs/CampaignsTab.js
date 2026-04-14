@@ -126,11 +126,22 @@ export class CampaignsTab {
     this.mockEntranceAnimation = null;
     
     this.bindEvents();
+    this.applyCampaignJourneyDefault();
     this.updateFieldStates();
   }
 
   getCampaignCompanyId() {
     return getCurrentCompanyId();
+  }
+
+  shouldDefaultShowCampaignJourney() {
+    return this.getCampaignCompanyId() === COMPANY_ID;
+  }
+
+  applyCampaignJourneyDefault() {
+    if (this.showCampaignJourney) {
+      this.showCampaignJourney.checked = this.shouldDefaultShowCampaignJourney();
+    }
   }
 
   getCampaignDocId() {
@@ -145,6 +156,16 @@ export class CampaignsTab {
 
   getCampaignDocRef() {
     return doc(db, 'campaigns', this.getCampaignDocId());
+  }
+
+  getCampaignPublicPath() {
+    const companyId = this.getCampaignCompanyId();
+    if (companyId === COMPANY_ID) return '/prime-mun/';
+    return `/${companyId}/?campaign=prime-mun`;
+  }
+
+  getCampaignPublicUrl() {
+    return new URL(this.getCampaignPublicPath(), window.location.origin).toString();
   }
 
   onStoreChanged() {
@@ -870,7 +891,7 @@ export class CampaignsTab {
   }
 
   initSharing() {
-    const campaignUrl = `${window.location.origin}/prime-mun/`;
+    const campaignUrl = this.getCampaignPublicUrl();
     if (this.urlLink) {
       this.urlLink.href = campaignUrl;
       this.urlLink.textContent = campaignUrl;
@@ -929,7 +950,11 @@ export class CampaignsTab {
         if (this.showCountdown) this.showCountdown.checked = data.showCountdown !== false;
         if (this.countdownVariant) this.countdownVariant.value = data.countdownVariant || 'classic';
         if (this.showItemsLeft) this.showItemsLeft.checked = !!data.showItemsLeft;
-        if (this.showCampaignJourney) this.showCampaignJourney.checked = data.showCampaignJourney !== false;
+        if (this.showCampaignJourney) {
+          this.showCampaignJourney.checked = Object.prototype.hasOwnProperty.call(data, 'showCampaignJourney')
+            ? data.showCampaignJourney === true
+            : this.shouldDefaultShowCampaignJourney();
+        }
         if (this.showDeliveryInfo) this.showDeliveryInfo.checked = !!data.showDeliveryInfo;
         if (this.deliveryInfoText) this.deliveryInfoText.value = data.deliveryInfoText || 'Delivery in under 60 minutes';
         if (this.headlineUseImage) this.headlineUseImage.checked = !!data.headlineUseImage;
@@ -979,6 +1004,9 @@ export class CampaignsTab {
         if (data.endDate && this.endDate) this.endDate.value = data.endDate.toDate().toISOString().slice(0, 16);
 
         this.updateFieldStates();
+        this.updateLivePreview();
+      } else {
+        this.applyCampaignJourneyDefault();
         this.updateLivePreview();
       }
     } catch (err) { console.error("Load error:", err); }
@@ -1034,6 +1062,7 @@ export class CampaignsTab {
         logoUrl: finalLogoUrl,
         logoUrl2: finalLogoUrl2 || '',
         whatsappNumber: this.whatsappNumber ? this.whatsappNumber.value.trim() : '',
+        campaignUrl: this.getCampaignPublicPath(),
         conversionOffset: this.currentConversionOffset || 0,
         limitSalesEnabled: this.limitEnabled ? this.limitEnabled.checked : false,
         maxSales: maxSalesValue,
@@ -1041,7 +1070,7 @@ export class CampaignsTab {
         showCountdown: this.showCountdown ? this.showCountdown.checked : true,
         countdownVariant: this.countdownVariant ? this.countdownVariant.value : 'classic',
         showItemsLeft: this.showItemsLeft ? this.showItemsLeft.checked : false,
-        showCampaignJourney: this.showCampaignJourney ? this.showCampaignJourney.checked : true,
+        showCampaignJourney: this.showCampaignJourney ? this.showCampaignJourney.checked : this.shouldDefaultShowCampaignJourney(),
         showDeliveryInfo: this.showDeliveryInfo ? this.showDeliveryInfo.checked : false,
         deliveryInfoText: this.deliveryInfoText ? this.deliveryInfoText.value.trim() : '',
         optionalLine: this.optionalLine ? this.optionalLine.value : '',

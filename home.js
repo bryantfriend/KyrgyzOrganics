@@ -223,6 +223,8 @@ function getCampaignUrl(campaign = {}) {
     if (campaign.url) return campaign.url;
     if (campaign.campaignUrl) return campaign.campaignUrl;
     if (campaign.slug) return `/${String(campaign.slug).replace(/^\/+|\/+$/g, '')}/`;
+    const activeCompanyId = getCurrentCompanyId();
+    if (activeCompanyId !== COMPANY_ID) return `/${activeCompanyId}/?campaign=prime-mun`;
     if (campaign.id === 'prime-mun') return '/prime-mun/';
     return '/prime-mun/';
 }
@@ -304,13 +306,20 @@ function buildCampaignTimelineFromDocs(campaigns, currentCampaign) {
 
 async function loadCampaignTimeline() {
     try {
+        const activeCompanyId = getCurrentCompanyId();
+        const isDefaultCompany = activeCompanyId === COMPANY_ID;
         const campaignsSnap = await getDocs(collection(db, 'campaigns'));
         const campaigns = campaignsSnap.docs
             .map(campaignDoc => ({ id: campaignDoc.id, ...campaignDoc.data() }))
             .filter(campaign => matchesCompanyId(campaign, `campaigns/${campaign.id}`));
 
-        const currentCampaign = campaigns.find(campaign => campaign.id === 'prime-mun') || {};
-        if (currentCampaign.showCampaignJourney === false) {
+        const currentCampaign = campaigns.find(campaign => isCampaignLive(campaign)) || campaigns.find(campaign => campaign.id === 'prime-mun') || campaigns[0] || {};
+        const hasCampaignJourneySetting = Object.prototype.hasOwnProperty.call(currentCampaign, 'showCampaignJourney');
+        const shouldShowCampaignJourney = hasCampaignJourneySetting
+            ? currentCampaign.showCampaignJourney === true
+            : isDefaultCompany;
+
+        if (!shouldShowCampaignJourney) {
             campaignTimeline = [];
             return;
         }
@@ -318,7 +327,7 @@ async function loadCampaignTimeline() {
         campaignTimeline = buildCampaignTimelineFromDocs(campaigns, currentCampaign);
     } catch (error) {
         console.warn('Campaign timeline load failed:', error);
-        campaignTimeline = getFallbackCampaignTimeline({});
+        campaignTimeline = getCurrentCompanyId() === COMPANY_ID ? getFallbackCampaignTimeline({}) : [];
     }
 }
 
@@ -399,6 +408,8 @@ function updateStaticUI() {
     if (ctaText) ctaText.textContent = t('invest_text');
     const ctaBtn = document.querySelector('.investment-cta .cta-btn');
     if (ctaBtn) ctaBtn.textContent = t('learn_more');
+    const investmentCta = document.querySelector('.investment-cta');
+    if (investmentCta) investmentCta.hidden = getCurrentCompanyId() !== COMPANY_ID;
 
     const allBtn = document.querySelector('.filter-pill[data-category="all"]');
     if (allBtn) allBtn.textContent = t('all');
