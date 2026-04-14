@@ -3,6 +3,7 @@ import { db } from '../../firebase-config.js';
 import { COMPANY_ID } from '../../company-config.js';
 import { getSelectedCompanyId, setSelectedCompany } from '../../store-context.js';
 import { getInventoryDocId } from '../../firestore-paths.js';
+import { getFallbackStoreConfig } from '../../storefront/defaults/default-store-config.js';
 import {
   collection,
   doc,
@@ -54,6 +55,36 @@ export class StoresTab extends BaseTab {
     this.notes = document.getElementById('storeNotes');
     this.active = document.getElementById('storeActive');
     this.cancelBtn = document.getElementById('storeCancelBtn');
+    this.themePrimary = document.getElementById('storeThemePrimary');
+    this.themeSecondary = document.getElementById('storeThemeSecondary');
+    this.themeAccent = document.getElementById('storeThemeAccent');
+    this.themeBackground = document.getElementById('storeThemeBackground');
+    this.themeText = document.getElementById('storeThemeText');
+    this.themeFont = document.getElementById('storeThemeFont');
+    this.themeRadius = document.getElementById('storeThemeRadius');
+    this.buttonStyle = document.getElementById('storeButtonStyle');
+    this.featureCampaign = document.getElementById('storeFeatureCampaign');
+    this.featureInvestment = document.getElementById('storeFeatureInvestment');
+    this.featureQuickActions = document.getElementById('storeFeatureQuickActions');
+    this.featureDelivery = document.getElementById('storeFeatureDelivery');
+    this.featureCart = document.getElementById('storeFeatureCart');
+    this.featureWhatsapp = document.getElementById('storeFeatureWhatsapp');
+    this.featureSubscriptions = document.getElementById('storeFeatureSubscriptions');
+    this.heroTitle = document.getElementById('storeHeroTitle');
+    this.heroSubtitle = document.getElementById('storeHeroSubtitle');
+    this.heroCta = document.getElementById('storeHeroCta');
+    this.heroImage = document.getElementById('storeHeroImage');
+    this.productView = document.getElementById('storeProductView');
+    this.productCardSize = document.getElementById('storeProductCardSize');
+    this.productShowPrice = document.getElementById('storeProductShowPrice');
+    this.productShowBadges = document.getElementById('storeProductShowBadges');
+    this.productShowStock = document.getElementById('storeProductShowStock');
+    this.quickActions = [
+      document.getElementById('storeQuickAction1'),
+      document.getElementById('storeQuickAction2'),
+      document.getElementById('storeQuickAction3'),
+      document.getElementById('storeQuickAction4')
+    ];
 
     // Users (basic)
     this.userForm = document.getElementById('storeUserForm');
@@ -373,9 +404,10 @@ export class StoresTab extends BaseTab {
     }
     if (this.formTitle) this.formTitle.textContent = 'Create Store';
     if (this.active) this.active.checked = true;
+    this.applyStorefrontConfigToForm(getFallbackStoreConfig(COMPANY_ID));
   }
 
-  editStore(companyId) {
+  async editStore(companyId) {
     const store = this.stores.find((s) => (s.companyId || s.id) === companyId);
     if (!store) return;
 
@@ -395,7 +427,146 @@ export class StoresTab extends BaseTab {
     if (this.notes) this.notes.value = store.notes || '';
     if (this.active) this.active.checked = store.active !== false;
     if (this.formTitle) this.formTitle.textContent = `Edit Store: ${store.name || companyId}`;
+    const publicConfig = await this.loadStorefrontConfig(companyId, store);
+    this.applyStorefrontConfigToForm(publicConfig);
     this.form?.scrollIntoView?.({ behavior: 'smooth' });
+  }
+
+  async loadStorefrontConfig(companyId, store = {}) {
+    const fallback = {
+      ...getFallbackStoreConfig(companyId),
+      name: store.name || getFallbackStoreConfig(companyId).name,
+      domain: store.website || getFallbackStoreConfig(companyId).domain
+    };
+
+    try {
+      const snap = await getDoc(doc(db, 'storefront_configs', companyId));
+      if (!snap.exists()) return fallback;
+      const data = snap.data() || {};
+      return {
+        ...fallback,
+        ...data,
+        theme: { ...fallback.theme, ...(data.theme || {}) },
+        features: { ...fallback.features, ...(data.features || {}) },
+        content: {
+          ...fallback.content,
+          ...(data.content || {}),
+          hero: { ...(fallback.content?.hero || {}), ...(data.content?.hero || {}) }
+        }
+      };
+    } catch (err) {
+      console.warn('Storefront config load failed:', err);
+      return fallback;
+    }
+  }
+
+  applyStorefrontConfigToForm(config = {}) {
+    const theme = config.theme || {};
+    const features = config.features || {};
+    const hero = config.content?.hero || {};
+    const productDisplay = config.productDisplay || {};
+
+    if (this.themePrimary) this.themePrimary.value = theme.primaryColor || '#76bc21';
+    if (this.themeSecondary) this.themeSecondary.value = theme.secondaryColor || '#f3f7ea';
+    if (this.themeAccent) this.themeAccent.value = theme.accentColor || '#f57c00';
+    if (this.themeBackground) this.themeBackground.value = theme.backgroundColor || '#f9f9f9';
+    if (this.themeText) this.themeText.value = theme.textColor || '#333333';
+    if (this.themeFont) this.themeFont.value = theme.fontFamily || 'Outfit';
+    if (this.themeRadius) this.themeRadius.value = theme.borderRadius || '8px';
+    if (this.buttonStyle) this.buttonStyle.value = theme.buttonStyle || 'rounded';
+
+    if (this.featureCampaign) this.featureCampaign.checked = features.campaign === true;
+    if (this.featureInvestment) this.featureInvestment.checked = features.investmentSection === true;
+    if (this.featureQuickActions) this.featureQuickActions.checked = features.quickActions === true;
+    if (this.featureDelivery) this.featureDelivery.checked = features.deliveryBanner !== false;
+    if (this.featureCart) this.featureCart.checked = features.cart !== false;
+    if (this.featureWhatsapp) this.featureWhatsapp.checked = features.whatsappSupport !== false;
+    if (this.featureSubscriptions) this.featureSubscriptions.checked = features.subscriptions === true;
+
+    if (this.heroTitle) this.heroTitle.value = hero.title || '';
+    if (this.heroSubtitle) this.heroSubtitle.value = hero.subtitle || '';
+    if (this.heroCta) this.heroCta.value = hero.ctaText || '';
+    if (this.heroImage) this.heroImage.value = hero.imageUrl || '';
+
+    if (this.productView) this.productView.value = productDisplay.view || 'grid';
+    if (this.productCardSize) this.productCardSize.value = productDisplay.cardSize || 'medium';
+    if (this.productShowPrice) this.productShowPrice.checked = productDisplay.showPrice !== false;
+    if (this.productShowBadges) this.productShowBadges.checked = productDisplay.showBadges !== false;
+    if (this.productShowStock) this.productShowStock.checked = productDisplay.showStock !== false;
+
+    const quickActions = Array.isArray(config.content?.quickActions) ? config.content.quickActions : [];
+    this.quickActions.forEach((input, index) => {
+      if (!input) return;
+      const action = quickActions[index] || {};
+      input.value = [action.icon, action.title].filter(Boolean).join(' ').trim();
+    });
+  }
+
+  parseQuickActionInput(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+
+    const [first, ...rest] = raw.split(/\s+/);
+    const title = rest.join(' ').trim();
+
+    if (!title) return { icon: '', title: raw };
+
+    return { icon: first, title };
+  }
+
+  buildStorefrontConfig(companyId, storeData) {
+    const fallback = getFallbackStoreConfig(companyId);
+
+    return {
+      companyId,
+      name: storeData.name || fallback.name,
+      slug: storeData.slug || companyId,
+      domain: storeData.website || fallback.domain,
+      status: storeData.active === false ? 'inactive' : 'active',
+      theme: {
+        primaryColor: this.themePrimary?.value || fallback.theme.primaryColor,
+        secondaryColor: this.themeSecondary?.value || fallback.theme.secondaryColor,
+        accentColor: this.themeAccent?.value || fallback.theme.accentColor,
+        backgroundColor: this.themeBackground?.value || fallback.theme.backgroundColor,
+        textColor: this.themeText?.value || fallback.theme.textColor,
+        fontFamily: this.themeFont?.value || fallback.theme.fontFamily,
+        borderRadius: this.themeRadius?.value || fallback.theme.borderRadius,
+        buttonStyle: this.buttonStyle?.value || fallback.theme.buttonStyle
+      },
+      layout: fallback.layout,
+      features: {
+        campaign: this.featureCampaign ? this.featureCampaign.checked : false,
+        subscriptions: this.featureSubscriptions ? this.featureSubscriptions.checked : false,
+        investmentSection: this.featureInvestment ? this.featureInvestment.checked : companyId === COMPANY_ID,
+        quickActions: this.featureQuickActions ? this.featureQuickActions.checked : companyId === COMPANY_ID,
+        deliveryBanner: this.featureDelivery ? this.featureDelivery.checked : true,
+        cart: this.featureCart ? this.featureCart.checked : true,
+        whatsappSupport: this.featureWhatsapp ? this.featureWhatsapp.checked : true
+      },
+      productDisplay: {
+        ...fallback.productDisplay,
+        view: this.productView?.value || fallback.productDisplay.view,
+        cardSize: this.productCardSize?.value || fallback.productDisplay.cardSize,
+        showPrice: this.productShowPrice ? this.productShowPrice.checked : true,
+        showBadges: this.productShowBadges ? this.productShowBadges.checked : true,
+        showStock: this.productShowStock ? this.productShowStock.checked : true
+      },
+      content: {
+        ...fallback.content,
+        hero: {
+          ...fallback.content.hero,
+          title: String(this.heroTitle?.value || fallback.content.hero.title || '').trim(),
+          subtitle: String(this.heroSubtitle?.value || fallback.content.hero.subtitle || '').trim(),
+          imageUrl: String(this.heroImage?.value || '').trim(),
+          ctaText: String(this.heroCta?.value || fallback.content.hero.ctaText || '').trim(),
+          ctaTarget: fallback.content.hero.ctaTarget || '#products'
+        },
+        quickActions: this.quickActions
+          .map((input) => this.parseQuickActionInput(input?.value))
+          .filter(Boolean)
+      },
+      updatedAt: serverTimestamp()
+    };
   }
 
   async saveStore(e) {
@@ -432,7 +603,17 @@ export class StoresTab extends BaseTab {
         ...(existing.exists() || isEdit ? {} : { createdAt: serverTimestamp() })
       }, { merge: true });
 
-      alert('Store saved.');
+      let storefrontSaved = true;
+      try {
+        await setDoc(doc(db, 'storefront_configs', companyId), this.buildStorefrontConfig(companyId, storeData), { merge: true });
+      } catch (storefrontErr) {
+        storefrontSaved = false;
+        console.warn('Store saved, but storefront config save failed:', storefrontErr);
+      }
+
+      alert(storefrontSaved
+        ? 'Store saved.'
+        : 'Store saved, but storefront customization did not save. Check Firestore rules for storefront_configs.');
       this.resetForm();
     } catch (err) {
       console.error(err);

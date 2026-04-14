@@ -26,6 +26,7 @@ export const DEFAULT_STORE_CONFIGS = {
             subscriptions: false,
             investmentSection: true,
             deliveryBanner: true,
+            quickActions: true,
             cart: true,
             whatsappSupport: true
         },
@@ -45,7 +46,12 @@ export const DEFAULT_STORE_CONFIGS = {
                 ctaText: "Shop Now",
                 ctaTarget: "#products"
             },
-            features: [],
+            quickActions: [
+                { icon: "🚚", title: "Free Delivery" },
+                { icon: "🌱", title: "Local Producers" },
+                { icon: "♻️", title: "Eco Certified" },
+                { icon: "🍂", title: "Seasonal" }
+            ],
             cta: {
                 title: "Invest in Biscotti Miste",
                 text: "Join our community of investors and support local organic production.",
@@ -80,6 +86,7 @@ export const DEFAULT_STORE_CONFIGS = {
             subscriptions: false,
             investmentSection: false,
             deliveryBanner: true,
+            quickActions: false,
             cart: true,
             whatsappSupport: true
         },
@@ -109,6 +116,12 @@ export const DEFAULT_STORE_CONFIGS = {
                     text: "Delivered around Bishkek"
                 }
             ],
+            quickActions: [
+                { icon: "🥖", title: "Fresh Daily" },
+                { icon: "☕", title: "Perfect with Tea" },
+                { icon: "📦", title: "Custom Orders" },
+                { icon: "🚚", title: "Local Delivery" }
+            ],
             cta: {
                 title: "Need a custom order?",
                 text: "Message us on WhatsApp",
@@ -124,10 +137,19 @@ function cloneConfig(config) {
 
 export function getFallbackStoreConfig(companyId = "kyrgyz-organics") {
     const config = DEFAULT_STORE_CONFIGS[companyId] || {
-        ...DEFAULT_STORE_CONFIGS["kyrgyz-organics"],
+        ...DEFAULT_STORE_CONFIGS.dailybread,
         id: companyId,
         companyId,
-        name: companyId
+        name: companyId,
+        slug: companyId,
+        domain: `oako.kg/${companyId}`,
+        content: {
+            ...DEFAULT_STORE_CONFIGS.dailybread.content,
+            hero: {
+                ...DEFAULT_STORE_CONFIGS.dailybread.content.hero,
+                title: companyId
+            }
+        }
     };
 
     return cloneConfig(config);

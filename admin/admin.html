@@ -135,6 +135,135 @@
             </div>
           </div>
 
+          <hr style="margin:1.5rem 0; border:none; border-top:1px solid #eee;">
+
+          <h4 style="margin:0 0 1rem;">Public Storefront Theme</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeThemePrimary">Primary Color</label>
+              <input type="color" id="storeThemePrimary" value="#76bc21">
+            </div>
+            <div class="form-group">
+              <label for="storeThemeSecondary">Secondary Color</label>
+              <input type="color" id="storeThemeSecondary" value="#f3f7ea">
+            </div>
+            <div class="form-group">
+              <label for="storeThemeAccent">Accent Color</label>
+              <input type="color" id="storeThemeAccent" value="#f57c00">
+            </div>
+            <div class="form-group">
+              <label for="storeThemeBackground">Background Color</label>
+              <input type="color" id="storeThemeBackground" value="#f9f9f9">
+            </div>
+            <div class="form-group">
+              <label for="storeThemeText">Text Color</label>
+              <input type="color" id="storeThemeText" value="#333333">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeThemeFont">Font Family</label>
+              <select id="storeThemeFont">
+                <option value="Outfit">Outfit</option>
+                <option value="Playfair Display">Playfair Display</option>
+                <option value="Montserrat">Montserrat</option>
+                <option value="Lora">Lora</option>
+                <option value="Nunito">Nunito</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="storeThemeRadius">Border Radius</label>
+              <input type="text" id="storeThemeRadius" value="8px" placeholder="8px">
+            </div>
+            <div class="form-group">
+              <label for="storeButtonStyle">Button Style</label>
+              <select id="storeButtonStyle">
+                <option value="rounded">Rounded</option>
+                <option value="sharp">Sharp</option>
+                <option value="minimal">Minimal</option>
+              </select>
+            </div>
+          </div>
+
+          <h4 style="margin:1.5rem 0 1rem;">Public Storefront Features</h4>
+          <div class="form-row">
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureCampaign"> Campaign Journey</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureInvestment"> Investment Section</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureQuickActions"> Quick Actions Row</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureDelivery" checked> Delivery Banner</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureCart" checked> Cart</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureWhatsapp" checked> WhatsApp Support</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureSubscriptions"> Subscriptions</label>
+          </div>
+
+          <h4 style="margin:1.5rem 0 1rem;">Homepage Hero Content</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeHeroTitle">Hero Title</label>
+              <input type="text" id="storeHeroTitle" placeholder="Fresh Bread Daily">
+            </div>
+            <div class="form-group">
+              <label for="storeHeroSubtitle">Hero Subtitle</label>
+              <input type="text" id="storeHeroSubtitle" placeholder="Baked every morning">
+            </div>
+            <div class="form-group">
+              <label for="storeHeroCta">Hero Button Text</label>
+              <input type="text" id="storeHeroCta" placeholder="Shop Now">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeHeroImage">Hero Image URL</label>
+              <input type="url" id="storeHeroImage" placeholder="https://...">
+            </div>
+          </div>
+
+          <h4 style="margin:1.5rem 0 1rem;">Product Display</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeProductView">Product View</label>
+              <select id="storeProductView">
+                <option value="grid">Grid</option>
+                <option value="list">List</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="storeProductCardSize">Card Size</label>
+              <select id="storeProductCardSize">
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeProductShowPrice" checked> Show Price</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeProductShowBadges" checked> Show Badges</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeProductShowStock" checked> Show Stock Labels</label>
+          </div>
+
+          <h4 style="margin:1.5rem 0 1rem;">Quick Actions Content</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeQuickAction1">Action 1</label>
+              <input type="text" id="storeQuickAction1" placeholder="🚚 Free Delivery">
+            </div>
+            <div class="form-group">
+              <label for="storeQuickAction2">Action 2</label>
+              <input type="text" id="storeQuickAction2" placeholder="🌱 Local Producers">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeQuickAction3">Action 3</label>
+              <input type="text" id="storeQuickAction3" placeholder="♻️ Eco Certified">
+            </div>
+            <div class="form-group">
+              <label for="storeQuickAction4">Action 4</label>
+              <input type="text" id="storeQuickAction4" placeholder="🍂 Seasonal">
+            </div>
+          </div>
+
           <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
             <button type="submit" id="storeSaveBtn">Save Store</button>
             <button type="button" id="storeCancelBtn" class="btn-secondary">Cancel</button>

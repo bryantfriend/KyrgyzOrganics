@@ -7,6 +7,7 @@ import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompan
 import { getCheckoutSettingsDocId, getInventoryDocId } from './firestore-paths.js';
 import { loadStoreConfig } from './storefront/store-loader.js';
 import { applyStoreTheme } from './storefront/theme-engine.js';
+import { renderStoreSection } from './storefront/section-renderer.js';
 import {
     DEFAULT_CHECKOUT_SETTINGS,
     addCartItem,
@@ -202,6 +203,7 @@ async function loadData() {
 function renderAll() {
     renderCategories();
     renderBanner();
+    renderQuickActions();
     renderFeatured();
     renderProducts(products);
     renderCampaignTimeline();
@@ -214,6 +216,18 @@ function isFeatureEnabled(featureName, fallback = true) {
     return Object.prototype.hasOwnProperty.call(features, featureName)
         ? features[featureName] === true
         : fallback;
+}
+
+function getProductDisplayConfig() {
+    return {
+        view: 'grid',
+        cardSize: 'medium',
+        showPrice: true,
+        showDiscount: true,
+        showBadges: true,
+        showStock: true,
+        ...(activeStoreConfig?.productDisplay || {})
+    };
 }
 
 function toCampaignDate(value) {
@@ -445,45 +459,29 @@ function updateStaticUI() {
 function renderBanner() {
     if (!heroCarousel) return;
 
-    heroCarousel.innerHTML = '';
+    const heroSection = activeStoreConfig?.layout?.find(section => section.type === 'hero' && section.enabled !== false) || { type: 'hero', variant: 'carousel' };
+    renderStoreSection('hero', {
+        root: heroCarousel,
+        store: activeStoreConfig,
+        section: heroSection,
+        bannerData
+    });
+}
 
-    if (!bannerData.length) {
-        heroCarousel.innerHTML = `
-          <div style="display:flex; justify-content:center; align-items:center; height:100%; background:#eee; color:#777;">
-            No Active Banners
-          </div>`;
+function renderQuickActions() {
+    const quickActions = document.querySelector('.quick-actions-row');
+    if (!quickActions) return;
+
+    if (!isFeatureEnabled('quickActions', getCurrentCompanyId() === COMPANY_ID)) {
+        quickActions.hidden = true;
         return;
     }
 
-    heroCarousel.innerHTML = `
-        <div class="carousel-track">
-            ${bannerData.map((b, i) => `
-                <div class="carousel-slide ${i === 0 ? 'is-active' : ''}">
-                    <img src="${b.imageUrl}" class="carousel-image">
-                </div>
-            `).join('')}
-        </div>
-        <div class="carousel-dots">
-            ${bannerData.map((_, i) => `<button class="dot ${i === 0 ? 'is-active' : ''}"></button>`).join('')}
-        </div>
-    `;
-
-    // Simple Carousel Logic
-    let currentSlide = 0;
-    const slides = heroCarousel.querySelectorAll('.carousel-slide');
-    const dots = heroCarousel.querySelectorAll('.dot');
-
-    if (slides.length > 1) {
-        setInterval(() => {
-            slides[currentSlide].classList.remove('is-active');
-            if (dots[currentSlide]) dots[currentSlide].classList.remove('is-active');
-
-            currentSlide = (currentSlide + 1) % slides.length;
-
-            slides[currentSlide].classList.add('is-active');
-            if (dots[currentSlide]) dots[currentSlide].classList.add('is-active');
-        }, 5000);
-    }
+    quickActions.hidden = false;
+    renderStoreSection('quickActions', {
+        root: quickActions,
+        store: activeStoreConfig
+    });
 }
 
 function renderFeatured() {
@@ -512,6 +510,9 @@ function renderFeatured() {
 function renderProducts(data) {
     if (!productGrid) return;
     productGrid.innerHTML = '';
+    const display = getProductDisplayConfig();
+    productGrid.classList.toggle('product-grid-list', display.view === 'list');
+    productGrid.dataset.cardSize = display.cardSize || 'medium';
     if (data.length === 0) {
         productGrid.innerHTML = `<p class="no-results" style="grid-column: 1/-1; text-align: center; color: #777; padding: 2rem;">${t('no_products_found') || 'No products found.'}</p>`;
         return;
@@ -641,6 +642,7 @@ function reconcileCartWithInventory({ shouldNotify = false } = {}) {
 }
 
 function createCard(product, tag = '') {
+    const display = getProductDisplayConfig();
     const categoryName = categoriesMap[product.categoryId] ? loc(categoriesMap[product.categoryId], 'name') : (product.category || 'Other');
     const productPageUrl = buildProductPageUrl(product);
 
@@ -650,16 +652,18 @@ function createCard(product, tag = '') {
 
     let badgeHtml = '';
 
-    if (avail === 0) {
-        badgeHtml = `<div class="delivery-badge" style="background:#e53935;">${t('sold_out') || 'Sold Out'}</div>`;
-    } else if (avail < 5) {
-        badgeHtml = `<div class="delivery-badge" style="background:#fb8c00;">${t('only_left') || 'Only'} ${avail}</div>`;
-    } else if (tag) {
-        badgeHtml = `<div class="delivery-badge">${tag}</div>`;
+    if (display.showBadges !== false) {
+        if (avail === 0) {
+            badgeHtml = `<div class="delivery-badge" style="background:#e53935;">${t('sold_out') || 'Sold Out'}</div>`;
+        } else if (display.showStock !== false && avail < 5) {
+            badgeHtml = `<div class="delivery-badge" style="background:#fb8c00;">${t('only_left') || 'Only'} ${avail}</div>`;
+        } else if (tag && display.showStock !== false) {
+            badgeHtml = `<div class="delivery-badge">${tag}</div>`;
+        }
     }
 
     const card = document.createElement('div');
-    card.className = 'product-card';
+    card.className = `product-card product-card-${display.cardSize || 'medium'}`;
     if (avail === 0) card.classList.add('sold-out'); // Optional CSS styling
 
     card.innerHTML = `
@@ -672,7 +676,7 @@ function createCard(product, tag = '') {
             <h3 class="product-title">${loc(product, 'name')}</h3>
             <div class="product-meta">
                 <span class="product-weight">${product.weight}</span>
-                <span class="product-price">${product.price} ${t('price_currency')}</span>
+                ${display.showPrice !== false ? `<span class="product-price">${product.price} ${t('price_currency')}</span>` : ''}
             </div>
             <div class="product-card-actions">
                 <a class="text-link-inline" href="${productPageUrl}">${t('view_product_page')}</a>
