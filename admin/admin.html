@@ -65,6 +65,7 @@
           <table id="storesTable" style="width:100%; border-collapse:collapse; font-size:0.9rem;"></table>
         </div>
         <div style="display:flex; gap:0.5rem; margin-top:0.75rem; flex-wrap:wrap;">
+          <button type="button" id="addStoreBtn" class="btn-secondary">Add New Store</button>
           <button type="button" id="refreshStoreMetrics" class="btn-secondary">Refresh Metrics</button>
         </div>
       </div>
@@ -78,7 +79,7 @@
         <iframe id="storePreviewFrame" title="Storefront Preview" style="width:100%; height:520px; border:1px solid #ddd; border-radius:12px; background:#fff;"></iframe>
       </div>
 
-      <div class="admin-card">
+      <div class="admin-card" id="storeFormCard" hidden>
         <h3 id="storeFormTitle" style="margin-bottom:1rem;">Create Store</h3>
         <form id="storeForm">
           <input type="hidden" id="storeEditId">

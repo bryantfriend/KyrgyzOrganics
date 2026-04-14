@@ -44,12 +44,14 @@ export class StoresTab extends BaseTab {
 
     this.searchInput = document.getElementById('storesSearch');
     this.table = document.getElementById('storesTable');
+    this.addStoreBtn = document.getElementById('addStoreBtn');
     this.refreshMetricsBtn = document.getElementById('refreshStoreMetrics');
     this.previewFrame = document.getElementById('storePreviewFrame');
     this.previewRefreshBtn = document.getElementById('storePreviewRefreshBtn');
     this.previewOpenBtn = document.getElementById('storePreviewOpenBtn');
 
     this.formTitle = document.getElementById('storeFormTitle');
+    this.formCard = document.getElementById('storeFormCard');
     this.form = document.getElementById('storeForm');
     this.editId = document.getElementById('storeEditId');
     this.companyId = document.getElementById('storeCompanyId');
@@ -190,6 +192,13 @@ export class StoresTab extends BaseTab {
         if (action === 'switch') setSelectedCompany(id);
         if (action === 'metrics') this.ensureMetricsLoaded(id);
         if (action === 'preview') window.open(getStorePreviewPath(id), '_blank', 'noopener');
+      });
+    }
+
+    if (this.addStoreBtn) {
+      this.addStoreBtn.addEventListener('click', () => {
+        this.resetForm();
+        this.showStoreForm();
       });
     }
 
@@ -481,6 +490,15 @@ export class StoresTab extends BaseTab {
     this.applyStorefrontConfigToForm(getFallbackStoreConfig(COMPANY_ID));
     this.refreshPreview();
     this.renderLaunchChecklist();
+    this.hideStoreForm();
+  }
+
+  showStoreForm() {
+    if (this.formCard) this.formCard.hidden = false;
+  }
+
+  hideStoreForm() {
+    if (this.formCard) this.formCard.hidden = true;
   }
 
   refreshPreview() {
@@ -509,6 +527,7 @@ export class StoresTab extends BaseTab {
     if (this.notes) this.notes.value = store.notes || '';
     if (this.active) this.active.checked = store.active !== false;
     if (this.formTitle) this.formTitle.textContent = `Edit Store: ${store.name || companyId}`;
+    this.showStoreForm();
     const publicConfig = await this.loadStorefrontConfig(companyId, store);
     this.applyStorefrontConfigToForm(publicConfig);
     this.refreshPreview();
