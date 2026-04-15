@@ -34,6 +34,26 @@ function parseTags(raw) {
     .slice(0, 20);
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function toDate(value) {
+  if (!value) return null;
+  const date = typeof value?.toDate === 'function' ? value.toDate() : new Date(value);
+  return date instanceof Date && !Number.isNaN(date.getTime()) ? date : null;
+}
+
+function formatMoney(value) {
+  const amount = Number(value || 0);
+  return `${Math.round(Number.isFinite(amount) ? amount : 0).toLocaleString()} som`;
+}
+
 function getStorePreviewPath(companyId) {
   if (!companyId || companyId === COMPANY_ID) return '/';
   return `/${String(companyId).replace(/^\/+|\/+$/g, '')}/`;
@@ -213,7 +233,7 @@ export class StoresTab extends BaseTab {
           setSelectedCompany(id);
           window.dispatchEvent(new CustomEvent('oako:navigate-admin-tab', { detail: { tab: action } }));
         }
-        if (action === 'metrics') this.ensureMetricsLoaded(id);
+        if (action === 'metrics') this.openMetricsPanel(id);
         if (action === 'preview') window.open(getStorePreviewPath(id), '_blank', 'noopener');
       });
     }
@@ -413,6 +433,163 @@ export class StoresTab extends BaseTab {
     this.processMetricsQueue();
   }
 
+  async getMetricsForCompany(companyId, { force = false } = {}) {
+    if (!companyId) return null;
+    if (!force && this.metricsCache.has(companyId)) {
+      return this.metricsCache.get(companyId);
+    }
+
+    await this.loadMetricsForCompany(companyId);
+    this.render();
+    return this.metricsCache.get(companyId);
+  }
+
+  getOrCreateMetricsModal() {
+    let modal = document.getElementById('storeMetricsModal');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'storeMetricsModal';
+    modal.className = 'modal hidden';
+    modal.innerHTML = `
+      <div class="modal-panel store-metrics-panel">
+        <div class="modal-header">
+          <div>
+            <div class="eyebrow">Store Analytics</div>
+            <h3 id="storeMetricsTitle">Metrics</h3>
+          </div>
+          <button type="button" id="closeStoreMetricsModal" class="icon-button" aria-label="Close metrics">x</button>
+        </div>
+        <div id="storeMetricsBody" class="store-metrics-body"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) this.closeMetricsPanel();
+      const actionButton = event.target?.closest?.('button[data-action]');
+      if (!actionButton) return;
+      const action = actionButton.dataset.action;
+      const companyId = actionButton.dataset.id;
+      if ((action === 'products' || action === 'categories') && companyId) {
+        setSelectedCompany(companyId);
+        this.closeMetricsPanel();
+        window.dispatchEvent(new CustomEvent('oako:navigate-admin-tab', { detail: { tab: action } }));
+      }
+    });
+    modal.querySelector('#closeStoreMetricsModal')?.addEventListener('click', () => this.closeMetricsPanel());
+
+    return modal;
+  }
+
+  closeMetricsPanel() {
+    document.getElementById('storeMetricsModal')?.classList.add('hidden');
+  }
+
+  async openMetricsPanel(companyId) {
+    const modal = this.getOrCreateMetricsModal();
+    const title = modal.querySelector('#storeMetricsTitle');
+    const body = modal.querySelector('#storeMetricsBody');
+    const store = this.stores.find((s) => (s.companyId || s.id) === companyId) || { companyId };
+
+    if (title) title.textContent = `${store.name || companyId} metrics`;
+    if (body) {
+      body.innerHTML = `
+        <div class="store-metrics-loading">
+          <strong>Loading analytics...</strong>
+          <span>Pulling orders, products, inventory, and storefront events.</span>
+        </div>
+      `;
+    }
+
+    modal.classList.remove('hidden');
+
+    const metrics = await this.getMetricsForCompany(companyId, { force: true });
+    if (body) body.innerHTML = this.renderMetricsPanel(companyId, store, metrics);
+  }
+
+  renderMetricsPanel(companyId, store, metrics = {}) {
+    if (!metrics || metrics.error) {
+      return `<div class="inline-alert error">Metrics could not load for ${escapeHtml(companyId)}.</div>`;
+    }
+
+    const conversion = metrics.pageViews > 0 ? `${((metrics.ordersCount / metrics.pageViews) * 100).toFixed(1)}%` : 'n/a';
+    const lastOrder = metrics.lastOrderAt ? new Date(metrics.lastOrderAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'No orders yet';
+    const updated = metrics.updatedAt ? new Date(metrics.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now';
+
+    const statusRows = Object.entries(metrics.ordersByStatus || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([status, count]) => `<div class="store-metric-row"><span>${escapeHtml(status || 'unknown')}</span><strong>${count}</strong></div>`)
+      .join('') || '<div class="store-metric-row muted"><span>No order statuses yet</span><strong>0</strong></div>';
+
+    const eventRows = Object.entries(metrics.eventsByType || {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([type, count]) => `<div class="store-metric-row"><span>${escapeHtml(type || 'event')}</span><strong>${count}</strong></div>`)
+      .join('') || '<div class="store-metric-row muted"><span>No storefront events yet</span><strong>0</strong></div>';
+
+    const topProducts = (metrics.topProducts || [])
+      .map((item) => `<div class="store-metric-row"><span>${escapeHtml(item.name)}</span><strong>${item.qty}</strong></div>`)
+      .join('') || '<div class="store-metric-row muted"><span>No product signals yet</span><strong>0</strong></div>';
+
+    return `
+      <div class="store-metrics-summary">
+        <div>
+          <span class="metric-label">Orders</span>
+          <strong>${metrics.ordersCount}</strong>
+          <small>${metrics.recentOrders3d} in last 3 days</small>
+        </div>
+        <div>
+          <span class="metric-label">Revenue</span>
+          <strong>${formatMoney(metrics.revenue)}</strong>
+          <small>Avg order ${formatMoney(metrics.averageOrderValue)}</small>
+        </div>
+        <div>
+          <span class="metric-label">Visits</span>
+          <strong>${metrics.pageViews}</strong>
+          <small>${metrics.analyticsEvents} total events</small>
+        </div>
+        <div>
+          <span class="metric-label">Conversion</span>
+          <strong>${conversion}</strong>
+          <small>Orders / visits</small>
+        </div>
+      </div>
+
+      <div class="store-metrics-grid">
+        <section class="store-metrics-card">
+          <h4>Catalog Health</h4>
+          <div class="store-metric-row"><span>Total products</span><strong>${metrics.productsCount}</strong></div>
+          <div class="store-metric-row"><span>Active products</span><strong>${metrics.activeProducts}</strong></div>
+          <div class="store-metric-row"><span>Hidden / inactive</span><strong>${metrics.inactiveProducts}</strong></div>
+          <div class="store-metric-row"><span>Low inventory items</span><strong>${metrics.lowInventoryCount ?? 0}</strong></div>
+        </section>
+
+        <section class="store-metrics-card">
+          <h4>Order Status</h4>
+          ${statusRows}
+        </section>
+
+        <section class="store-metrics-card">
+          <h4>Storefront Events</h4>
+          ${eventRows}
+        </section>
+
+        <section class="store-metrics-card">
+          <h4>Top Ordered Products</h4>
+          ${topProducts}
+        </section>
+      </div>
+
+      <div class="store-metrics-footer">
+        <span>Last order: ${escapeHtml(lastOrder)}</span>
+        <span>Updated ${escapeHtml(updated)}</span>
+        <button type="button" class="btn-secondary" data-action="products" data-id="${escapeHtml(companyId)}">Manage Products</button>
+        <button type="button" class="btn-secondary" data-action="categories" data-id="${escapeHtml(companyId)}">Manage Categories</button>
+      </div>
+    `;
+  }
+
   processMetricsQueue() {
     while (this.metricsActive < this.metricsConcurrency && this.metricsQueue.length > 0) {
       const companyId = this.metricsQueue.shift();
@@ -449,27 +626,66 @@ export class StoresTab extends BaseTab {
 
       const ordersCount = orders.length;
       const productsCount = products.length;
+      const activeProducts = products.filter((product) => product.active !== false).length;
+      const inactiveProducts = Math.max(0, productsCount - activeProducts);
       const revenue = orders.reduce((sum, order) => {
         const value = Number(order.total ?? order.price ?? 0);
         return sum + (Number.isFinite(value) ? value : 0);
       }, 0);
+      const averageOrderValue = ordersCount ? revenue / ordersCount : 0;
 
       const recentCount = orders.filter((order) => {
-        const createdAt = typeof order.createdAt?.toDate === 'function'
-          ? order.createdAt.toDate()
-          : (order.createdAt ? new Date(order.createdAt) : null);
+        const createdAt = toDate(order.createdAt);
         return createdAt instanceof Date && !Number.isNaN(createdAt.getTime()) && createdAt >= cutoff;
       }).length;
       const noOrders3d = ordersCount > 0 ? recentCount === 0 : true;
+      const lastOrderAt = orders
+        .map((order) => toDate(order.createdAt))
+        .filter(Boolean)
+        .sort((a, b) => b.getTime() - a.getTime())[0]?.getTime() || null;
+      const ordersByStatus = orders.reduce((acc, order) => {
+        const status = String(order.status || 'unknown');
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      }, {});
+      const eventsByType = events.reduce((acc, event) => {
+        const type = String(event.actionType || event.type || 'event');
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {});
+      const pageViews = events.filter((event) => (event.actionType || event.type) === 'page_view').length;
+      const productDemand = new Map();
+
+      orders.forEach((order) => {
+        const items = Array.isArray(order.items) ? order.items : [];
+        items.forEach((item) => {
+          const name = item.name || item.name_en || item.productName || item.productId || item.id || 'Product';
+          const qty = Number(item.quantity ?? item.qty ?? 1);
+          productDemand.set(name, (productDemand.get(name) || 0) + (Number.isFinite(qty) ? qty : 1));
+        });
+      });
+
+      const topProducts = Array.from(productDemand.entries())
+        .map(([name, qty]) => ({ name, qty }))
+        .sort((a, b) => b.qty - a.qty)
+        .slice(0, 5);
 
       this.metricsCache.set(companyId, {
         ordersCount,
         revenue,
+        averageOrderValue,
         productsCount,
-        pageViews: events.filter((event) => event.actionType === 'page_view').length,
+        activeProducts,
+        inactiveProducts,
+        pageViews,
         analyticsEvents: events.length,
+        recentOrders3d: recentCount,
         noOrders3d,
         lowInventoryCount: lowInv,
+        lastOrderAt,
+        ordersByStatus,
+        eventsByType,
+        topProducts,
         updatedAt: Date.now()
       });
     } catch (e) {
@@ -479,6 +695,7 @@ export class StoresTab extends BaseTab {
         revenue: 'ERR',
         productsCount: 'ERR',
         pageViews: 'ERR',
+        error: true,
         noOrders3d: null,
         lowInventoryCount: null,
         updatedAt: Date.now()

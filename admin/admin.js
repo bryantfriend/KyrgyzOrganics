@@ -264,7 +264,12 @@ class AdminApp {
   updateSidebarToggle() {
     if (!this.sidebarCollapseBtn) return;
     const collapsed = this.mainApp?.classList.contains('sidebar-collapsed');
-    this.sidebarCollapseBtn.textContent = collapsed ? '›' : '‹';
+    this.sidebarCollapseBtn.innerHTML = `
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <rect x="3.25" y="4" width="13.5" height="12" rx="2.25"></rect>
+        <path d="${collapsed ? 'M10 4v12' : 'M8 4v12'}"></path>
+      </svg>
+    `;
     this.sidebarCollapseBtn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
     this.sidebarCollapseBtn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
   }
