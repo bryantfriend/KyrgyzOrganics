@@ -197,6 +197,10 @@ export class CampaignsTab {
       await this.saveCampaign();
     });
 
+    window.addEventListener('oako:campaign-media-selected', (event) => {
+      this.applyMediaLibraryAsset(event.detail?.target, event.detail?.url);
+    });
+
     // Unified Live Preview Trigger
     const allInputs = [
       this.headline, this.headlineEN, this.headlineKG, this.subheadline, this.optionalLine,
@@ -374,6 +378,36 @@ export class CampaignsTab {
         await this.resetConversions();
       });
     }
+  }
+
+  applyMediaLibraryAsset(target, url) {
+    if (!target || !url) return;
+
+    if (target === 'imageUrl') {
+      this.currentImageUrl = url;
+      if (this.imageFile) this.imageFile.value = '';
+      if (this.imagePreview) this.imagePreview.src = url;
+      if (this.mockImage) this.mockImage.src = url;
+    }
+
+    if (target === 'logoUrl') {
+      this.currentLogoUrl = url;
+      if (this.logoFile) this.logoFile.value = '';
+      if (this.logoPreview) this.logoPreview.src = url;
+      if (this.mockLogo) this.mockLogo.src = url;
+      this.updateLogoDisplays();
+    }
+
+    if (target === 'logoUrl2') {
+      this.currentLogoUrl2 = url;
+      if (this.logoFile2) this.logoFile2.value = '';
+      if (this.logoPreview2) this.logoPreview2.src = url;
+      if (this.mockLogo2) this.mockLogo2.src = url;
+      if (this.secondLogoRow) this.secondLogoRow.style.display = 'flex';
+      this.updateLogoDisplays();
+    }
+
+    this.updateLivePreview();
   }
 
   bindContentImagePreview(fileInput, previewEl, mockEl) {

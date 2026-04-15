@@ -28,6 +28,8 @@ export class ProductsTab extends BaseTab {
         this.fNameContent = document.getElementById('fNameContent');
         this.filePack = document.getElementById('pImgPack');
         this.fileContent = document.getElementById('pImgContent');
+        this.mediaImageUrl = document.getElementById('pImageUrl');
+        this.mediaImageNoPackagingUrl = document.getElementById('pImageNoPackagingUrl');
         this.autoCompress = document.getElementById('pAutoCompress');
         this.availabilityDayInputs = Array.from(document.querySelectorAll('.pAvailDay'));
         this.leadTimeHours = document.getElementById('pLeadTimeHours');
@@ -429,6 +431,8 @@ export class ProductsTab extends BaseTab {
 
             if (filePack) imageUrl = await uploadImage(filePack, 'products', uploadOptions);
             if (fileContent) imageNoPackagingUrl = await uploadImage(fileContent, 'products', uploadOptions);
+            if (!imageUrl && this.mediaImageUrl?.value) imageUrl = this.mediaImageUrl.value;
+            if (!imageNoPackagingUrl && this.mediaImageNoPackagingUrl?.value) imageNoPackagingUrl = this.mediaImageNoPackagingUrl.value;
 
             const data = {
                 companyId: getSelectedCompanyId(),
@@ -495,6 +499,8 @@ export class ProductsTab extends BaseTab {
         this.pPreviewContent.src = '';
         this.fNamePack.textContent = 'No file chosen';
         this.fNameContent.textContent = 'No file chosen';
+        if (this.mediaImageUrl) this.mediaImageUrl.value = '';
+        if (this.mediaImageNoPackagingUrl) this.mediaImageNoPackagingUrl.value = '';
         if (this.pSlug) this.pSlug.value = '';
         if (this.autoCompress) this.autoCompress.checked = true;
         this.availabilityDayInputs.forEach(input => {
@@ -530,11 +536,13 @@ export class ProductsTab extends BaseTab {
 
         // Show Images
         if (p.imageUrl) {
+            if (this.mediaImageUrl) this.mediaImageUrl.value = p.imageUrl;
             this.pPreviewPack.src = p.imageUrl;
             this.previewContainerPack.style.display = 'flex';
             this.fNamePack.textContent = 'Existing Image';
         }
         if (p.imageNoPackagingUrl) {
+            if (this.mediaImageNoPackagingUrl) this.mediaImageNoPackagingUrl.value = p.imageNoPackagingUrl;
             this.pPreviewContent.src = p.imageNoPackagingUrl;
             this.previewContainerContent.style.display = 'flex';
             this.fNameContent.textContent = 'Existing Image';

@@ -160,6 +160,19 @@
 
     <!-- STORES (SUPERADMIN) -->
     <section id="stores" class="tab-content">
+      <div class="admin-card store-onboarding-card">
+        <div class="store-onboarding-copy">
+          <div class="eyebrow">New Store Onboarding</div>
+          <h3>Launch a store without hunting through the form</h3>
+          <p>Pick a starter path, fill the basics, preview the homepage, then use the launch score to finish the gaps.</p>
+        </div>
+        <div class="store-onboarding-actions">
+          <button type="button" id="startBakeryOnboardingBtn" class="btn-primary">Start Bakery Store</button>
+          <button type="button" id="startOrganicOnboardingBtn" class="btn-secondary">Start Organic Store</button>
+          <button type="button" id="startBlankOnboardingBtn" class="btn-secondary">Blank Store</button>
+        </div>
+      </div>
+
       <div class="admin-card">
         <h3 style="margin-bottom:1rem;">Stores</h3>
         <input id="storesSearch" type="text" placeholder="Search stores (name, contact, phone, address)"
@@ -173,13 +186,74 @@
         </div>
       </div>
 
+      <div class="store-ops-grid">
+        <div class="admin-card">
+          <div class="card-heading-row">
+            <div>
+              <h3>Store Health Alerts</h3>
+              <p>Live checks for the currently selected store.</p>
+            </div>
+            <button type="button" id="refreshStoreHealthBtn" class="btn-secondary">Refresh Health</button>
+          </div>
+          <div id="storeHealthAlerts" class="store-health-alerts">
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <div class="card-heading-row">
+            <div>
+              <h3>Media Library</h3>
+              <p>Upload and reuse images for the selected store.</p>
+            </div>
+            <span id="storeMediaScope" class="muted-pill">Selected store</span>
+          </div>
+          <div class="store-media-toolbar">
+            <select id="storeMediaType" aria-label="Media type">
+              <option value="brand">Brand / Logo</option>
+              <option value="hero">Hero Image</option>
+              <option value="product">Product Image</option>
+              <option value="campaign">Campaign Asset</option>
+              <option value="seo">SEO / Share Image</option>
+              <option value="qr">QR Code</option>
+              <option value="other">Other</option>
+            </select>
+            <input type="file" id="storeMediaUpload" accept="image/*">
+            <button type="button" id="storeMediaUploadBtn" class="btn-primary">Upload Asset</button>
+          </div>
+          <div id="storeMediaLibrary" class="store-media-library">
+            <div class="skeleton-row"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="admin-card">
         <h3 style="margin-bottom:1rem;">Storefront Preview</h3>
         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.75rem;">
           <button type="button" id="storePreviewRefreshBtn" class="btn-secondary">Refresh Preview</button>
           <button type="button" id="storePreviewOpenBtn" class="btn-secondary">Open Full Page</button>
+          <button type="button" class="btn-secondary" data-preview-mode="desktop">Desktop</button>
+          <button type="button" class="btn-secondary" data-preview-mode="tablet">Tablet</button>
+          <button type="button" class="btn-secondary" data-preview-mode="mobile">Mobile</button>
         </div>
-        <iframe id="storePreviewFrame" title="Storefront Preview" style="width:100%; height:520px; border:1px solid #ddd; border-radius:12px; background:#fff;"></iframe>
+        <div id="storePreviewShell" class="store-preview-shell desktop">
+          <iframe id="storePreviewFrame" title="Storefront Preview" style="width:100%; height:520px; border:1px solid #ddd; border-radius:12px; background:#fff;"></iframe>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="card-heading-row">
+          <div>
+            <h3>Store Activity Timeline</h3>
+            <p>Recent admin changes for the selected store.</p>
+          </div>
+          <button type="button" id="refreshStoreActivityBtn" class="btn-secondary">Refresh Activity</button>
+        </div>
+        <div id="storeActivityTimeline" class="store-activity-timeline">
+          <div class="skeleton-row"></div>
+          <div class="skeleton-row"></div>
+        </div>
       </div>
 
       <div class="admin-card" id="storeFormCard" hidden>
@@ -401,6 +475,7 @@
             <div class="form-group">
               <label for="storeLogoUrl">Logo URL</label>
               <input type="url" id="storeLogoUrl" placeholder="https://...">
+              <button type="button" class="btn-secondary media-pick-btn" data-media-input="storeLogoUrl">Choose from Media Library</button>
               <small style="display:block; color:#777; margin-top:0.35rem;">Shown in the storefront header and loading screen.</small>
             </div>
             <div class="form-group">
@@ -419,6 +494,7 @@
             <div class="form-group">
               <label for="storeSeoImage">SEO Share Image URL</label>
               <input type="url" id="storeSeoImage" placeholder="https://...">
+              <button type="button" class="btn-secondary media-pick-btn" data-media-input="storeSeoImage">Choose from Media Library</button>
             </div>
           </div>
           <div class="form-row">
@@ -445,6 +521,7 @@
 
           <h4 style="margin:1.5rem 0 1rem;">Homepage Layout Sections</h4>
           <p style="color:#666; margin-top:-0.5rem; font-size:0.9rem;">Turn sections on/off for this store. The order is saved for the storefront engine.</p>
+          <div id="storeHomepageBuilderPreview" class="homepage-builder-preview"></div>
           <div class="form-row">
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutHero" checked> Hero</label>
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutQuickActions"> Quick Actions</label>
@@ -479,6 +556,7 @@
             <div class="form-group">
               <label for="storeHeroImage">Hero Image URL</label>
               <input type="url" id="storeHeroImage" placeholder="https://...">
+              <button type="button" class="btn-secondary media-pick-btn" data-media-input="storeHeroImage">Choose from Media Library</button>
             </div>
           </div>
 
@@ -704,12 +782,14 @@
           <div class="form-row">
             <div class="form-group">
               <label>Packaging Photo</label>
+              <input type="hidden" id="pImageUrl">
               <div class="file-upload-wrapper">
                 <label for="pImgPack" class="btn-secondary"
                   style="cursor:pointer; display:inline-block; margin-bottom:0.5rem;">Choose File</label>
                 <input type="file" id="pImgPack" accept="image/*" style="display:none;">
                 <span id="fNamePack" style="margin-left:8px; font-size:0.9rem; color:#666;">No file chosen</span>
               </div>
+              <button type="button" class="btn-secondary media-pick-btn" data-media-input="pImageUrl" data-media-preview="pPreviewPack" data-media-container="previewContainerPack" data-media-label="fNamePack">Choose from Media Library</button>
               <small style="display:block; color:#777; margin-bottom:0.5rem;">Max 5MB, 1024x1024 or smaller</small>
               <div id="previewContainerPack"
                 style="width:100px; height:100px; background:#eee; display:flex; align-items:center; justify-content:center; border-radius:4px; overflow:hidden; display:none;">
@@ -719,12 +799,14 @@
 
             <div class="form-group">
               <label>Content Photo (Optional)</label>
+              <input type="hidden" id="pImageNoPackagingUrl">
               <div class="file-upload-wrapper">
                 <label for="pImgContent" class="btn-secondary"
                   style="cursor:pointer; display:inline-block; margin-bottom:0.5rem;">Choose File</label>
                 <input type="file" id="pImgContent" accept="image/*" style="display:none;">
                 <span id="fNameContent" style="margin-left:8px; font-size:0.9rem; color:#666;">No file chosen</span>
               </div>
+              <button type="button" class="btn-secondary media-pick-btn" data-media-input="pImageNoPackagingUrl" data-media-preview="pPreviewContent" data-media-container="previewContainerContent" data-media-label="fNameContent">Choose from Media Library</button>
               <small style="display:block; color:#777; margin-bottom:0.5rem;">Max 5MB, 1024x1024 or smaller</small>
               <div id="previewContainerContent"
                 style="width:100px; height:100px; background:#eee; display:flex; align-items:center; justify-content:center; border-radius:4px; overflow:hidden; display:none;">
@@ -1086,7 +1168,9 @@
             </div>
             <div class="form-group">
               <label>QR Code Image</label>
+              <input type="hidden" id="methodQrUrl">
               <input type="file" id="methodQrImg" accept="image/*">
+              <button type="button" class="btn-secondary media-pick-btn" data-media-input="methodQrUrl" data-media-preview="methodQrPreview" data-media-preview-mode="background">Choose from Media Library</button>
               <div id="methodQrPreview" style="margin-top:5px; height:100px;"></div>
             </div>
           </div>
@@ -1112,6 +1196,20 @@
             <div class="form-group">
               <label for="supportWhatsappNumber">Support WhatsApp Number</label>
               <input type="text" id="supportWhatsappNumber" placeholder="996555123456">
+            </div>
+          </div>
+          <div class="form-row">
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="checkoutDeliveryEnabled" checked> Delivery Enabled</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="checkoutPickupEnabled" checked> Pickup Enabled</label>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="checkoutMessage">Checkout Message</label>
+              <textarea id="checkoutMessage" placeholder="Thank you for ordering. We will confirm availability shortly."></textarea>
+            </div>
+            <div class="form-group">
+              <label for="checkoutPaymentInstructions">Payment Instructions</label>
+              <textarea id="checkoutPaymentInstructions" placeholder="Please send payment proof after paying by QR or bank transfer."></textarea>
             </div>
           </div>
           <button type="button" id="saveCheckoutSettings" class="btn-secondary">Save Checkout Settings</button>
@@ -1166,8 +1264,26 @@
     <!-- ANALYTICS TAB -->
     <section id="analytics" class="tab-content" style="display:none;">
       <div class="admin-card">
-        <h3>Daily Sales Report</h3>
-        <button id="btnRefreshAnalytics" class="btn-secondary">🔄 Refresh Report</button>
+        <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+          <div>
+            <div class="eyebrow">Analytics</div>
+            <h3 style="margin:0.25rem 0;">Store Performance Dashboard</h3>
+            <p style="color:#666; margin:0;">Revenue, catalog health, traffic signals, and store comparisons.</p>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <select id="analyticsRange" class="btn-secondary" style="width:auto;">
+              <option value="7">Last 7 days</option>
+              <option value="30" selected>Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="all">All time</option>
+            </select>
+            <select id="analyticsScope" class="btn-secondary" style="width:auto;">
+              <option value="selected">Selected Store</option>
+              <option value="all">All Stores</option>
+            </select>
+            <button id="btnRefreshAnalytics" class="btn-secondary">Refresh Report</button>
+          </div>
+        </div>
         <div id="analyticsReport">
           <!-- Injected -->
         </div>
@@ -1362,6 +1478,7 @@
                     <div style="display:flex; align-items:center; gap:0.5rem;">
                       <input type="file" id="campLogoFile" accept="image/*" style="display:none;">
                       <button type="button" id="campLogoBtn" class="btn-secondary" style="flex:1;">Upload Logo</button>
+                      <button type="button" class="btn-secondary" data-media-campaign="logoUrl" style="flex:1;">Pick Logo</button>
                       <button type="button" id="campAddLogoBtn" class="btn-secondary" title="Add second logo" style="width:44px; font-size:1.2rem; padding:0.55rem 0;">+</button>
                     </div>
                     <div style="display:flex; align-items:center; gap:0.75rem;">
@@ -1371,6 +1488,7 @@
                     <div id="campSecondLogoRow" style="display:none; align-items:center; gap:0.75rem;">
                       <input type="file" id="campLogoFile2" accept="image/*" style="display:none;">
                       <button type="button" id="campLogoBtn2" class="btn-secondary" style="flex:1;">Upload 2nd Logo</button>
+                      <button type="button" class="btn-secondary" data-media-campaign="logoUrl2" style="flex:1;">Pick 2nd Logo</button>
                       <img id="campLogoPreview2" style="height: 40px; min-width:40px; background: #555; border-radius: 4px; padding: 4px; object-fit:contain;">
                       <button type="button" id="campDeleteLogoBtn2" class="btn-secondary" title="Delete second logo" style="width:44px; padding:0.55rem 0;">🗑</button>
                     </div>
@@ -1386,6 +1504,7 @@
                    <label>Product Display Image</label>
                    <input type="file" id="campImage" accept="image/*" style="display:none;">
                    <button type="button" onclick="document.getElementById('campImage').click()" class="btn-secondary" style="width: 100%;">Upload Product Photo</button>
+                   <button type="button" class="btn-secondary" data-media-campaign="imageUrl" style="width: 100%; margin-top:0.5rem;">Pick from Media Library</button>
                    <div style="margin-top: 0.5rem;">
                       <img id="campPreview" style="width: 100%; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd;">
                       <label style="font-size: 0.75rem; margin-top: 0.5rem; display: block;">Image Scale (%)</label>

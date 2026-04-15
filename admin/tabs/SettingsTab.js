@@ -1,6 +1,6 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
-import { uploadImage } from '../utils.js';
+import { uploadImage, logAudit } from '../utils.js';
 import { COMPANY_ID, getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
 import { getCheckoutSettingsDocId } from '../../firestore-paths.js';
 import {
@@ -15,6 +15,11 @@ export class SettingsTab extends BaseTab {
         this.deliveryFee = document.getElementById('checkoutDeliveryFee');
         this.freeThreshold = document.getElementById('checkoutFreeThreshold');
         this.supportWhatsappNumber = document.getElementById('supportWhatsappNumber');
+        this.deliveryEnabled = document.getElementById('checkoutDeliveryEnabled');
+        this.pickupEnabled = document.getElementById('checkoutPickupEnabled');
+        this.checkoutMessage = document.getElementById('checkoutMessage');
+        this.paymentInstructions = document.getElementById('checkoutPaymentInstructions');
+        this.methodQrUrl = document.getElementById('methodQrUrl');
         this.saveCheckoutBtn = document.getElementById('saveCheckoutSettings');
     }
 
@@ -81,14 +86,18 @@ export class SettingsTab extends BaseTab {
 
         try {
             const file = document.getElementById('methodQrImg').files[0];
+            const bankName = document.getElementById('methodBank').value;
             let qrUrl = "";
             if (file) {
                 qrUrl = await uploadImage(file, 'brand');
             }
+            if (!qrUrl && this.methodQrUrl?.value) {
+                qrUrl = this.methodQrUrl.value;
+            }
 
             await addDoc(collection(db, 'payment_methods'), {
                 companyId: getCurrentCompanyId(),
-                name: document.getElementById('methodBank').value,
+                name: bankName,
                 accountName: document.getElementById('methodAccountName').value,
                 number: document.getElementById('methodNumber').value,
                 qrUrl,
@@ -98,7 +107,11 @@ export class SettingsTab extends BaseTab {
 
             alert("Added!");
             e.target.reset();
+            if (this.methodQrUrl) this.methodQrUrl.value = '';
+            const qrPreview = document.getElementById('methodQrPreview');
+            if (qrPreview) qrPreview.innerHTML = '';
             this.loadMethods();
+            await logAudit('Payment Method Added', bankName);
         } catch (err) {
             alert(err.message);
         } finally {
@@ -134,6 +147,10 @@ export class SettingsTab extends BaseTab {
             if (this.deliveryFee) this.deliveryFee.value = data.deliveryFee ?? 200;
             if (this.freeThreshold) this.freeThreshold.value = data.freeDeliveryThreshold ?? 3000;
             if (this.supportWhatsappNumber) this.supportWhatsappNumber.value = data.supportWhatsappNumber ?? '';
+            if (this.deliveryEnabled) this.deliveryEnabled.checked = data.deliveryEnabled !== false;
+            if (this.pickupEnabled) this.pickupEnabled.checked = data.pickupEnabled !== false;
+            if (this.checkoutMessage) this.checkoutMessage.value = data.checkoutMessage ?? '';
+            if (this.paymentInstructions) this.paymentInstructions.value = data.paymentInstructions ?? '';
         } catch (error) {
             console.error(error);
         }
@@ -149,7 +166,10 @@ export class SettingsTab extends BaseTab {
                 deliveryFee: Number(this.deliveryFee?.value || 0),
                 freeDeliveryThreshold: Number(this.freeThreshold?.value || 0),
                 supportWhatsappNumber: String(this.supportWhatsappNumber?.value || '').trim(),
-                pickupEnabled: true,
+                deliveryEnabled: this.deliveryEnabled ? this.deliveryEnabled.checked : true,
+                pickupEnabled: this.pickupEnabled ? this.pickupEnabled.checked : true,
+                checkoutMessage: String(this.checkoutMessage?.value || '').trim(),
+                paymentInstructions: String(this.paymentInstructions?.value || '').trim(),
                 updatedAt: serverTimestamp()
             };
 
@@ -161,6 +181,7 @@ export class SettingsTab extends BaseTab {
             }
 
             alert('Checkout settings saved');
+            await logAudit('Checkout Settings Updated', `Delivery ${payload.deliveryEnabled ? 'on' : 'off'}, pickup ${payload.pickupEnabled ? 'on' : 'off'}`);
         } catch (error) {
             alert(error.message);
         }

@@ -6,10 +6,12 @@ import { getInventoryDocId } from '../../firestore-paths.js';
 import { THEME_PRESETS, getFallbackStoreConfig } from '../../storefront/defaults/default-store-config.js';
 import { logAudit } from '../utils.js';
 import {
+  addDoc,
   collection,
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -59,6 +61,15 @@ function getStorePreviewPath(companyId) {
   return `/${String(companyId).replace(/^\/+|\/+$/g, '')}/`;
 }
 
+function safeFileName(name) {
+  const fallback = 'asset';
+  const cleaned = String(name || fallback)
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return cleaned || fallback;
+}
+
 export class StoresTab extends BaseTab {
   constructor() {
     super('stores');
@@ -66,10 +77,23 @@ export class StoresTab extends BaseTab {
     this.searchInput = document.getElementById('storesSearch');
     this.table = document.getElementById('storesTable');
     this.addStoreBtn = document.getElementById('addStoreBtn');
+    this.startBakeryOnboardingBtn = document.getElementById('startBakeryOnboardingBtn');
+    this.startOrganicOnboardingBtn = document.getElementById('startOrganicOnboardingBtn');
+    this.startBlankOnboardingBtn = document.getElementById('startBlankOnboardingBtn');
     this.refreshMetricsBtn = document.getElementById('refreshStoreMetrics');
     this.previewFrame = document.getElementById('storePreviewFrame');
+    this.previewShell = document.getElementById('storePreviewShell');
     this.previewRefreshBtn = document.getElementById('storePreviewRefreshBtn');
     this.previewOpenBtn = document.getElementById('storePreviewOpenBtn');
+    this.refreshActivityBtn = document.getElementById('refreshStoreActivityBtn');
+    this.activityTimeline = document.getElementById('storeActivityTimeline');
+    this.healthAlerts = document.getElementById('storeHealthAlerts');
+    this.refreshHealthBtn = document.getElementById('refreshStoreHealthBtn');
+    this.mediaType = document.getElementById('storeMediaType');
+    this.mediaUpload = document.getElementById('storeMediaUpload');
+    this.mediaUploadBtn = document.getElementById('storeMediaUploadBtn');
+    this.mediaLibrary = document.getElementById('storeMediaLibrary');
+    this.mediaScope = document.getElementById('storeMediaScope');
 
     this.formTitle = document.getElementById('storeFormTitle');
     this.formCard = document.getElementById('storeFormCard');
@@ -133,6 +157,7 @@ export class StoresTab extends BaseTab {
     this.layoutProducts = document.getElementById('storeLayoutProducts');
     this.layoutCta = document.getElementById('storeLayoutCta');
     this.layoutOrder = document.getElementById('storeLayoutOrder');
+    this.homepageBuilderPreview = document.getElementById('storeHomepageBuilderPreview');
     this.heroTitle = document.getElementById('storeHeroTitle');
     this.heroSubtitle = document.getElementById('storeHeroSubtitle');
     this.heroCta = document.getElementById('storeHeroCta');
@@ -175,6 +200,7 @@ export class StoresTab extends BaseTab {
     this.metricsQueue = [];
     this.metricsActive = 0;
     this.metricsConcurrency = 4;
+    this.mediaPickerTarget = null;
   }
 
   async init() {
@@ -182,18 +208,28 @@ export class StoresTab extends BaseTab {
     this.subscribeStores();
     this.hydrateUserCompanyInput();
     this.loadUsersForSelectedCompany();
+    this.loadStoreActivityTimeline();
 
     window.addEventListener('oako:store-changed', () => {
       this.hydrateUserCompanyInput();
       this.loadUsersForSelectedCompany();
+      this.renderStoreHealthAlerts();
+      this.loadMediaLibrary();
+      this.loadStoreActivityTimeline();
       this.render();
     });
+
+    window.oakoOpenMediaPicker = (options = {}) => this.openMediaPicker(options);
   }
 
   onShow() {
     this.hydrateUserCompanyInput();
     this.refreshPreview();
     this.renderLaunchChecklist();
+    this.renderHomepageBuilderPreview();
+    this.renderStoreHealthAlerts();
+    this.loadMediaLibrary();
+    this.loadStoreActivityTimeline();
     this.render();
   }
 
@@ -203,6 +239,10 @@ export class StoresTab extends BaseTab {
     this.loadUsersForSelectedCompany();
     this.refreshPreview();
     this.renderLaunchChecklist();
+    this.renderHomepageBuilderPreview();
+    this.renderStoreHealthAlerts();
+    this.loadMediaLibrary();
+    this.loadStoreActivityTimeline();
     this.render();
   }
 
@@ -215,7 +255,24 @@ export class StoresTab extends BaseTab {
       this.refreshMetricsBtn.addEventListener('click', () => {
         this.metricsCache.clear();
         this.metricsQueue = [];
+        this.renderStoreHealthAlerts({ force: true });
         this.render();
+      });
+    }
+
+    if (this.refreshHealthBtn) {
+      this.refreshHealthBtn.addEventListener('click', () => this.renderStoreHealthAlerts({ force: true }));
+    }
+
+    if (this.mediaUploadBtn) {
+      this.mediaUploadBtn.addEventListener('click', () => this.uploadMediaAsset());
+    }
+
+    if (this.mediaLibrary) {
+      this.mediaLibrary.addEventListener('click', (e) => {
+        const btn = e.target?.closest?.('button[data-copy-url]');
+        if (!btn) return;
+        this.copyText(btn.dataset.copyUrl || '');
       });
     }
 
@@ -245,9 +302,51 @@ export class StoresTab extends BaseTab {
       });
     }
 
+    if (this.startBakeryOnboardingBtn) {
+      this.startBakeryOnboardingBtn.addEventListener('click', () => this.startOnboarding('bakery'));
+    }
+
+    if (this.startOrganicOnboardingBtn) {
+      this.startOrganicOnboardingBtn.addEventListener('click', () => this.startOnboarding('organic'));
+    }
+
+    if (this.startBlankOnboardingBtn) {
+      this.startBlankOnboardingBtn.addEventListener('click', () => this.startOnboarding('blank'));
+    }
+
     if (this.previewRefreshBtn) {
       this.previewRefreshBtn.addEventListener('click', () => this.refreshPreview());
     }
+
+    if (this.refreshActivityBtn) {
+      this.refreshActivityBtn.addEventListener('click', () => this.loadStoreActivityTimeline());
+    }
+
+    document.addEventListener('click', (e) => {
+      const mediaInputBtn = e.target?.closest?.('[data-media-input]');
+      if (mediaInputBtn) {
+        this.openMediaPicker({
+          inputId: mediaInputBtn.dataset.mediaInput,
+          previewId: mediaInputBtn.dataset.mediaPreview,
+          containerId: mediaInputBtn.dataset.mediaContainer,
+          labelId: mediaInputBtn.dataset.mediaLabel,
+          previewMode: mediaInputBtn.dataset.mediaPreviewMode
+        });
+      }
+
+      const campaignBtn = e.target?.closest?.('[data-media-campaign]');
+      if (campaignBtn) {
+        this.openMediaPicker({
+          eventName: 'oako:campaign-media-selected',
+          target: campaignBtn.dataset.mediaCampaign
+        });
+      }
+
+      const previewModeBtn = e.target?.closest?.('[data-preview-mode]');
+      if (previewModeBtn) {
+        this.setPreviewMode(previewModeBtn.dataset.previewMode || 'desktop');
+      }
+    });
 
     if (this.previewOpenBtn) {
       this.previewOpenBtn.addEventListener('click', () => {
@@ -258,8 +357,14 @@ export class StoresTab extends BaseTab {
 
     if (this.form) {
       this.form.addEventListener('submit', (e) => this.saveStore(e));
-      this.form.addEventListener('input', () => this.renderLaunchChecklist());
-      this.form.addEventListener('change', () => this.renderLaunchChecklist());
+      this.form.addEventListener('input', () => {
+        this.renderLaunchChecklist();
+        this.renderHomepageBuilderPreview();
+      });
+      this.form.addEventListener('change', () => {
+        this.renderLaunchChecklist();
+        this.renderHomepageBuilderPreview();
+      });
     }
 
     if (this.cancelBtn) {
@@ -310,6 +415,7 @@ export class StoresTab extends BaseTab {
 
       this.unsubscribeStores = onSnapshot(q, (snap) => {
         this.stores = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        this.renderStoreHealthAlerts();
         this.render();
       }, (err) => {
         console.error('Stores snapshot error:', err);
@@ -331,6 +437,443 @@ export class StoresTab extends BaseTab {
       const blob = `${store.name || ''} ${store.contactName || ''} ${store.phone || ''} ${store.address || ''} ${store.email || ''} ${store.companyId || store.id || ''}`.toLowerCase();
       return blob.includes(term);
     });
+  }
+
+  getSelectedStore() {
+    const companyId = getSelectedCompanyId();
+    return this.stores.find((store) => (store.companyId || store.id) === companyId) || null;
+  }
+
+  async renderStoreHealthAlerts({ force = false } = {}) {
+    if (!this.healthAlerts) return;
+
+    const companyId = getSelectedCompanyId();
+    const store = this.getSelectedStore();
+    if (this.mediaScope) {
+      this.mediaScope.textContent = companyId || 'Selected store';
+    }
+
+    if (!companyId) {
+      this.healthAlerts.innerHTML = '<div class="inline-alert error">No store is selected.</div>';
+      return;
+    }
+
+    const cached = this.metricsCache.get(companyId);
+    if (!cached || force) {
+      this.healthAlerts.innerHTML = `
+        <div class="store-health-alert info">
+          <strong>Checking ${escapeHtml(companyId)}...</strong>
+          <span>Loading products, orders, inventory, and launch signals.</span>
+        </div>
+      `;
+      await this.getMetricsForCompany(companyId, { force });
+    }
+
+    const metrics = this.metricsCache.get(companyId) || {};
+    const alerts = this.buildStoreHealthAlerts(companyId, store, metrics);
+    this.healthAlerts.innerHTML = alerts.map((alert) => `
+      <div class="store-health-alert ${alert.level}">
+        <div>
+          <strong>${escapeHtml(alert.title)}</strong>
+          <span>${escapeHtml(alert.detail)}</span>
+        </div>
+        <small>${escapeHtml(alert.label)}</small>
+      </div>
+    `).join('');
+  }
+
+  buildStoreHealthAlerts(companyId, store = {}, metrics = {}) {
+    const alerts = [];
+    const hosting = store?.hosting || {};
+    const contact = store?.contact || {};
+    const dnsStatus = hosting.dnsStatus || store?.dnsStatus || 'not_started';
+    const website = store?.website || store?.customDomain || hosting.customDomain || '';
+
+    const push = (level, title, detail, label) => alerts.push({ level, title, detail, label });
+
+    if (!store) {
+      push('critical', 'Store profile missing', `No companies document was found for ${companyId}.`, 'Setup');
+      return alerts;
+    }
+
+    if (store.active === false || store.status === 'inactive') {
+      push('critical', 'Store is inactive', 'Customers may not be able to access this storefront.', 'Visibility');
+    }
+
+    if (metrics.error) {
+      push('warning', 'Metrics unavailable', 'Firestore rules or network state blocked product/order health checks.', 'Data');
+    } else {
+      if (Number(metrics.productsCount || 0) === 0) {
+        push('critical', 'No products yet', 'Add products before sharing this store with customers.', 'Catalog');
+      }
+
+      if (Number(metrics.lowInventoryCount || 0) > 0) {
+        push('warning', 'Low inventory detected', `${metrics.lowInventoryCount} inventory item(s) are at or below the low stock threshold.`, 'Inventory');
+      }
+
+      if (metrics.noOrders3d === true) {
+        push('warning', 'No orders in 3 days', 'This store has not received recent orders. Check traffic, products, and checkout.', 'Sales');
+      }
+    }
+
+    if (!website) {
+      push('warning', 'Website not configured', 'Add a path or future custom domain so this store can be shared clearly.', 'Hosting');
+    }
+
+    if ((store.customDomain || hosting.customDomain) && dnsStatus !== 'connected') {
+      push('warning', 'Domain not connected', `DNS status is ${dnsStatus}. Finish the hosting checklist before launch.`, 'DNS');
+    }
+
+    if (!store.logoUrl) {
+      push('warning', 'Missing logo', 'Upload a logo or brand mark so this storefront feels complete.', 'Brand');
+    }
+
+    if (!(store.phone || contact.phone || contact.whatsapp || store.whatsapp)) {
+      push('warning', 'Missing public contact', 'Add a phone or WhatsApp number so customers can reach the store.', 'Contact');
+    }
+
+    if (!store.launchStatus || store.launchStatus === 'draft') {
+      push('warning', 'Launch status is draft', 'Move this store to ready or live when the checklist is complete.', 'Launch');
+    }
+
+    if (!alerts.length) {
+      push('ok', 'Store looks healthy', 'No urgent issues found for the selected store.', 'Healthy');
+    }
+
+    return alerts;
+  }
+
+  async uploadMediaAsset() {
+    const companyId = getSelectedCompanyId();
+    const file = this.mediaUpload?.files?.[0];
+    const type = String(this.mediaType?.value || 'other');
+
+    if (!companyId) return alert('Select a store before uploading media.');
+    if (!file) return alert('Choose an image to upload.');
+    if (!String(file.type || '').startsWith('image/')) return alert('Only image uploads are supported here.');
+    if (file.size > 5 * 1024 * 1024) return alert('Please upload an image smaller than 5MB.');
+
+    const fileName = `${Date.now()}-${safeFileName(file.name)}`;
+    const path = `stores/${companyId}/media/${type}/${fileName}`;
+
+    if (this.mediaLibrary) {
+      this.mediaLibrary.innerHTML = `
+        <div class="store-health-alert info">
+          <strong>Uploading asset...</strong>
+          <span>${escapeHtml(file.name)}</span>
+        </div>
+      `;
+    }
+
+    try {
+      const storageRef = ref(storage, path);
+      await uploadBytes(storageRef, file, { contentType: file.type });
+      const url = await getDownloadURL(storageRef);
+
+      await addDoc(collection(db, 'store_media'), {
+        companyId,
+        type,
+        name: file.name,
+        path,
+        url,
+        contentType: file.type,
+        size: file.size,
+        createdAt: serverTimestamp()
+      });
+
+      if (this.mediaUpload) this.mediaUpload.value = '';
+      await this.loadMediaLibrary();
+      await logAudit('Media Asset Uploaded', `${type}: ${file.name}`);
+      await this.loadStoreActivityTimeline();
+      alert('Media asset uploaded.');
+    } catch (err) {
+      console.error('Media upload failed:', err);
+      if (this.mediaLibrary) {
+        this.mediaLibrary.innerHTML = `
+          <div class="inline-alert error">
+            Upload failed: ${escapeHtml(err.message)}. Check Storage rules for stores/{companyId}/media and Firestore rules for store_media.
+          </div>
+        `;
+      }
+    }
+  }
+
+  async loadMediaLibrary() {
+    if (!this.mediaLibrary) return;
+
+    const companyId = getSelectedCompanyId();
+    if (this.mediaScope) this.mediaScope.textContent = companyId || 'Selected store';
+    if (!companyId) {
+      this.mediaLibrary.innerHTML = '<div class="inline-alert">Select a store to view its media.</div>';
+      return;
+    }
+
+    this.mediaLibrary.innerHTML = '<div class="skeleton-row"></div>';
+
+    try {
+      let snap;
+      try {
+        snap = await getDocs(query(
+          collection(db, 'store_media'),
+          where('companyId', '==', companyId),
+          orderBy('createdAt', 'desc')
+        ));
+      } catch (indexedErr) {
+        snap = await getDocs(query(collection(db, 'store_media'), where('companyId', '==', companyId)));
+      }
+
+      const assets = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          const aTime = toDate(a.createdAt)?.getTime() || 0;
+          const bTime = toDate(b.createdAt)?.getTime() || 0;
+          return bTime - aTime;
+        });
+
+      if (!assets.length) {
+        this.mediaLibrary.innerHTML = `
+          <div class="store-media-empty">
+            <strong>No assets yet</strong>
+            <span>Upload logos, hero images, QR codes, and campaign assets for ${escapeHtml(companyId)}.</span>
+          </div>
+        `;
+        return;
+      }
+
+      this.mediaLibrary.innerHTML = `
+        <div class="store-media-grid">
+          ${assets.map((asset) => this.renderMediaAsset(asset)).join('')}
+        </div>
+      `;
+    } catch (err) {
+      console.warn('Media library load failed:', err);
+      this.mediaLibrary.innerHTML = `
+        <div class="inline-alert error">
+          Media library could not load: ${escapeHtml(err.message)}. Check Firestore rules for store_media.
+        </div>
+      `;
+    }
+  }
+
+  renderMediaAsset(asset) {
+    const createdAt = toDate(asset.createdAt);
+    const created = createdAt ? createdAt.toLocaleDateString([], { dateStyle: 'medium' }) : 'Recently';
+    const kb = Math.max(1, Math.round(Number(asset.size || 0) / 1024));
+    const url = String(asset.url || '');
+
+    return `
+      <article class="store-media-card">
+        <div class="store-media-thumb">
+          ${url ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(asset.name || 'Store media')}">` : '<span>No preview</span>'}
+        </div>
+        <div class="store-media-meta">
+          <strong>${escapeHtml(asset.name || 'Untitled asset')}</strong>
+          <span>${escapeHtml(asset.type || 'other')} • ${kb} KB • ${escapeHtml(created)}</span>
+        </div>
+        <button type="button" class="btn-secondary" data-copy-url="${escapeHtml(url)}">Copy URL</button>
+      </article>
+    `;
+  }
+
+  async copyText(text) {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('URL copied.');
+    } catch (err) {
+      window.prompt('Copy this URL:', text);
+    }
+  }
+
+  getOrCreateMediaPickerModal() {
+    let modal = document.getElementById('storeMediaPickerModal');
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'storeMediaPickerModal';
+    modal.className = 'modal hidden';
+    modal.innerHTML = `
+      <div class="modal-panel store-media-picker-panel">
+        <div class="modal-header">
+          <div>
+            <div class="eyebrow">Media Library</div>
+            <h3>Choose an asset</h3>
+          </div>
+          <button type="button" id="closeStoreMediaPicker" class="icon-button" aria-label="Close media picker">x</button>
+        </div>
+        <div class="store-media-picker-search">
+          <input type="text" id="storeMediaPickerSearch" placeholder="Search by name or type...">
+        </div>
+        <div id="storeMediaPickerBody" class="store-media-picker-body"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal) this.closeMediaPicker();
+      const asset = event.target?.closest?.('[data-media-url]');
+      if (!asset) return;
+      this.applyPickedMedia(asset.dataset.mediaUrl || '');
+    });
+    modal.querySelector('#closeStoreMediaPicker')?.addEventListener('click', () => this.closeMediaPicker());
+    modal.querySelector('#storeMediaPickerSearch')?.addEventListener('input', () => this.renderMediaPickerAssets());
+
+    return modal;
+  }
+
+  async openMediaPicker(options = {}) {
+    this.mediaPickerTarget = options;
+    const modal = this.getOrCreateMediaPickerModal();
+    const body = modal.querySelector('#storeMediaPickerBody');
+    if (body) body.innerHTML = '<div class="skeleton-row"></div><div class="skeleton-row"></div>';
+    modal.classList.remove('hidden');
+    await this.renderMediaPickerAssets();
+  }
+
+  closeMediaPicker() {
+    document.getElementById('storeMediaPickerModal')?.classList.add('hidden');
+  }
+
+  async getMediaAssetsForSelectedStore() {
+    const companyId = getSelectedCompanyId();
+    if (!companyId) return [];
+
+    let snap;
+    try {
+      snap = await getDocs(query(
+        collection(db, 'store_media'),
+        where('companyId', '==', companyId),
+        orderBy('createdAt', 'desc')
+      ));
+    } catch (err) {
+      snap = await getDocs(query(collection(db, 'store_media'), where('companyId', '==', companyId)));
+    }
+
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (toDate(b.createdAt)?.getTime() || 0) - (toDate(a.createdAt)?.getTime() || 0));
+  }
+
+  async renderMediaPickerAssets() {
+    const modal = this.getOrCreateMediaPickerModal();
+    const body = modal.querySelector('#storeMediaPickerBody');
+    const search = String(modal.querySelector('#storeMediaPickerSearch')?.value || '').trim().toLowerCase();
+    if (!body) return;
+
+    try {
+      const assets = (await this.getMediaAssetsForSelectedStore()).filter((asset) => {
+        if (!search) return true;
+        return `${asset.name || ''} ${asset.type || ''}`.toLowerCase().includes(search);
+      });
+
+      if (!assets.length) {
+        body.innerHTML = '<div class="inline-alert">No matching media assets for this store yet.</div>';
+        return;
+      }
+
+      body.innerHTML = `
+        <div class="store-media-picker-grid">
+          ${assets.map((asset) => `
+            <button type="button" class="store-media-picker-card" data-media-url="${escapeHtml(asset.url || '')}">
+              <img src="${escapeHtml(asset.url || '')}" alt="${escapeHtml(asset.name || 'Media asset')}">
+              <strong>${escapeHtml(asset.name || 'Untitled asset')}</strong>
+              <span>${escapeHtml(asset.type || 'other')}</span>
+            </button>
+          `).join('')}
+        </div>
+      `;
+    } catch (err) {
+      body.innerHTML = `<div class="inline-alert error">Could not load media assets: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  applyPickedMedia(url) {
+    const target = this.mediaPickerTarget || {};
+
+    if (target.inputId) {
+      const input = document.getElementById(target.inputId);
+      if (input) {
+        input.value = url;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+
+      const preview = document.getElementById(target.previewId);
+      if (preview) {
+        if (target.previewMode === 'background') {
+          preview.innerHTML = `<img src="${escapeHtml(url)}" style="max-height:100px; max-width:100%; object-fit:contain;">`;
+        } else {
+          preview.src = url;
+        }
+      }
+
+      const container = document.getElementById(target.containerId);
+      if (container) container.style.display = 'flex';
+
+      const label = document.getElementById(target.labelId);
+      if (label) label.textContent = 'Media Library Asset';
+    }
+
+    if (target.eventName) {
+      window.dispatchEvent(new CustomEvent(target.eventName, {
+        detail: { url, target: target.target || '' }
+      }));
+    }
+
+    this.closeMediaPicker();
+  }
+
+  setPreviewMode(mode = 'desktop') {
+    if (!this.previewShell) return;
+    this.previewShell.classList.remove('desktop', 'tablet', 'mobile');
+    this.previewShell.classList.add(['desktop', 'tablet', 'mobile'].includes(mode) ? mode : 'desktop');
+  }
+
+  async loadStoreActivityTimeline() {
+    if (!this.activityTimeline) return;
+    const companyId = getSelectedCompanyId();
+    this.activityTimeline.innerHTML = '<div class="skeleton-row"></div><div class="skeleton-row"></div>';
+
+    try {
+      let snap;
+      try {
+        snap = await getDocs(query(
+          collection(db, 'audit_logs'),
+          where('companyId', '==', companyId),
+          orderBy('timestamp', 'desc'),
+          limit(12)
+        ));
+      } catch (err) {
+        snap = await getDocs(query(collection(db, 'audit_logs'), where('companyId', '==', companyId)));
+      }
+
+      const logs = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (toDate(b.timestamp)?.getTime() || 0) - (toDate(a.timestamp)?.getTime() || 0))
+        .slice(0, 12);
+
+      if (!logs.length) {
+        this.activityTimeline.innerHTML = '<div class="inline-alert">No activity logged for this store yet.</div>';
+        return;
+      }
+
+      this.activityTimeline.innerHTML = logs.map((log) => {
+        const date = toDate(log.timestamp);
+        const displayDate = date ? date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Unknown time';
+        return `
+          <div class="store-activity-item">
+            <span></span>
+            <div>
+              <strong>${escapeHtml(log.action || 'Activity')}</strong>
+              <small>${escapeHtml(log.details || '')}</small>
+            </div>
+            <time>${escapeHtml(displayDate)}</time>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      this.activityTimeline.innerHTML = `<div class="inline-alert error">Could not load activity: ${escapeHtml(err.message)}</div>`;
+    }
   }
 
   render() {
@@ -372,6 +915,7 @@ export class StoresTab extends BaseTab {
 
       const alerts = alertParts.length ? alertParts.join(' • ') : 'OK';
       const isSelected = id === selected;
+      const readiness = this.getStoreReadiness(store, metrics);
 
       return `
         <tr>
@@ -379,6 +923,7 @@ export class StoresTab extends BaseTab {
             <div style="display:flex; flex-direction:column; gap:0.15rem;">
               <strong>${store.name || id}</strong>
               <span style="font-size:0.85rem; color:#666;">${id}${isSelected ? ' • selected' : ''} • ${store.launchStatus || store.status || 'live'}</span>
+              <span style="font-size:0.8rem; color:${readiness.score >= 80 ? '#2e7d32' : readiness.score >= 55 ? '#92400e' : '#c62828'}; font-weight:800;">Launch ready: ${readiness.score}%</span>
               ${Array.isArray(store.tags) && store.tags.length ? `<span style="font-size:0.8rem; color:#888;">Tags: ${store.tags.join(', ')}</span>` : ''}
             </div>
           </td>
@@ -599,6 +1144,7 @@ export class StoresTab extends BaseTab {
         .finally(() => {
           this.metricsActive = Math.max(0, this.metricsActive - 1);
           this.metricsInFlight.delete(companyId);
+          if (companyId === getSelectedCompanyId()) this.renderStoreHealthAlerts();
           this.render();
           this.processMetricsQueue();
         });
@@ -745,6 +1291,7 @@ export class StoresTab extends BaseTab {
     this.applyStorefrontConfigToForm(getFallbackStoreConfig(COMPANY_ID));
     this.refreshPreview();
     this.renderLaunchChecklist();
+    this.renderHomepageBuilderPreview();
     this.hideStoreForm();
   }
 
@@ -802,6 +1349,7 @@ export class StoresTab extends BaseTab {
     this.applyStorefrontConfigToForm(publicConfig);
     this.refreshPreview();
     this.renderLaunchChecklist();
+    this.renderHomepageBuilderPreview();
     this.form?.scrollIntoView?.({ behavior: 'smooth' });
   }
 
@@ -905,6 +1453,7 @@ export class StoresTab extends BaseTab {
       input.value = [action.icon, action.title].filter(Boolean).join(' ').trim();
     });
     this.renderLaunchChecklist();
+    this.renderHomepageBuilderPreview();
   }
 
   applyThemePreset(presetKey) {
@@ -997,13 +1546,67 @@ export class StoresTab extends BaseTab {
       ? 'organic, groceries, Bishkek, Kyrgyzstan'
       : 'bread, bakery, Bishkek, daily bread';
     this.renderLaunchChecklist();
+    this.renderHomepageBuilderPreview();
+  }
+
+  startOnboarding(type) {
+    this.resetForm();
+    this.showStoreForm();
+
+    if (type === 'bakery') {
+      this.applyStarter('bakery');
+      if (this.name && !this.name.value) this.name.value = 'Daily Bread';
+      if (this.tags) this.tags.value = 'bakery, cafe';
+      if (this.plan) this.plan.value = 'free';
+    } else if (type === 'organic') {
+      this.applyStarter('organic');
+      if (this.name && !this.name.value) this.name.value = 'New Organic Store';
+      if (this.tags) this.tags.value = 'organic, grocery';
+      if (this.plan) this.plan.value = 'pro';
+    } else {
+      this.applyStorefrontConfigToForm(getFallbackStoreConfig(COMPANY_ID));
+      if (this.plan) this.plan.value = 'free';
+    }
+
+    if (this.launchStatus) this.launchStatus.value = 'draft';
+    this.renderLaunchChecklist();
+    this.renderHomepageBuilderPreview();
+    this.companyId?.focus();
+    this.form?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   }
 
   renderLaunchChecklist() {
     if (!this.launchChecklist) return;
 
-    const checks = [
+    const checks = this.getLaunchChecklistItems();
+    const complete = checks.filter(([, ok]) => ok).length;
+    const score = Math.round((complete / Math.max(1, checks.length)) * 100);
+    const missing = checks.filter(([, ok]) => !ok).slice(0, 3).map(([label]) => label);
+
+    this.launchChecklist.innerHTML = `
+      <div class="launch-score-card">
+        <div>
+          <strong>Launch Readiness</strong>
+          <span>${complete}/${checks.length} complete${missing.length ? ` • Next: ${missing.join(', ')}` : ''}</span>
+        </div>
+        <div class="launch-score-number">${score}%</div>
+      </div>
+      <div class="launch-progress"><span style="width:${score}%;"></span></div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:0.4rem; margin-top:0.75rem;">
+        ${checks.map(([label, ok]) => `
+          <div style="color:${ok ? '#2e7d32' : '#777'}; font-weight:${ok ? '700' : '500'};">
+            ${ok ? '&check;' : '&cir;'} ${label}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  getLaunchChecklistItems() {
+    return [
+      ['Company ID added', !!String(this.companyId?.value || '').trim()],
       ['Store name added', !!String(this.name?.value || '').trim()],
+      ['Contact phone added', !!String(this.phone?.value || '').trim()],
       ['Logo added', !!String(this.logoUrl?.value || '').trim()],
       ['Hero title added', !!String(this.heroTitle?.value || '').trim()],
       ['Products section enabled', this.layoutProducts?.checked !== false],
@@ -1011,17 +1614,68 @@ export class StoresTab extends BaseTab {
       ['WhatsApp support enabled', this.featureWhatsapp?.checked !== false],
       ['Delivery copy added', !!String(this.deliveryTitle?.value || '').trim()],
       ['SEO title added', !!String(this.seoTitle?.value || '').trim()],
+      ['SEO description added', !!String(this.seoDescription?.value || '').trim()],
       ['Domain plan started', !!String(this.customDomain?.value || this.website?.value || '').trim()],
+      ['Theme selected', !!String(this.themePrimary?.value || '').trim() && !!String(this.themeFont?.value || '').trim()],
       ['Preview checked', !!this.previewFrame?.src]
     ];
+  }
 
-    const complete = checks.filter(([, ok]) => ok).length;
-    this.launchChecklist.innerHTML = `
-      <strong>Launch Checklist (${complete}/${checks.length})</strong>
-      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:0.4rem; margin-top:0.75rem;">
-        ${checks.map(([label, ok]) => `
-          <div style="color:${ok ? '#2e7d32' : '#777'}; font-weight:${ok ? '700' : '500'};">
-            ${ok ? '&check;' : '&cir;'} ${label}
+  getStoreReadiness(store = {}, metrics = {}) {
+    const hosting = store.hosting || {};
+    const contact = store.contact || {};
+    const checks = [
+      Boolean(store.companyId || store.id),
+      Boolean(store.name),
+      Boolean(store.phone || contact.whatsapp),
+      Boolean(store.website || store.customDomain || hosting.customDomain),
+      store.active !== false,
+      Boolean(store.launchStatus && store.launchStatus !== 'draft'),
+      metrics?.productsCount === 'ERR' ? false : Number(metrics?.productsCount || 0) > 0,
+      metrics?.lowInventoryCount === 'ERR' ? false : Number(metrics?.lowInventoryCount || 0) === 0
+    ];
+    const complete = checks.filter(Boolean).length;
+    return { score: Math.round((complete / checks.length) * 100), complete, total: checks.length };
+  }
+
+  renderHomepageBuilderPreview() {
+    if (!this.homepageBuilderPreview) return;
+
+    const order = String(this.layoutOrder?.value || 'hero,quickActions,campaign,products,cta')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const enabled = {
+      hero: this.layoutHero?.checked !== false,
+      quickActions: this.layoutQuickActions?.checked === true,
+      campaign: this.layoutCampaign?.checked === true,
+      products: this.layoutProducts?.checked !== false,
+      cta: this.layoutCta?.checked === true
+    };
+    const labels = {
+      hero: this.heroTitle?.value || 'Hero',
+      quickActions: 'Quick Actions',
+      campaign: 'Campaign',
+      products: this.productHeading?.value || 'Products',
+      cta: this.ctaTitle?.value || 'CTA'
+    };
+    const allSections = ['hero', 'quickActions', 'campaign', 'products', 'cta'];
+    const finalOrder = [
+      ...order.filter((type) => allSections.includes(type)),
+      ...allSections.filter((type) => !order.includes(type))
+    ];
+
+    this.homepageBuilderPreview.innerHTML = `
+      <div class="homepage-builder-header">
+        <strong>Homepage Builder</strong>
+        <span>Order and visibility preview</span>
+      </div>
+      <div class="homepage-section-stack">
+        ${finalOrder.map((type, index) => `
+          <div class="homepage-section-pill ${enabled[type] ? 'is-enabled' : 'is-disabled'}">
+            <span>${index + 1}</span>
+            <strong>${escapeHtml(labels[type])}</strong>
+            <small>${escapeHtml(type)} ${enabled[type] ? 'on' : 'off'}</small>
           </div>
         `).join('')}
       </div>
