@@ -18,7 +18,10 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true
+    // Some browsers/CDN paths reject Firestore's default WebChannel Listen transport.
+    // Long polling is a little less fancy, but much more reliable for the admin panel.
+    experimentalForceLongPolling: true,
+    useFetchStreams: false
 });
 const storage = getStorage(app);
 const auth = getAuth(app);

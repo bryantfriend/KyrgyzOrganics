@@ -65,6 +65,7 @@ class AdminApp {
     this.saveCurrentSectionBtn = document.getElementById('saveCurrentSectionBtn');
     this.sidebarCollapseBtn = document.getElementById('sidebarCollapseBtn');
     this.storesTabBtn = document.getElementById('storesTabBtn');
+    this.storeWorkspaceLabel = document.getElementById('storeWorkspaceLabel');
     this.adminVersionPill = document.getElementById('adminVersionPill');
     this.storeModal = document.getElementById('storeSwitchModal');
     this.storeModalClose = document.getElementById('closeStoreModal');
@@ -247,15 +248,25 @@ class AdminApp {
     } catch (_) {
       // ignore storage issues
     }
+    this.updateSidebarToggle();
   }
 
   toggleSidebar() {
     this.mainApp?.classList.toggle('sidebar-collapsed');
+    this.updateSidebarToggle();
     try {
       localStorage.setItem('admin_sidebar_collapsed', this.mainApp?.classList.contains('sidebar-collapsed') ? 'true' : 'false');
     } catch (_) {
       // ignore storage issues
     }
+  }
+
+  updateSidebarToggle() {
+    if (!this.sidebarCollapseBtn) return;
+    const collapsed = this.mainApp?.classList.contains('sidebar-collapsed');
+    this.sidebarCollapseBtn.textContent = collapsed ? '›' : '‹';
+    this.sidebarCollapseBtn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    this.sidebarCollapseBtn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
   }
 
   getStorefrontPath(companyId = getSelectedCompanyId()) {
@@ -312,17 +323,19 @@ class AdminApp {
     }
 
     document.querySelectorAll('[data-role-nav="super"]').forEach((item) => {
-      item.hidden = !showSuperAdmin;
+      // The current Settings screen is store-scoped, so avoid showing a duplicate
+      // "Global Settings" entry until a true platform settings page exists.
+      item.hidden = !showSuperAdmin || item.dataset.tab === 'settings';
     });
 
     document.querySelectorAll('[data-role-nav="store"]').forEach((item) => {
-      item.hidden = showSuperAdmin;
+      item.hidden = false;
     });
 
     const superGroup = document.querySelector('[data-nav-group="super"]');
     const storeGroup = document.querySelector('[data-nav-group="store"]');
     if (superGroup) superGroup.hidden = !showSuperAdmin;
-    if (storeGroup) storeGroup.hidden = showSuperAdmin;
+    if (storeGroup) storeGroup.hidden = false;
 
     if (this.headerRoleLabel) {
       this.headerRoleLabel.textContent = showSuperAdmin ? 'Super Admin' : 'Store Admin';
@@ -368,6 +381,9 @@ class AdminApp {
       this.headerStoreLogo.innerHTML = logoUrl
         ? `<img src="${logoUrl}" alt="${displayName} logo">`
         : String(displayName || selected).split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+    }
+    if (this.storeWorkspaceLabel) {
+      this.storeWorkspaceLabel.textContent = this.isSuperAdmin ? `Selected Store: ${displayName}` : 'Store Workspace';
     }
   }
 
@@ -465,27 +481,34 @@ class AdminApp {
     const buttons = document.querySelectorAll('.tabs button[data-tab], .nav-btn[data-tab]');
 
     buttons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const tabName = btn.dataset.tab;
-        if (!tabName) return;
-
-        // UI Toggle
-        buttons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.activeTabName = tabName;
-        this.updateActivePageChrome(tabName);
-
-        // Module Show
-        if (this.tabs[tabName]) {
-          this.tabs[tabName].show();
-        } else {
-          // Fallback for any tab not yet refactored or simple
-          document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-          const section = document.getElementById(tabName);
-          if (section) section.style.display = 'block';
-        }
-      });
+      btn.addEventListener('click', () => this.openTab(btn.dataset.tab, btn));
     });
+
+    window.addEventListener('oako:navigate-admin-tab', (event) => {
+      this.openTab(event.detail?.tab);
+    });
+  }
+
+  openTab(tabName, sourceButton = null) {
+    if (!tabName) return;
+
+    const buttons = document.querySelectorAll('.tabs button[data-tab], .nav-btn[data-tab]');
+    const targetButton = sourceButton || Array.from(buttons).find((btn) => btn.dataset.tab === tabName && !btn.hidden);
+
+    buttons.forEach(b => b.classList.remove('active'));
+    if (targetButton) targetButton.classList.add('active');
+
+    this.activeTabName = tabName;
+    this.updateActivePageChrome(tabName);
+
+    if (this.tabs[tabName]) {
+      this.tabs[tabName].show();
+    } else {
+      // Fallback for any tab not yet refactored or simple.
+      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+      const section = document.getElementById(tabName);
+      if (section) section.style.display = 'block';
+    }
   }
 
   updateActivePageChrome(tabName) {
@@ -497,7 +520,7 @@ class AdminApp {
       banners: 'Banners',
       content: 'Content',
       inventory: 'Inventory',
-      settings: this.isSuperAdmin ? 'Global Settings' : 'Settings',
+      settings: 'Settings',
       orders: 'Orders',
       audit: 'Audit Logs',
       analytics: 'Analytics',
@@ -595,8 +618,7 @@ class AdminApp {
     // Initialize the Active Tab?
     // Find active button
     const targetTab = this.isSuperAdmin ? 'stores' : 'overview';
-    const activeBtn = document.querySelector(`.tabs button[data-tab="${targetTab}"]`) || document.querySelector('.tabs button.active') || document.querySelector('.nav-btn.active');
-    if (activeBtn) activeBtn.click();
+    this.openTab(targetTab);
 
     // Pre-load critical data if needed?
     // Tabs handle their own init() on show().

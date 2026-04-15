@@ -209,6 +209,10 @@ export class StoresTab extends BaseTab {
 
         if (action === 'edit') this.editStore(id);
         if (action === 'switch') setSelectedCompany(id);
+        if (action === 'products' || action === 'categories') {
+          setSelectedCompany(id);
+          window.dispatchEvent(new CustomEvent('oako:navigate-admin-tab', { detail: { tab: action } }));
+        }
         if (action === 'metrics') this.ensureMetricsLoaded(id);
         if (action === 'preview') window.open(getStorePreviewPath(id), '_blank', 'noopener');
       });
@@ -385,6 +389,8 @@ export class StoresTab extends BaseTab {
           <td style="padding:10px; border-bottom:1px solid #eee;">
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
               <button type="button" class="btn-secondary" data-action="switch" data-id="${id}">Switch</button>
+              <button type="button" class="btn-secondary" data-action="products" data-id="${id}">Products</button>
+              <button type="button" class="btn-secondary" data-action="categories" data-id="${id}">Categories</button>
               <button type="button" class="btn-secondary" data-action="edit" data-id="${id}">Edit</button>
               <button type="button" class="btn-secondary" data-action="preview" data-id="${id}">Preview</button>
               <button type="button" class="btn-secondary" data-action="metrics" data-id="${id}">Metrics</button>

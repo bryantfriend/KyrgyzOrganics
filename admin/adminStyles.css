@@ -621,6 +621,7 @@ body {
   gap: 0.75rem;
   min-height: 58px;
   padding: 0.5rem;
+  position: relative;
 }
 
 .brand-copy {
@@ -648,7 +649,7 @@ body {
   color: white;
   border-radius: 12px;
   cursor: pointer;
-  transition: transform var(--admin-transition), background var(--admin-transition), border-color var(--admin-transition);
+  transition: transform var(--admin-transition), background var(--admin-transition), border-color var(--admin-transition), box-shadow var(--admin-transition), color var(--admin-transition);
 }
 
 .sidebar-collapse-btn {
@@ -656,6 +657,8 @@ body {
   height: 34px;
   margin-left: auto;
   font-size: 1.3rem;
+  flex: 0 0 auto;
+  z-index: 4;
 }
 
 .sidebar-collapse-btn:hover,
@@ -722,6 +725,11 @@ body {
   padding-inline: 0.75rem;
 }
 
+#mainApp.sidebar-collapsed .sidebar-brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+
 #mainApp.sidebar-collapsed .brand-copy,
 #mainApp.sidebar-collapsed .sidebar-group-label,
 #mainApp.sidebar-collapsed .nav-label {
@@ -729,7 +737,24 @@ body {
 }
 
 #mainApp.sidebar-collapsed .sidebar-collapse-btn {
-  transform: rotate(180deg);
+  position: absolute;
+  top: 50%;
+  right: -24px;
+  width: 32px;
+  height: 44px;
+  margin-left: 0;
+  border-radius: 0 14px 14px 0;
+  border-color: rgba(148, 163, 184, 0.35);
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.18);
+  transform: translateY(-50%);
+}
+
+#mainApp.sidebar-collapsed .sidebar-collapse-btn:hover {
+  background: #ffffff;
+  border-color: rgba(37, 99, 235, 0.35);
+  transform: translateY(-50%) translateX(2px);
 }
 
 .tab-content {
