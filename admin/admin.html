@@ -30,30 +30,133 @@
   <div id="mainApp" hidden>
 
     <header class="admin-header">
-      <div style="display:flex; align-items:center; gap:1rem;">
-        <h1 style="margin:0;">Content Manager</h1>
-        <div id="storePill" style="background: rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18); padding:0.35rem 0.75rem; border-radius:999px; font-weight:700; font-size:0.9rem;">Store: kyrgyz-organics</div>
-        <div id="adminVersionPill" class="admin-version-pill">Admin v2.9</div>
+      <div class="admin-header-context">
+        <div id="headerStoreLogo" class="admin-store-logo">OA</div>
+        <div>
+          <div class="eyebrow" id="headerRoleLabel">Store Admin</div>
+          <div class="admin-header-title-row">
+            <h1 id="headerStoreName">OA Kyrgyz Organic</h1>
+            <span id="headerStatusBadge" class="status-badge success">Active</span>
+          </div>
+          <div class="admin-header-subtitle">
+            <span id="headerStoreDomain">oako.kg</span>
+            <span id="storePill">Store: kyrgyz-organics</span>
+            <span id="adminVersionPill" class="admin-version-pill">Admin v2.9</span>
+          </div>
+        </div>
       </div>
-      <div style="display:flex; align-items:center; gap:0.5rem;">
-        <button id="selectStoreBtn" class="btn-secondary" type="button" style="display:none;">Select Store</button>
+      <div class="admin-header-actions">
+        <button id="selectStoreBtn" class="btn-secondary" type="button" style="display:none;">Switch Store</button>
+        <button id="viewStorefrontBtn" class="btn-secondary" type="button">View Site</button>
+        <button id="saveCurrentSectionBtn" class="btn-primary" type="button">Save</button>
         <button id="logoutBtn">Logout</button>
       </div>
     </header>
 
-    <nav class="tabs">
-      <button class="nav-btn" id="storesTabBtn" data-tab="stores" style="display:none;">Stores</button>
-      <button data-tab="products" class="active">Products</button>
-      <button data-tab="categories">Categories</button>
-      <button data-tab="banners">Banners</button>
-      <button data-tab="content">Content Pages</button>
-      <button class="nav-btn" data-tab="inventory">Daily Inventory</button>
-      <button class="nav-btn" data-tab="settings">Payment Settings</button>
-      <button class="nav-btn" data-tab="orders">Orders & Verifications</button>
-      <button class="nav-btn" data-tab="audit">Audit Logs</button>
-      <button class="nav-btn" data-tab="analytics">Analytics</button>
-      <button class="nav-btn" data-tab="campaigns" style="background: linear-gradient(90deg, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #8b00ff); color: white; border-radius: 50px; border: none; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); padding: 8px 20px;">Campaigns</button>
+    <nav class="tabs" aria-label="Admin navigation">
+      <div class="sidebar-brand">
+        <div class="brand-mark">OA</div>
+        <div class="brand-copy">
+          <strong>Oako Admin</strong>
+          <span>Commerce OS</span>
+        </div>
+        <button id="sidebarCollapseBtn" class="sidebar-collapse-btn" type="button" aria-label="Collapse sidebar">‹</button>
+      </div>
+
+      <div class="sidebar-group" data-nav-group="super">
+        <div class="sidebar-group-label">Platform</div>
+        <button class="nav-btn" id="storesTabBtn" data-tab="stores" data-role-nav="super"><span class="nav-icon">□</span><span class="nav-label">Stores</span></button>
+        <button class="nav-btn" data-tab="analytics" data-role-nav="super"><span class="nav-icon">↗</span><span class="nav-label">Analytics</span></button>
+        <button class="nav-btn" data-tab="audit" data-role-nav="super"><span class="nav-icon">◎</span><span class="nav-label">Audit Logs</span></button>
+        <button class="nav-btn" data-tab="settings" data-role-nav="super"><span class="nav-icon">⚙</span><span class="nav-label">Global Settings</span></button>
+      </div>
+
+      <div class="sidebar-group" data-nav-group="store">
+        <div class="sidebar-group-label">Store Workspace</div>
+        <button class="nav-btn active" data-tab="overview" data-role-nav="store"><span class="nav-icon">⌂</span><span class="nav-label">Overview</span></button>
+        <button class="nav-btn" data-tab="products" data-role-nav="store"><span class="nav-icon">◇</span><span class="nav-label">Products</span></button>
+        <button class="nav-btn" data-tab="categories" data-role-nav="store"><span class="nav-icon">▦</span><span class="nav-label">Categories</span></button>
+        <button class="nav-btn" data-tab="orders" data-role-nav="store"><span class="nav-icon">◆</span><span class="nav-label">Orders</span></button>
+        <button class="nav-btn" data-tab="inventory" data-role-nav="store"><span class="nav-icon">▤</span><span class="nav-label">Inventory</span></button>
+        <button class="nav-btn" data-tab="content" data-role-nav="store"><span class="nav-icon">✎</span><span class="nav-label">Content</span></button>
+        <button class="nav-btn" data-tab="settings" data-role-nav="store"><span class="nav-icon">⚙</span><span class="nav-label">Settings</span></button>
+      </div>
+
+      <div class="sidebar-group" data-nav-group="extra">
+        <div class="sidebar-group-label">Growth</div>
+        <button class="nav-btn" data-tab="banners"><span class="nav-icon">▧</span><span class="nav-label">Banners</span></button>
+        <button class="nav-btn" data-tab="campaigns"><span class="nav-icon">✦</span><span class="nav-label">Campaigns</span></button>
+      </div>
     </nav>
+
+    <!-- OVERVIEW -->
+    <section id="overview" class="tab-content active">
+      <div class="dashboard-hero">
+        <div>
+          <div class="eyebrow">Store Overview</div>
+          <h2 id="overviewTitle">Welcome back</h2>
+          <p id="overviewSubtitle">A fast snapshot of this store's catalog, orders, health, and launch readiness.</p>
+        </div>
+        <div class="dashboard-hero-actions">
+          <button type="button" id="overviewRefreshBtn" class="btn-secondary">Refresh</button>
+          <button type="button" id="overviewViewSiteBtn" class="btn-primary">View Site</button>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <article class="metric-card">
+          <span class="metric-label">Products</span>
+          <strong id="overviewProductsCount" class="skeleton-text">--</strong>
+          <small id="overviewProductsHint">Live catalog items</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Orders</span>
+          <strong id="overviewOrdersCount" class="skeleton-text">--</strong>
+          <small id="overviewOrdersHint">All-time order count</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Revenue</span>
+          <strong id="overviewRevenue" class="skeleton-text">--</strong>
+          <small>Total recorded sales</small>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Store Health</span>
+          <strong id="overviewHealth" class="skeleton-text">Checking</strong>
+          <small id="overviewHealthHint">SEO, domain, products, and status</small>
+        </article>
+      </div>
+
+      <div class="dashboard-grid">
+        <div class="admin-card">
+          <div class="card-heading-row">
+            <div>
+              <h3>Launch Readiness</h3>
+              <p>Signals that help each store feel complete before sharing.</p>
+            </div>
+            <span id="overviewLaunchBadge" class="status-badge warning">Review</span>
+          </div>
+          <div id="overviewChecklist" class="checklist-list">
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <div class="card-heading-row">
+            <div>
+              <h3>Activity</h3>
+              <p>Recent admin and storefront movement.</p>
+            </div>
+            <span id="overviewUpdatedAt" class="muted-pill">Loading</span>
+          </div>
+          <div id="overviewActivity" class="activity-feed">
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- STORES (SUPERADMIN) -->
     <section id="stores" class="tab-content">
@@ -516,7 +619,7 @@
     </section>
 
     <!-- PRODUCTS -->
-    <section id="products" class="tab-content active">
+    <section id="products" class="tab-content">
       <div class="admin-card">
         <h3 id="prodFormTitle" style="margin-bottom:1.5rem;">Add Product</h3>
         <form id="productForm">
@@ -1465,17 +1568,22 @@
 
     <!-- Store Switch Modal (SUPERADMIN) -->
     <div id="storeSwitchModal" class="modal hidden">
-      <div class="admin-card" style="width:min(720px, 92vw); max-height:80vh; overflow:auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
-          <h3 style="margin:0;">Select Store</h3>
-          <button type="button" id="closeStoreModal" class="btn-secondary">Close</button>
+      <div class="modal-panel store-switch-panel">
+        <div class="modal-header">
+          <div>
+            <div class="eyebrow">Super Admin</div>
+            <h3>Select Store</h3>
+          </div>
+          <button type="button" id="closeStoreModal" class="icon-button" aria-label="Close store switcher">×</button>
         </div>
-        <div style="margin-top:1rem;">
-          <input type="text" id="storeSearchInput" placeholder="Search stores..." style="width:100%; padding:0.75rem; border:1px solid #ddd; border-radius:6px;">
+        <div class="store-switch-search">
+          <input type="text" id="storeSearchInput" placeholder="Search stores...">
         </div>
-        <div id="storeSwitchList" class="item-list" style="margin-top:1rem;"></div>
+        <div id="storeSwitchList" class="store-switch-list"></div>
       </div>
     </div>
+
+    <div id="adminToast" class="admin-toast" role="status" aria-live="polite"></div>
   </div>
 
   <script type="module" src="admin.js"></script>
