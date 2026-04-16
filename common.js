@@ -68,9 +68,16 @@ export function setupLanguage() {
 }
 
 window.setLang = (lang) => {
+    const event = window.event;
+    if (event?.preventDefault) event.preventDefault();
+
     currentLang = lang;
     localStorage.setItem('site_lang', lang);
-    location.reload();
+
+    // Preserve tenant paths like /dailybread/ instead of allowing href="#"
+    // language links to fall back to the root storefront.
+    window.location.assign(window.location.href);
+    return false;
 };
 window.changeLanguage = window.setLang; // Alias for HTML calls
 

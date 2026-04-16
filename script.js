@@ -59,9 +59,13 @@ function setupLanguage() {
 }
 
 window.setLang = (lang) => {
+    const event = window.event;
+    if (event?.preventDefault) event.preventDefault();
+
     currentLang = lang;
     localStorage.setItem('site_lang', lang);
-    location.reload();
+    window.location.assign(window.location.href);
+    return false;
 };
 
 async function loadData() {
