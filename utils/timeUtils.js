@@ -20,13 +20,28 @@ export function getEstimatedMinutes(order = {}) {
 }
 
 export function getUrgencyState(order = {}, now = new Date()) {
+    const timing = getOrderTiming(order, now);
+    const { elapsed, estimate, ratio } = timing;
+
+    if (ratio > 1.2) return { ...timing, className: 'order-critical', level: 'critical', label: 'Critical' };
+    if (ratio >= 0.9) return { ...timing, className: 'order-danger', level: 'danger', label: 'Late soon' };
+    if (ratio >= 0.5) return { ...timing, className: 'order-warning', level: 'warning', label: 'Watch' };
+    return { ...timing, className: 'order-safe', level: 'safe', label: 'On time' };
+}
+
+export function getOrderTiming(order = {}, now = new Date()) {
     const elapsed = getElapsedMinutes(order.createdAt, now);
     const estimate = getEstimatedMinutes(order);
-    const ratio = elapsed / estimate;
+    const remaining = estimate - elapsed;
+    const ratio = estimate > 0 ? elapsed / estimate : 0;
 
-    if (ratio >= 1) return { className: 'order-danger', label: 'Overdue', elapsed, estimate, ratio };
-    if (ratio >= 0.5) return { className: 'order-warning', label: 'Watch', elapsed, estimate, ratio };
-    return { className: 'order-safe', label: 'On time', elapsed, estimate, ratio };
+    return {
+        elapsed,
+        estimate,
+        remaining,
+        lateBy: Math.max(0, Math.abs(remaining)),
+        ratio
+    };
 }
 
 export function formatElapsed(order = {}, now = new Date()) {
@@ -35,8 +50,11 @@ export function formatElapsed(order = {}, now = new Date()) {
 }
 
 export function formatTimeRemaining(order = {}, now = new Date()) {
-    const elapsed = getElapsedMinutes(order.createdAt, now);
-    const estimate = getEstimatedMinutes(order);
-    const remaining = estimate - elapsed;
-    return remaining > 0 ? `${remaining} min left` : `${Math.abs(remaining)} min overdue`;
+    const timing = getOrderTiming(order, now);
+    return timing.remaining > 0 ? `${timing.remaining} min remaining` : `Late by ${timing.lateBy} min`;
+}
+
+export function formatTimerStatus(order = {}, now = new Date()) {
+    const timing = getOrderTiming(order, now);
+    return timing.remaining > 0 ? `${timing.remaining} min remaining` : `Late by ${timing.lateBy} min`;
 }

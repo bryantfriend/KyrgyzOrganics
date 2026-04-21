@@ -15,7 +15,8 @@ import {
     updateOrderStatus
 } from '../../services/orderActions.js';
 import { getTrackingQrUrl, getTrackingUrl } from '../../utils/qrGenerator.js';
-import { formatElapsed, formatTimeRemaining, getUrgencyState } from '../../utils/timeUtils.js';
+import { formatElapsed, formatTimeRemaining, formatTimerStatus, getOrderTiming, getUrgencyState } from '../../utils/timeUtils.js';
+import { getSimilarOrderCounts } from '../../utils/orderSimilarityUtils.js';
 
 function escapeHtml(value = '') {
     return String(value)
@@ -36,6 +37,7 @@ export class OrdersTab extends BaseTab {
         this.storeScope = document.getElementById('orderStoreScope');
         this.btnRefresh = document.getElementById('btnRefreshOrders');
         this.btnFullscreen = document.getElementById('btnOrdersFullscreen');
+        this.btnFocusMode = document.getElementById('btnOrdersFocusMode');
         this.btnReleaseExpired = document.getElementById('btnReleaseExpired');
         this.receiptUrlCache = new Map();
         this.unsubscribeOrders = null;
@@ -44,8 +46,10 @@ export class OrdersTab extends BaseTab {
         this.newOrderIds = new Map();
         this.hasInitialLiveSnapshot = false;
         this.liveClock = null;
+        this.timerClock = null;
         this.liveStartedAt = 0;
         this.isFullscreen = false;
+        this.isFocusMode = window.localStorage?.getItem('ordersFocusMode') === 'true';
     }
 
     async init() {
@@ -53,10 +57,12 @@ export class OrdersTab extends BaseTab {
         if (this.filterSelect) this.filterSelect.addEventListener('change', () => this.handleFilterChange());
         if (this.storeScope) this.storeScope.addEventListener('change', () => this.startLiveOrders());
         if (this.btnFullscreen) this.btnFullscreen.addEventListener('click', () => this.toggleFullscreenOrders());
+        if (this.btnFocusMode) this.btnFocusMode.addEventListener('click', () => this.toggleFocusMode());
         if (this.btnReleaseExpired) this.btnReleaseExpired.addEventListener('click', () => this.releaseExpiredOrders());
         window.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && this.isFullscreen) this.toggleFullscreenOrders(false);
         });
+        this.applyFocusModeState();
 
         // Expose global actions
         window.verifyOrder = this.verifyOrder.bind(this);
@@ -81,6 +87,26 @@ export class OrdersTab extends BaseTab {
             this.btnFullscreen.textContent = shouldEnable ? 'Exit Fullscreen' : 'Fullscreen Board';
             this.btnFullscreen.setAttribute('aria-pressed', String(shouldEnable));
             this.btnFullscreen.title = shouldEnable ? 'Return to the full admin dashboard' : 'Open the orders board as a focused market screen';
+        }
+
+        this.applyFocusModeState();
+        this.updateVisibleTimers();
+    }
+
+    toggleFocusMode(force = null) {
+        const shouldEnable = typeof force === 'boolean' ? force : !this.isFocusMode;
+        this.isFocusMode = shouldEnable;
+        window.localStorage?.setItem('ordersFocusMode', String(shouldEnable));
+        this.applyFocusModeState();
+        this.renderCurrentOrders();
+    }
+
+    applyFocusModeState() {
+        if (this.container) this.container.classList.toggle('orders-focus-mode-active', this.isFocusMode);
+        if (this.btnFocusMode) {
+            this.btnFocusMode.textContent = this.isFocusMode ? 'Focus On' : 'Focus Mode';
+            this.btnFocusMode.setAttribute('aria-pressed', String(this.isFocusMode));
+            this.btnFocusMode.title = 'Focus Mode hides empty columns and de-emphasizes completed orders in fullscreen.';
         }
     }
 
@@ -117,14 +143,47 @@ export class OrdersTab extends BaseTab {
         this.liveStartedAt = Date.now();
         this.knownOrderIds.clear();
         this.newOrderIds.clear();
-        this.list.innerHTML = '<p>Opening live order feed...</p>';
-        if (this.board) this.board.innerHTML = '<div class="orders-board-empty">Connecting to live orders...</div>';
+        this.renderOrdersLoading('Opening the live order feed', 'Listening for new market orders in real time.');
 
         this.unsubscribeOrders = subscribeToOrders(getCurrentCompanyId(), (orders, meta = {}) => {
             this.handleLiveOrders(orders, meta);
         });
 
         this.startLiveClock();
+    }
+
+    renderOrdersLoading(title = 'Loading current orders', subtitle = 'Preparing the board for today\'s service.') {
+        const loadingHtml = `
+            <div class="orders-loading-panel" role="status" aria-live="polite">
+                <div class="orders-loading-orbit" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <div>
+                    <strong>${escapeHtml(title)}</strong>
+                    <p>${escapeHtml(subtitle)}</p>
+                    <div class="orders-loading-dots" aria-hidden="true">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        if (this.dashboard) {
+            this.dashboard.innerHTML = `
+                <div class="orders-loading-summary">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            `;
+        }
+        if (this.board) this.board.innerHTML = loadingHtml;
+        if (this.list) this.list.innerHTML = loadingHtml;
     }
 
     stopLiveOrders() {
@@ -136,11 +195,21 @@ export class OrdersTab extends BaseTab {
             window.clearInterval(this.liveClock);
             this.liveClock = null;
         }
+        if (this.timerClock) {
+            window.clearInterval(this.timerClock);
+            this.timerClock = null;
+        }
     }
 
     startLiveClock() {
         if (this.liveClock) window.clearInterval(this.liveClock);
         this.liveClock = window.setInterval(() => this.renderCurrentOrders(), 30000);
+        this.startTimerClock();
+    }
+
+    startTimerClock() {
+        if (this.timerClock) window.clearInterval(this.timerClock);
+        this.timerClock = window.setInterval(() => this.updateVisibleTimers(), 1000);
     }
 
     handleLiveOrders(orders = [], meta = {}) {
@@ -168,6 +237,7 @@ export class OrdersTab extends BaseTab {
 
         this.currentOrderDocs = orders.map((order) => this.toDocLike(order));
         this.renderCurrentOrders();
+        this.scrollNewestOrderIntoView();
     }
 
     toDocLike(order) {
@@ -195,6 +265,7 @@ export class OrdersTab extends BaseTab {
         this.renderDashboard(docs);
         this.renderBoard(docs, { showCompany: scope === 'all' });
         this.renderList(docs, { showCompany: scope === 'all' });
+        this.updateVisibleTimers();
     }
 
     playNewOrderSound() {
@@ -215,9 +286,43 @@ export class OrdersTab extends BaseTab {
         }
     }
 
+    updateVisibleTimers() {
+        if (!this.board) return;
+        this.board.querySelectorAll('[data-order-timer]').forEach((timer) => {
+            const createdAt = Number(timer.dataset.createdAt || 0);
+            const estimate = Number(timer.dataset.estimate || 30);
+            if (!createdAt) return;
+
+            const order = {
+                createdAt,
+                estimatedTime: estimate
+            };
+            const timing = getOrderTiming(order);
+            const status = formatTimerStatus(order);
+            const statusEl = timer.querySelector('[data-timer-status]');
+            const elapsedEl = timer.querySelector('[data-timer-elapsed]');
+            const estimateEl = timer.querySelector('[data-timer-estimate]');
+
+            timer.classList.toggle('is-late', timing.remaining <= 0);
+            if (statusEl) statusEl.textContent = status;
+            if (elapsedEl) elapsedEl.textContent = `${timing.elapsed} min`;
+            if (estimateEl) estimateEl.textContent = `${timing.estimate} min`;
+        });
+    }
+
+    scrollNewestOrderIntoView() {
+        if (!this.isFullscreen || !this.board || this.newOrderIds.size === 0) return;
+        const newestId = Array.from(this.newOrderIds.keys()).at(-1);
+        const card = newestId
+            ? Array.from(this.board.querySelectorAll('[data-order-id]')).find((element) => element.dataset.orderId === newestId)
+            : null;
+        if (!card) return;
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+
     async loadOrders() {
         if (!this.list) return;
-        this.list.innerHTML = '<p>Loading orders...</p>';
+        this.renderOrdersLoading('Gathering current orders', 'Sorting the queue into each delivery stage.');
 
         const statusFilter = this.filterSelect ? this.filterSelect.value : 'all';
         const scope = this.storeScope ? this.storeScope.value : 'selected';
@@ -239,6 +344,8 @@ export class OrdersTab extends BaseTab {
             this.renderDashboard(docs);
             this.renderBoard(docs, { showCompany: scope === 'all' });
             await this.renderList(docs, { showCompany: scope === 'all' });
+            this.startTimerClock();
+            this.updateVisibleTimers();
         } catch (e) {
             console.error("Load Orders Error:", e);
             if (this.board) this.board.innerHTML = '';
@@ -259,6 +366,8 @@ export class OrdersTab extends BaseTab {
                 this.renderDashboard(docs);
                 this.renderBoard(docs, { showCompany: scope === 'all' });
                 await this.renderList(docs, { showCompany: scope === 'all' });
+                this.startTimerClock();
+                this.updateVisibleTimers();
             }
         }
     }
@@ -359,14 +468,27 @@ export class OrdersTab extends BaseTab {
 
         const orders = docs.map((d) => ({ id: d.id, ...(d.data ? d.data() : d) }));
         if (!orders.length) {
+            this.board.className = 'orders-board-shell';
             this.board.innerHTML = '<div class="orders-board-empty">No orders match this view yet.</div>';
             return;
         }
 
-        this.board.innerHTML = this.getBoardColumns().map((column) => {
-            const columnOrders = orders.filter((order) => column.statuses.includes(normalizeOrderStatus(order.status, order)));
+        const columns = this.getBoardColumns().map((column) => ({
+            ...column,
+            orders: orders.filter((order) => column.statuses.includes(normalizeOrderStatus(order.status, order)))
+        }));
+        const activeColumnCount = columns.filter((column) => column.orders.length > 0).length;
+        const layoutClass = activeColumnCount <= 1 ? 'layout-single-active' : activeColumnCount === 2 ? 'layout-two-active' : 'layout-many-active';
+        const similarityCounts = getSimilarOrderCounts(orders);
+
+        this.board.className = `orders-board-shell ${layoutClass}`;
+        this.board.classList.toggle('focus-mode-active', this.isFocusMode);
+
+        this.board.innerHTML = columns.map((column) => {
+            const columnOrders = this.sortColumnOrders(column.orders, column.targetStatus);
+            const isEmpty = columnOrders.length === 0;
             return `
-                <section class="orders-column" data-board-status="${column.targetStatus}">
+                <section class="orders-column ${isEmpty ? 'orders-column-empty' : 'orders-column-active'}" data-board-status="${column.targetStatus}" data-order-count="${columnOrders.length}">
                     <div class="orders-column-header">
                         <div>
                             <strong>${escapeHtml(column.title)}</strong>
@@ -376,7 +498,7 @@ export class OrdersTab extends BaseTab {
                     </div>
                     <div class="orders-column-body">
                         ${columnOrders.length
-                    ? columnOrders.map((order) => this.renderBoardCard(order, { showCompany })).join('')
+                    ? columnOrders.map((order) => this.renderBoardCard(order, { showCompany, similarCount: similarityCounts[order.id] || 0 })).join('')
                     : '<div class="orders-drop-hint">No orders here</div>'}
                     </div>
                 </section>
@@ -384,21 +506,35 @@ export class OrdersTab extends BaseTab {
         }).join('');
     }
 
-    renderBoardCard(order, { showCompany = false } = {}) {
+    sortColumnOrders(orders = [], status = '') {
+        if (!this.isFocusMode) return orders;
+        if (status === 'completed') return orders.slice(0, 4);
+
+        return [...orders].sort((a, b) => {
+            const urgencyA = getUrgencyState(a).ratio;
+            const urgencyB = getUrgencyState(b).ratio;
+            return urgencyB - urgencyA;
+        });
+    }
+
+    renderBoardCard(order, { showCompany = false, similarCount = 0 } = {}) {
         const createdAt = order.createdAt?.toDate ? order.createdAt.toDate() : null;
         const createdLabel = createdAt ? createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'New';
         const items = this.getOrderItemsText(order);
         const total = Number(order.total ?? order.price ?? 0);
         const deliveryLabel = order.deliveryMethod === 'pickup' ? 'Pickup' : 'Delivery';
         const urgency = getUrgencyState(order);
+        const timing = getOrderTiming(order);
         const trackingUrl = getTrackingUrl(order.id);
-        const qrUrl = getTrackingQrUrl(order.id, { size: 96, url: trackingUrl });
+        const qrUrl = getTrackingQrUrl(order.id, { size: 118, url: trackingUrl });
         const actions = this.renderBoardCardActions(order);
         const normalizedStatus = normalizeOrderStatus(order.status, order);
         const isNew = this.newOrderIds.has(order.id);
+        const actionLabel = this.getNextActionLabel(normalizedStatus);
+        const createdMillis = createdAt ? createdAt.getTime() : 0;
 
         return `
-            <article class="order-kanban-card ${escapeHtml(urgency.className)} ${isNew ? 'is-new-order' : ''}" data-order-id="${escapeHtml(order.id)}" data-order-status="${escapeHtml(normalizedStatus)}">
+            <article class="order-kanban-card ${escapeHtml(urgency.className)} ${isNew ? 'is-new-order order-enter' : ''}" data-order-id="${escapeHtml(order.id)}" data-order-status="${escapeHtml(normalizedStatus)}">
                 <div class="order-card-topline">
                     <span class="order-card-id">#${escapeHtml(order.id.slice(0, 8))}</span>
                     <span class="order-card-badges">
@@ -406,25 +542,35 @@ export class OrdersTab extends BaseTab {
                         <span class="order-chip" style="--chip-color:${this.getStatusColor(normalizedStatus)}">${escapeHtml(this.getStatusLabel(normalizedStatus))}</span>
                     </span>
                 </div>
+                <div class="order-next-action">${escapeHtml(actionLabel)}</div>
                 <h4>${escapeHtml(items)}</h4>
                 <div class="order-card-meta">
                     <span>${escapeHtml(order.customerName || 'Guest customer')}</span>
                     <span>${escapeHtml(order.phone || order.customerPhone || 'No phone')}</span>
                     <span>${escapeHtml(deliveryLabel)}${order.customerAddress ? `: ${escapeHtml(order.customerAddress)}` : ''}</span>
                 </div>
+                <div class="order-tracking-mini">
+                    <img src="${qrUrl}" alt="Tracking QR for order ${escapeHtml(order.id)}">
+                    <div>
+                        <strong>Customer Tracking</strong>
+                        <a href="${escapeHtml(trackingUrl)}" target="_blank" rel="noopener">Customer sees live updates</a>
+                    </div>
+                </div>
+                <div class="order-timer-block ${timing.remaining <= 0 ? 'is-late' : ''}" data-order-timer data-created-at="${createdMillis}" data-estimate="${timing.estimate}">
+                    <div><span>Expected</span><strong data-timer-estimate>${timing.estimate} min</strong></div>
+                    <div><span>Elapsed</span><strong data-timer-elapsed>${timing.elapsed} min</strong></div>
+                    <div><span>${timing.remaining > 0 ? 'Remaining' : 'Late'}</span><strong data-timer-status>${escapeHtml(formatTimerStatus(order))}</strong></div>
+                </div>
                 <div class="order-urgency-row">
                     <span>${escapeHtml(urgency.label)}</span>
-                    <span>${escapeHtml(formatElapsed(order))} • ${escapeHtml(formatTimeRemaining(order))}</span>
+                    <span>${Math.round(urgency.ratio * 100)}% of time used</span>
                 </div>
+                ${similarCount > 0 ? `<div class="order-batch-suggestion">Batch suggestion: ${similarCount + 1} similar orders</div>` : ''}
                 <div class="order-card-footer">
                     <strong>${Number.isFinite(total) ? total : 0} som</strong>
                     <span>${escapeHtml(createdLabel)}</span>
                 </div>
                 ${showCompany ? `<div class="order-card-store">${escapeHtml(order.companyId || COMPANY_ID)}</div>` : ''}
-                <div class="order-tracking-mini">
-                    <img src="${qrUrl}" alt="Tracking QR for order ${escapeHtml(order.id)}">
-                    <a href="${escapeHtml(trackingUrl)}" target="_blank" rel="noopener">Customer tracking</a>
-                </div>
                 ${actions}
             </article>
         `;
@@ -435,12 +581,26 @@ export class OrdersTab extends BaseTab {
         const transition = getNextOrderTransition(order);
 
         if (!transition) return '';
+        const actionClass = `action-${transition.status}`;
         return `
             <div class="order-card-actions">
-                <button class="btn-primary live-order-action" onclick="advanceStoreOrder('${id}')">${escapeHtml(transition.label)}</button>
-                <button class="btn-danger" onclick="cancelOrderAdmin('${id}')">Cancel</button>
+                <button class="live-order-action ${escapeHtml(actionClass)}" onclick="advanceStoreOrder('${id}')">${escapeHtml(transition.label)}</button>
+                <button class="live-order-cancel" onclick="cancelOrderAdmin('${id}')">Cancel</button>
             </div>
         `;
+    }
+
+    getNextActionLabel(status) {
+        const labels = {
+            new: 'WAITING FOR ACCEPTANCE',
+            accepted: 'PREPARE ITEMS',
+            preparing: 'MARK READY WHEN PACKED',
+            ready: 'READY TO HAND OFF',
+            delivery: 'OUT FOR DELIVERY',
+            completed: 'COMPLETE ORDER',
+            cancelled: 'CANCELLED'
+        };
+        return labels[status] || 'CHECK ORDER';
     }
 
     getOrderItemsText(order) {
