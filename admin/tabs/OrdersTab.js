@@ -35,6 +35,7 @@ export class OrdersTab extends BaseTab {
         this.filterSelect = document.getElementById('orderFilterStatus');
         this.storeScope = document.getElementById('orderStoreScope');
         this.btnRefresh = document.getElementById('btnRefreshOrders');
+        this.btnFullscreen = document.getElementById('btnOrdersFullscreen');
         this.btnReleaseExpired = document.getElementById('btnReleaseExpired');
         this.receiptUrlCache = new Map();
         this.unsubscribeOrders = null;
@@ -44,13 +45,18 @@ export class OrdersTab extends BaseTab {
         this.hasInitialLiveSnapshot = false;
         this.liveClock = null;
         this.liveStartedAt = 0;
+        this.isFullscreen = false;
     }
 
     async init() {
         if (this.btnRefresh) this.btnRefresh.addEventListener('click', () => this.startLiveOrders());
         if (this.filterSelect) this.filterSelect.addEventListener('change', () => this.handleFilterChange());
         if (this.storeScope) this.storeScope.addEventListener('change', () => this.startLiveOrders());
+        if (this.btnFullscreen) this.btnFullscreen.addEventListener('click', () => this.toggleFullscreenOrders());
         if (this.btnReleaseExpired) this.btnReleaseExpired.addEventListener('click', () => this.releaseExpiredOrders());
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && this.isFullscreen) this.toggleFullscreenOrders(false);
+        });
 
         // Expose global actions
         window.verifyOrder = this.verifyOrder.bind(this);
@@ -62,6 +68,20 @@ export class OrdersTab extends BaseTab {
         window.advanceStoreOrder = this.advanceStoreOrder.bind(this);
 
         this.startLiveOrders();
+    }
+
+    toggleFullscreenOrders(force = null) {
+        const shouldEnable = typeof force === 'boolean' ? force : !this.isFullscreen;
+        this.isFullscreen = shouldEnable;
+
+        document.body.classList.toggle('orders-fullscreen-mode', shouldEnable);
+        if (this.container) this.container.classList.toggle('orders-fullscreen-active', shouldEnable);
+
+        if (this.btnFullscreen) {
+            this.btnFullscreen.textContent = shouldEnable ? 'Exit Fullscreen' : 'Fullscreen Board';
+            this.btnFullscreen.setAttribute('aria-pressed', String(shouldEnable));
+            this.btnFullscreen.title = shouldEnable ? 'Return to the full admin dashboard' : 'Open the orders board as a focused market screen';
+        }
     }
 
     onShow() {

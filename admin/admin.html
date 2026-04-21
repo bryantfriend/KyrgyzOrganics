@@ -1222,10 +1222,12 @@
       <div class="admin-card">
         <div class="card-heading-row">
           <h3>Orders Board</h3>
-          <p>Drag orders across the columns as the store prepares, ships, and completes each delivery.</p>
+          <p>Keep this open during service. New orders appear instantly and can be advanced with one click.</p>
         </div>
         <div class="toolbar" style="margin-bottom:1rem; display:flex; gap:10px;">
           <span class="live-orders-pill">Live Orders</span>
+          <button id="btnOrdersFullscreen" class="btn-secondary orders-fullscreen-toggle" type="button"
+            aria-pressed="false">Fullscreen Board</button>
           <button id="btnReleaseExpired" class="btn-danger" title="Release stock for orders older than 15 mins">Release
             Expired</button>
           <select id="orderFilterStatus" style="padding:8px; border-radius:4px;">
