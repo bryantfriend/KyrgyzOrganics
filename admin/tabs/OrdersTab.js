@@ -7,6 +7,15 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { storage } from '../../firebase-config.js';
 import { ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+import { subscribeToOrders } from '../../services/orderListener.js';
+import {
+    getNextOrderTransition,
+    normalizeOrderStatus,
+    STATUS_LABELS,
+    updateOrderStatus
+} from '../../services/orderActions.js';
+import { getTrackingQrUrl, getTrackingUrl } from '../../utils/qrGenerator.js';
+import { formatElapsed, formatTimeRemaining, getUrgencyState } from '../../utils/timeUtils.js';
 
 function escapeHtml(value = '') {
     return String(value)
@@ -28,12 +37,19 @@ export class OrdersTab extends BaseTab {
         this.btnRefresh = document.getElementById('btnRefreshOrders');
         this.btnReleaseExpired = document.getElementById('btnReleaseExpired');
         this.receiptUrlCache = new Map();
+        this.unsubscribeOrders = null;
+        this.currentOrderDocs = [];
+        this.knownOrderIds = new Set();
+        this.newOrderIds = new Map();
+        this.hasInitialLiveSnapshot = false;
+        this.liveClock = null;
+        this.liveStartedAt = 0;
     }
 
     async init() {
-        if (this.btnRefresh) this.btnRefresh.addEventListener('click', () => this.loadOrders());
-        if (this.filterSelect) this.filterSelect.addEventListener('change', () => this.loadOrders());
-        if (this.storeScope) this.storeScope.addEventListener('change', () => this.loadOrders());
+        if (this.btnRefresh) this.btnRefresh.addEventListener('click', () => this.startLiveOrders());
+        if (this.filterSelect) this.filterSelect.addEventListener('change', () => this.handleFilterChange());
+        if (this.storeScope) this.storeScope.addEventListener('change', () => this.startLiveOrders());
         if (this.btnReleaseExpired) this.btnReleaseExpired.addEventListener('click', () => this.releaseExpiredOrders());
 
         // Expose global actions
@@ -43,14 +59,140 @@ export class OrdersTab extends BaseTab {
         window.markOrderOutForDelivery = this.markOrderOutForDelivery.bind(this);
         window.markOrderDelivered = this.markOrderDelivered.bind(this);
         window.cancelOrderAdmin = this.cancelOrderAdmin.bind(this);
-        window.moveOrderToStatus = this.moveOrderToStatus.bind(this);
+        window.advanceStoreOrder = this.advanceStoreOrder.bind(this);
 
-        this.bindBoardDragEvents();
-        this.loadOrders();
+        this.startLiveOrders();
     }
 
     onShow() {
-        this.loadOrders();
+        this.startLiveOrders();
+    }
+
+    onStoreChanged() {
+        if (!this.isInitialized) return;
+        this.startLiveOrders();
+    }
+
+    handleFilterChange() {
+        const scope = this.storeScope ? this.storeScope.value : 'selected';
+        if (scope === 'all') {
+            this.loadOrders();
+            return;
+        }
+        this.renderCurrentOrders();
+    }
+
+    startLiveOrders() {
+        if (!this.list) return;
+
+        const scope = this.storeScope ? this.storeScope.value : 'selected';
+        if (scope === 'all') {
+            this.stopLiveOrders();
+            this.loadOrders();
+            return;
+        }
+
+        this.stopLiveOrders();
+        this.hasInitialLiveSnapshot = false;
+        this.liveStartedAt = Date.now();
+        this.knownOrderIds.clear();
+        this.newOrderIds.clear();
+        this.list.innerHTML = '<p>Opening live order feed...</p>';
+        if (this.board) this.board.innerHTML = '<div class="orders-board-empty">Connecting to live orders...</div>';
+
+        this.unsubscribeOrders = subscribeToOrders(getCurrentCompanyId(), (orders, meta = {}) => {
+            this.handleLiveOrders(orders, meta);
+        });
+
+        this.startLiveClock();
+    }
+
+    stopLiveOrders() {
+        if (this.unsubscribeOrders) {
+            this.unsubscribeOrders();
+            this.unsubscribeOrders = null;
+        }
+        if (this.liveClock) {
+            window.clearInterval(this.liveClock);
+            this.liveClock = null;
+        }
+    }
+
+    startLiveClock() {
+        if (this.liveClock) window.clearInterval(this.liveClock);
+        this.liveClock = window.setInterval(() => this.renderCurrentOrders(), 30000);
+    }
+
+    handleLiveOrders(orders = [], meta = {}) {
+        const now = Date.now();
+        const changes = Array.isArray(meta.changes) ? meta.changes : [];
+
+        const isStartupWindow = now - this.liveStartedAt < 2500;
+
+        if (!this.hasInitialLiveSnapshot) {
+            this.knownOrderIds = new Set(orders.map((order) => order.id));
+            this.hasInitialLiveSnapshot = true;
+        } else {
+            changes.forEach((change) => {
+                if (change.type === 'added' && !this.knownOrderIds.has(change.id) && !isStartupWindow) {
+                    this.newOrderIds.set(change.id, now + 10000);
+                    this.playNewOrderSound();
+                    window.setTimeout(() => {
+                        this.newOrderIds.delete(change.id);
+                        this.renderCurrentOrders();
+                    }, 10050);
+                }
+                if (change.type !== 'removed') this.knownOrderIds.add(change.id);
+            });
+        }
+
+        this.currentOrderDocs = orders.map((order) => this.toDocLike(order));
+        this.renderCurrentOrders();
+    }
+
+    toDocLike(order) {
+        return {
+            id: order.id,
+            data: () => order
+        };
+    }
+
+    renderCurrentOrders() {
+        const statusFilter = this.filterSelect ? this.filterSelect.value : 'all';
+        const scope = this.storeScope ? this.storeScope.value : 'selected';
+        const now = Date.now();
+
+        this.newOrderIds.forEach((expiresAt, orderId) => {
+            if (expiresAt <= now) this.newOrderIds.delete(orderId);
+        });
+
+        const docs = this.currentOrderDocs.filter((docSnap) => {
+            if (statusFilter === 'all') return true;
+            const order = docSnap.data();
+            return order.status === statusFilter || normalizeOrderStatus(order.status, order) === statusFilter;
+        });
+
+        this.renderDashboard(docs);
+        this.renderBoard(docs, { showCompany: scope === 'all' });
+        this.renderList(docs, { showCompany: scope === 'all' });
+    }
+
+    playNewOrderSound() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const context = new AudioContext();
+            const oscillator = context.createOscillator();
+            const gain = context.createGain();
+            oscillator.frequency.value = 880;
+            gain.gain.value = 0.04;
+            oscillator.connect(gain);
+            gain.connect(context.destination);
+            oscillator.start();
+            oscillator.stop(context.currentTime + 0.18);
+        } catch (error) {
+            // Browsers may block sound until the user interacts with the page.
+        }
     }
 
     async loadOrders() {
@@ -116,15 +258,17 @@ export class OrdersTab extends BaseTab {
             const value = Number(order.total ?? order.price ?? 0);
             return sum + (Number.isFinite(value) ? value : 0);
         }, 0);
-        const pending = orders.filter((order) => ['pending_payment', 'pending_verification', 'reserved'].includes(order.status)).length;
-        const paid = orders.filter((order) => ['paid', 'preparing', 'out_for_delivery', 'delivered'].includes(order.status)).length;
+        const pending = orders.filter((order) => normalizeOrderStatus(order.status, order) === 'new').length;
+        const active = orders.filter((order) => ['accepted', 'preparing', 'ready', 'delivery'].includes(normalizeOrderStatus(order.status, order))).length;
+        const completed = orders.filter((order) => normalizeOrderStatus(order.status, order) === 'completed').length;
         const stores = new Set(orders.map((order) => order.companyId || COMPANY_ID));
 
         const cards = [
             ['Orders', orders.length],
             ['Revenue', `${totalRevenue} som`],
-            ['Pending', pending],
-            ['Paid/Active', paid],
+            ['New', pending],
+            ['Active', active],
+            ['Completed', completed],
             ['Stores', stores.size]
         ];
 
@@ -141,23 +285,16 @@ export class OrdersTab extends BaseTab {
             {
                 id: 'new',
                 title: 'New Orders',
-                helper: 'Reserved or waiting for payment',
-                statuses: ['pending_payment', 'reserved'],
-                targetStatus: 'pending_payment'
+                helper: 'Needs store acceptance',
+                statuses: ['new'],
+                targetStatus: 'new'
             },
             {
-                id: 'verification',
-                title: 'Verify Payment',
-                helper: 'Receipt uploaded, needs approval',
-                statuses: ['pending_verification'],
-                targetStatus: 'pending_verification'
-            },
-            {
-                id: 'paid',
+                id: 'accepted',
                 title: 'Accepted',
-                helper: 'Paid and ready to start',
-                statuses: ['paid'],
-                targetStatus: 'paid'
+                helper: 'Confirmed by the store',
+                statuses: ['accepted'],
+                targetStatus: 'accepted'
             },
             {
                 id: 'preparing',
@@ -167,18 +304,25 @@ export class OrdersTab extends BaseTab {
                 targetStatus: 'preparing'
             },
             {
-                id: 'out_for_delivery',
-                title: 'Delivery / Pickup',
-                helper: 'On the way or ready for pickup',
-                statuses: ['out_for_delivery'],
-                targetStatus: 'out_for_delivery'
+                id: 'ready',
+                title: 'Ready',
+                helper: 'Packed and waiting',
+                statuses: ['ready'],
+                targetStatus: 'ready'
             },
             {
-                id: 'delivered',
+                id: 'delivery',
+                title: 'Delivery / Pickup',
+                helper: 'On the way or ready for pickup',
+                statuses: ['delivery'],
+                targetStatus: 'delivery'
+            },
+            {
+                id: 'completed',
                 title: 'Completed',
                 helper: 'Delivered or picked up',
-                statuses: ['delivered'],
-                targetStatus: 'delivered'
+                statuses: ['completed'],
+                targetStatus: 'completed'
             },
             {
                 id: 'cancelled',
@@ -200,7 +344,7 @@ export class OrdersTab extends BaseTab {
         }
 
         this.board.innerHTML = this.getBoardColumns().map((column) => {
-            const columnOrders = orders.filter((order) => column.statuses.includes(order.status));
+            const columnOrders = orders.filter((order) => column.statuses.includes(normalizeOrderStatus(order.status, order)));
             return `
                 <section class="orders-column" data-board-status="${column.targetStatus}">
                     <div class="orders-column-header">
@@ -213,7 +357,7 @@ export class OrdersTab extends BaseTab {
                     <div class="orders-column-body">
                         ${columnOrders.length
                     ? columnOrders.map((order) => this.renderBoardCard(order, { showCompany })).join('')
-                    : '<div class="orders-drop-hint">Drop orders here</div>'}
+                    : '<div class="orders-drop-hint">No orders here</div>'}
                     </div>
                 </section>
             `;
@@ -226,27 +370,41 @@ export class OrdersTab extends BaseTab {
         const items = this.getOrderItemsText(order);
         const total = Number(order.total ?? order.price ?? 0);
         const deliveryLabel = order.deliveryMethod === 'pickup' ? 'Pickup' : 'Delivery';
-        const receiptLabel = order.receiptUrl || order.receiptPath ? 'Receipt attached' : 'No receipt yet';
+        const urgency = getUrgencyState(order);
+        const trackingUrl = getTrackingUrl(order.id);
+        const qrUrl = getTrackingQrUrl(order.id, { size: 96, url: trackingUrl });
         const actions = this.renderBoardCardActions(order);
+        const normalizedStatus = normalizeOrderStatus(order.status, order);
+        const isNew = this.newOrderIds.has(order.id);
 
         return `
-            <article class="order-kanban-card" draggable="true" data-order-id="${escapeHtml(order.id)}" data-order-status="${escapeHtml(order.status || '')}">
+            <article class="order-kanban-card ${escapeHtml(urgency.className)} ${isNew ? 'is-new-order' : ''}" data-order-id="${escapeHtml(order.id)}" data-order-status="${escapeHtml(normalizedStatus)}">
                 <div class="order-card-topline">
                     <span class="order-card-id">#${escapeHtml(order.id.slice(0, 8))}</span>
-                    <span class="order-chip" style="--chip-color:${this.getStatusColor(order.status)}">${escapeHtml(this.getStatusLabel(order.status))}</span>
+                    <span class="order-card-badges">
+                        ${isNew ? '<span class="new-order-badge">NEW</span>' : ''}
+                        <span class="order-chip" style="--chip-color:${this.getStatusColor(normalizedStatus)}">${escapeHtml(this.getStatusLabel(normalizedStatus))}</span>
+                    </span>
                 </div>
                 <h4>${escapeHtml(items)}</h4>
                 <div class="order-card-meta">
                     <span>${escapeHtml(order.customerName || 'Guest customer')}</span>
-                    <span>${escapeHtml(order.customerPhone || 'No phone')}</span>
+                    <span>${escapeHtml(order.phone || order.customerPhone || 'No phone')}</span>
                     <span>${escapeHtml(deliveryLabel)}${order.customerAddress ? `: ${escapeHtml(order.customerAddress)}` : ''}</span>
+                </div>
+                <div class="order-urgency-row">
+                    <span>${escapeHtml(urgency.label)}</span>
+                    <span>${escapeHtml(formatElapsed(order))} • ${escapeHtml(formatTimeRemaining(order))}</span>
                 </div>
                 <div class="order-card-footer">
                     <strong>${Number.isFinite(total) ? total : 0} som</strong>
                     <span>${escapeHtml(createdLabel)}</span>
                 </div>
                 ${showCompany ? `<div class="order-card-store">${escapeHtml(order.companyId || COMPANY_ID)}</div>` : ''}
-                <div class="order-card-receipt">${escapeHtml(receiptLabel)}</div>
+                <div class="order-tracking-mini">
+                    <img src="${qrUrl}" alt="Tracking QR for order ${escapeHtml(order.id)}">
+                    <a href="${escapeHtml(trackingUrl)}" target="_blank" rel="noopener">Customer tracking</a>
+                </div>
                 ${actions}
             </article>
         `;
@@ -254,47 +412,15 @@ export class OrdersTab extends BaseTab {
 
     renderBoardCardActions(order) {
         const id = escapeHtml(order.id);
-        const deliveryMethod = escapeHtml(order.deliveryMethod || 'delivery');
+        const transition = getNextOrderTransition(order);
 
-        if (order.status === 'pending_verification') {
-            return `
-                <div class="order-card-actions">
-                    <button class="btn-primary" onclick="verifyOrder('${id}')">Approve</button>
-                    <button class="btn-danger" onclick="rejectOrder('${id}')">Reject</button>
-                </div>
-            `;
-        }
-        if (['pending_payment', 'reserved'].includes(order.status)) {
-            return `
-                <div class="order-card-actions">
-                    <button class="btn-danger" onclick="cancelOrderAdmin('${id}')">Cancel</button>
-                </div>
-            `;
-        }
-        if (order.status === 'paid') {
-            return `
-                <div class="order-card-actions">
-                    <button class="btn-secondary" onclick="markOrderPreparing('${id}')">Start</button>
-                    <button class="btn-danger" onclick="cancelOrderAdmin('${id}')">Cancel</button>
-                </div>
-            `;
-        }
-        if (order.status === 'preparing') {
-            return `
-                <div class="order-card-actions">
-                    <button class="btn-secondary" onclick="markOrderOutForDelivery('${id}', '${deliveryMethod}')">${order.deliveryMethod === 'pickup' ? 'Ready' : 'Ship'}</button>
-                    <button class="btn-danger" onclick="cancelOrderAdmin('${id}')">Cancel</button>
-                </div>
-            `;
-        }
-        if (order.status === 'out_for_delivery') {
-            return `
-                <div class="order-card-actions">
-                    <button class="btn-primary" onclick="markOrderDelivered('${id}')">${order.deliveryMethod === 'pickup' ? 'Picked Up' : 'Delivered'}</button>
-                </div>
-            `;
-        }
-        return '';
+        if (!transition) return '';
+        return `
+            <div class="order-card-actions">
+                <button class="btn-primary live-order-action" onclick="advanceStoreOrder('${id}')">${escapeHtml(transition.label)}</button>
+                <button class="btn-danger" onclick="cancelOrderAdmin('${id}')">Cancel</button>
+            </div>
+        `;
     }
 
     getOrderItemsText(order) {
@@ -308,109 +434,31 @@ export class OrdersTab extends BaseTab {
 
     getStatusLabel(status) {
         const labels = {
+            ...STATUS_LABELS,
             pending_payment: 'Pending',
             pending_verification: 'Verify',
             reserved: 'Reserved',
-            paid: 'Paid',
-            preparing: 'Preparing',
+            paid: 'Accepted',
             out_for_delivery: 'Delivery',
-            delivered: 'Done',
-            cancelled: 'Cancelled'
+            delivered: 'Completed'
         };
         return labels[status] || status || 'Unknown';
     }
 
-    bindBoardDragEvents() {
-        if (!this.board || this.board.dataset.dragBound === 'true') return;
-        this.board.dataset.dragBound = 'true';
-
-        this.board.addEventListener('dragstart', (event) => {
-            const card = event.target.closest('.order-kanban-card');
-            if (!card) return;
-            card.classList.add('is-dragging');
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', card.dataset.orderId);
-        });
-
-        this.board.addEventListener('dragend', (event) => {
-            const card = event.target.closest('.order-kanban-card');
-            if (card) card.classList.remove('is-dragging');
-            this.board.querySelectorAll('.orders-column').forEach((column) => column.classList.remove('is-drag-over'));
-        });
-
-        this.board.addEventListener('dragover', (event) => {
-            const column = event.target.closest('.orders-column');
-            if (!column) return;
-            event.preventDefault();
-            column.classList.add('is-drag-over');
-        });
-
-        this.board.addEventListener('dragleave', (event) => {
-            const column = event.target.closest('.orders-column');
-            if (!column || column.contains(event.relatedTarget)) return;
-            column.classList.remove('is-drag-over');
-        });
-
-        this.board.addEventListener('drop', async (event) => {
-            const column = event.target.closest('.orders-column');
-            if (!column) return;
-            event.preventDefault();
-            column.classList.remove('is-drag-over');
-
-            const orderId = event.dataTransfer.getData('text/plain');
-            const targetStatus = column.dataset.boardStatus;
-            if (!orderId || !targetStatus) return;
-
-            await this.moveOrderToStatus(orderId, targetStatus);
-        });
-    }
-
-    async moveOrderToStatus(orderId, targetStatus) {
+    async advanceStoreOrder(orderId) {
         try {
             const order = await this.ensureCompanyOrder(orderId);
-            if (order.status === targetStatus || (order.status === 'reserved' && targetStatus === 'pending_payment')) return;
+            const transition = getNextOrderTransition(order);
+            if (!transition) return;
 
-            if (targetStatus === 'cancelled') {
-                if (!confirm("Cancel this order and release stock?")) return;
-                await this.cancelAndRelease(orderId, 'kanban_cancelled');
-                this.loadOrders();
-                return;
-            }
-
-            if (order.status === 'cancelled') {
-                alert('Cancelled orders cannot be moved back from the board yet.');
-                return;
-            }
-
-            const payload = this.getStatusUpdatePayload(targetStatus, order);
-            await updateDoc(doc(db, 'orders', orderId), payload);
-            this.loadOrders();
+            await updateOrderStatus(orderId, transition.status, {
+                storeId: order.storeId || order.companyId || getCurrentCompanyId(),
+                companyId: order.companyId || getCurrentCompanyId(),
+                estimatedTime: order.estimatedTime
+            });
         } catch (e) {
             alert(e.message || e);
         }
-    }
-
-    getStatusUpdatePayload(status, order = {}) {
-        const payload = {
-            status,
-            updatedAt: serverTimestamp()
-        };
-
-        if (status === 'pending_payment') payload.paymentStatus = 'pending';
-        if (status === 'pending_verification') payload.paymentStatus = 'pending_verification';
-        if (status === 'paid') {
-            payload.paymentStatus = 'paid';
-            payload.verifiedAt = serverTimestamp();
-            payload.paidAt = serverTimestamp();
-        }
-        if (status === 'preparing') payload.preparingAt = serverTimestamp();
-        if (status === 'out_for_delivery') {
-            const timestampField = order.deliveryMethod === 'pickup' ? 'readyForPickupAt' : 'outForDeliveryAt';
-            payload[timestampField] = serverTimestamp();
-        }
-        if (status === 'delivered') payload.deliveredAt = serverTimestamp();
-
-        return payload;
     }
 
     async renderList(docs, { showCompany = false } = {}) {
@@ -427,48 +475,23 @@ export class OrdersTab extends BaseTab {
             const timeAgo = Math.floor((new Date() - date) / 60000); // mins
             const isExpired = order.expiresAt?.toDate ? order.expiresAt.toDate() < new Date() : timeAgo > 15;
             const receiptUrl = await this.getReceiptUrl(order);
+            const normalizedStatus = normalizeOrderStatus(order.status, order);
+            const transition = getNextOrderTransition({ id, ...order });
+            const trackingUrl = getTrackingUrl(id);
+            const qrUrl = getTrackingQrUrl(id, { size: 110, url: trackingUrl });
             const orderItems = Array.isArray(order.items) && order.items.length
                 ? order.items.map(item => `${item.quantity} x ${item.name_en || item.name_ru || item.name_kg || item.productName || item.productId}`).join('<br>')
                 : `${order.productName || order.productId || 'Unknown Product'}`;
 
             let actions = '';
 
-            if (order.status === 'pending_verification') {
+            if (transition) {
                 actions = `
-                    <div style="margin-top:10px; display:flex; gap:10px;">
-                        <button onclick="verifyOrder('${id}', true)" class="btn-primary" style="background:#2e7d32; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">Approve (Paid)</button>
-                        <button onclick="rejectOrder('${id}')" class="btn-danger" style="padding:5px 10px; border-radius:4px; cursor:pointer;">Reject (Release Stock)</button>
+                    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <button onclick="advanceStoreOrder('${id}')" class="btn-primary" style="color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">${escapeHtml(transition.label)}</button>
+                        <button onclick="cancelOrderAdmin('${id}')" class="btn-danger" style="padding:5px 10px; border-radius:4px; cursor:pointer;">Cancel</button>
                     </div>
                  `;
-            } else if (['pending_payment', 'reserved'].includes(order.status)) {
-                actions = `
-                    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-                        <div style="font-size:0.85rem; color:${isExpired ? '#d32f2f' : '#e65100'};">
-                            ${isExpired ? `Expired (${timeAgo}m ago)` : `Awaiting payment (${timeAgo}m ago)`}
-                        </div>
-                        <button onclick="cancelOrderAdmin('${id}')" class="btn-danger" style="padding:5px 10px; border-radius:4px; cursor:pointer;">Cancel & Release</button>
-                    </div>
-                `;
-            } else if (order.status === 'paid') {
-                actions = `
-                    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-                        <button onclick="markOrderPreparing('${id}')" class="btn-secondary" style="padding:5px 10px; border-radius:4px; cursor:pointer;">Mark Preparing</button>
-                        <button onclick="cancelOrderAdmin('${id}')" class="btn-danger" style="padding:5px 10px; border-radius:4px; cursor:pointer;">Cancel & Release</button>
-                    </div>
-                `;
-            } else if (order.status === 'preparing') {
-                actions = `
-                    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-                        <button onclick="markOrderOutForDelivery('${id}', '${order.deliveryMethod || 'delivery'}')" class="btn-secondary" style="padding:5px 10px; border-radius:4px; cursor:pointer;">${order.deliveryMethod === 'pickup' ? 'Ready for Pickup' : 'Out for Delivery'}</button>
-                        <button onclick="cancelOrderAdmin('${id}')" class="btn-danger" style="padding:5px 10px; border-radius:4px; cursor:pointer;">Cancel & Release</button>
-                    </div>
-                `;
-            } else if (order.status === 'out_for_delivery') {
-                actions = `
-                    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
-                        <button onclick="markOrderDelivered('${id}')" class="btn-primary" style="background:#1565c0; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">${order.deliveryMethod === 'pickup' ? 'Mark Picked Up' : 'Mark Delivered'}</button>
-                    </div>
-                `;
             }
 
             const el = document.createElement('div');
@@ -485,8 +508,8 @@ export class OrdersTab extends BaseTab {
                     </div>
                     <div style="text-align:right;">
                         <span class="status-badge status-${order.status}" 
-                              style="padding:2px 8px; border-radius:12px; font-size:0.8rem; background:${this.getStatusColor(order.status)}; color:white;">
-                            ${order.status}
+                              style="padding:2px 8px; border-radius:12px; font-size:0.8rem; background:${this.getStatusColor(normalizedStatus)}; color:white;">
+                            ${escapeHtml(this.getStatusLabel(normalizedStatus))}
                         </span>
                     </div>
                 </div>
@@ -499,7 +522,7 @@ export class OrdersTab extends BaseTab {
                     <div>
                         <div style="font-size:0.8rem; color:#777; font-weight:700;">Customer</div>
                         <div>${order.customerName || 'Guest'}</div>
-                        <div>${order.customerPhone || ''}</div>
+                        <div>${order.phone || order.customerPhone || ''}</div>
                         <div>${order.customerAddress || ''}</div>
                     </div>
                     <div>
@@ -508,6 +531,14 @@ export class OrdersTab extends BaseTab {
                         <div>Delivery: ${order.deliveryFee ?? 0} som</div>
                         <div><strong>Total: ${order.total ?? order.price ?? 0} som</strong></div>
                         <div>${order.deliveryMethod || 'delivery'}</div>
+                        <div>${escapeHtml(formatElapsed(order))} • ${escapeHtml(formatTimeRemaining(order))}</div>
+                    </div>
+                </div>
+                <div class="order-detail-tracking">
+                    <img src="${qrUrl}" alt="Tracking QR for order ${escapeHtml(id)}">
+                    <div>
+                        <div style="font-size:0.8rem; color:#777; font-weight:700;">Customer Tracking</div>
+                        <a href="${escapeHtml(trackingUrl)}" target="_blank" rel="noopener">${escapeHtml(trackingUrl)}</a>
                     </div>
                 </div>
                 
@@ -528,6 +559,11 @@ export class OrdersTab extends BaseTab {
 
     getStatusColor(status) {
         switch (status) {
+            case 'new': return '#2563eb';
+            case 'accepted': return '#16a34a';
+            case 'ready': return '#f59e0b';
+            case 'delivery': return '#0891b2';
+            case 'completed': return '#0f766e';
             case 'paid': return '#2e7d32'; // Green
             case 'preparing': return '#6a1b9a';
             case 'out_for_delivery': return '#00897b';

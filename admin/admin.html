@@ -1225,18 +1225,23 @@
           <p>Drag orders across the columns as the store prepares, ships, and completes each delivery.</p>
         </div>
         <div class="toolbar" style="margin-bottom:1rem; display:flex; gap:10px;">
-          <button id="btnRefreshOrders" class="btn-secondary">🔄 Refresh</button>
+          <span class="live-orders-pill">Live Orders</span>
           <button id="btnReleaseExpired" class="btn-danger" title="Release stock for orders older than 15 mins">Release
             Expired</button>
           <select id="orderFilterStatus" style="padding:8px; border-radius:4px;">
             <option value="all" selected>All Statuses</option>
-            <option value="pending_payment">Pending Payment</option>
-            <option value="pending_verification">Pending Verification</option>
-            <option value="paid">Paid / Verified</option>
+            <option value="new">New</option>
+            <option value="accepted">Accepted</option>
             <option value="preparing">Preparing</option>
-            <option value="out_for_delivery">Out for Delivery / Ready</option>
-            <option value="delivered">Delivered</option>
+            <option value="ready">Ready</option>
+            <option value="delivery">Delivery / Pickup</option>
+            <option value="completed">Completed</option>
             <option value="reserved">Legacy Reserved</option>
+            <option value="pending_payment">Legacy Pending Payment</option>
+            <option value="pending_verification">Legacy Pending Verification</option>
+            <option value="paid">Legacy Paid</option>
+            <option value="out_for_delivery">Legacy Out for Delivery</option>
+            <option value="delivered">Legacy Delivered</option>
             <option value="cancelled">Cancelled</option>
           </select>
           <select id="orderStoreScope" style="padding:8px; border-radius:4px;">
