@@ -3,7 +3,7 @@ import { db } from '../../firebase-config.js';
 import { COMPANY_ID, getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
 import { getInventoryDocId } from '../../firestore-paths.js';
 import {
-    collection, query, where, orderBy, getDocs, getDoc, doc, updateDoc, runTransaction, serverTimestamp
+    collection, query, where, orderBy, getDocs, getDoc, doc, updateDoc, runTransaction, serverTimestamp, limit
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { storage } from '../../firebase-config.js';
 import { ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
@@ -17,6 +17,8 @@ import {
 import { getTrackingQrUrl, getTrackingUrl } from '../../utils/qrGenerator.js';
 import { formatElapsed, formatTimeRemaining, formatTimerStatus, getOrderTiming, getUrgencyState } from '../../utils/timeUtils.js';
 import { getSimilarOrderCounts } from '../../utils/orderSimilarityUtils.js';
+import { ACTIVE_ORDER_STATUSES, HISTORY_PAGE_LIMIT, LIVE_ORDER_LIMIT } from '../../services/orderArchiveService.js';
+import { cleanupOldOrders } from '../../services/orderCleanupService.js';
 
 function escapeHtml(value = '') {
     return String(value)
@@ -26,6 +28,8 @@ function escapeHtml(value = '') {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 }
+
+const MAX_RENDERED_ORDERS_PER_COLUMN = 25;
 
 export class OrdersTab extends BaseTab {
     constructor() {
@@ -50,6 +54,7 @@ export class OrdersTab extends BaseTab {
         this.liveStartedAt = 0;
         this.isFullscreen = false;
         this.isFocusMode = window.localStorage?.getItem('ordersFocusMode') === 'true';
+        this.cleanupStarted = false;
     }
 
     async init() {
@@ -74,6 +79,15 @@ export class OrdersTab extends BaseTab {
         window.advanceStoreOrder = this.advanceStoreOrder.bind(this);
 
         this.startLiveOrders();
+        this.runOldOrderCleanup();
+    }
+
+    runOldOrderCleanup() {
+        if (this.cleanupStarted) return;
+        this.cleanupStarted = true;
+        cleanupOldOrders({ companyId: getCurrentCompanyId() }).catch((error) => {
+            console.warn('Old order cleanup skipped:', error);
+        });
     }
 
     toggleFullscreenOrders(force = null) {
@@ -326,19 +340,28 @@ export class OrdersTab extends BaseTab {
 
         const statusFilter = this.filterSelect ? this.filterSelect.value : 'all';
         const scope = this.storeScope ? this.storeScope.value : 'selected';
+        const isHistoryView = ['completed', 'delivered'].includes(statusFilter);
 
         try {
-            let q;
-            if (scope === 'all') {
-                q = statusFilter === 'all'
-                    ? query(collection(db, 'orders'), orderBy('createdAt', 'desc'))
-                    : query(collection(db, 'orders'), where('status', '==', statusFilter), orderBy('createdAt', 'desc'));
+            const collectionName = isHistoryView ? 'orders_archive' : 'orders';
+            const constraints = [];
+
+            if (scope !== 'all') constraints.push(where('companyId', '==', getCurrentCompanyId()));
+            if (isHistoryView) {
+                constraints.push(where('status', 'in', ['completed', 'delivered']));
+                constraints.push(orderBy('createdAt', 'desc'));
+                constraints.push(limit(HISTORY_PAGE_LIMIT));
             } else if (statusFilter === 'all') {
-                q = query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId()), orderBy('createdAt', 'desc'));
+                constraints.push(where('status', 'in', ACTIVE_ORDER_STATUSES));
+                constraints.push(orderBy('createdAt', 'desc'));
+                constraints.push(limit(LIVE_ORDER_LIMIT));
             } else {
-                q = query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId()), where('status', '==', statusFilter), orderBy('createdAt', 'desc'));
+                constraints.push(where('status', '==', statusFilter));
+                constraints.push(orderBy('createdAt', 'desc'));
+                constraints.push(limit(LIVE_ORDER_LIMIT));
             }
 
+            const q = query(collection(db, collectionName), ...constraints);
             const snap = await getDocs(q);
             const docs = scope === 'all' ? snap.docs : this.filterCompanyDocs(snap.docs, 'orders');
             this.renderDashboard(docs);
@@ -354,10 +377,21 @@ export class OrdersTab extends BaseTab {
             // Index correction hint
             if (e.message.includes("requires an index")) {
                 this.list.innerHTML += `<p style="font-size:0.8rem; color:#666;">(Missing Index for current filter)</p>`;
-                // Fallback: client side filter
-                const fallbackQuery = scope === 'all'
-                    ? query(collection(db, 'orders'))
-                    : query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId()));
+                // Fallback stays bounded. Never fetch the entire orders collection.
+                const fallbackCollection = isHistoryView ? 'orders_archive' : 'orders';
+                const fallbackConstraints = [];
+                if (scope !== 'all') fallbackConstraints.push(where('companyId', '==', getCurrentCompanyId()));
+                if (isHistoryView) {
+                    fallbackConstraints.push(where('status', 'in', ['completed', 'delivered']));
+                    fallbackConstraints.push(limit(HISTORY_PAGE_LIMIT));
+                } else if (statusFilter === 'all') {
+                    fallbackConstraints.push(where('status', 'in', ACTIVE_ORDER_STATUSES));
+                    fallbackConstraints.push(limit(LIVE_ORDER_LIMIT));
+                } else {
+                    fallbackConstraints.push(where('status', '==', statusFilter));
+                    fallbackConstraints.push(limit(LIVE_ORDER_LIMIT));
+                }
+                const fallbackQuery = query(collection(db, fallbackCollection), ...fallbackConstraints);
                 const allSnap = await getDocs(fallbackQuery);
                 const filtered = allSnap.docs
                     .filter(d => statusFilter === 'all' || d.data().status === statusFilter)
@@ -486,6 +520,8 @@ export class OrdersTab extends BaseTab {
 
         this.board.innerHTML = columns.map((column) => {
             const columnOrders = this.sortColumnOrders(column.orders, column.targetStatus);
+            const visibleOrders = columnOrders.slice(0, MAX_RENDERED_ORDERS_PER_COLUMN);
+            const hiddenCount = Math.max(0, columnOrders.length - visibleOrders.length);
             const isEmpty = columnOrders.length === 0;
             return `
                 <section class="orders-column ${isEmpty ? 'orders-column-empty' : 'orders-column-active'}" data-board-status="${column.targetStatus}" data-order-count="${columnOrders.length}">
@@ -497,9 +533,10 @@ export class OrdersTab extends BaseTab {
                         <span>${columnOrders.length}</span>
                     </div>
                     <div class="orders-column-body">
-                        ${columnOrders.length
-                    ? columnOrders.map((order) => this.renderBoardCard(order, { showCompany, similarCount: similarityCounts[order.id] || 0 })).join('')
+                        ${visibleOrders.length
+                    ? visibleOrders.map((order) => this.renderBoardCard(order, { showCompany, similarCount: similarityCounts[order.id] || 0 })).join('')
                     : '<div class="orders-drop-hint">No orders here</div>'}
+                        ${hiddenCount ? `<div class="orders-more-count">+${hiddenCount} more in this column</div>` : ''}
                     </div>
                 </section>
             `;
@@ -864,7 +901,8 @@ export class OrdersTab extends BaseTab {
                 collection(db, 'orders'),
                 where('companyId', '==', getCurrentCompanyId()),
                 where('status', '==', 'pending_payment'),
-                where('createdAt', '<', cutoff)
+                where('createdAt', '<', cutoff),
+                limit(100)
             );
 
             let snap;
@@ -872,7 +910,12 @@ export class OrdersTab extends BaseTab {
                 snap = await getDocs(q);
             } catch (e) {
                 // Client-side fallback if index missing
-                const all = await getDocs(query(collection(db, 'orders'), where('companyId', '==', getCurrentCompanyId()), where('status', '==', 'pending_payment')));
+                const all = await getDocs(query(
+                    collection(db, 'orders'),
+                    where('companyId', '==', getCurrentCompanyId()),
+                    where('status', '==', 'pending_payment'),
+                    limit(100)
+                ));
                 snap = { docs: all.docs.filter(d => d.data().createdAt.toDate() < cutoff) };
             }
             snap.docs = this.filterCompanyDocs(snap.docs, 'orders');

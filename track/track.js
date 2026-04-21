@@ -118,18 +118,41 @@ const orderId = getOrderIdFromUrl();
 if (!orderId) {
     renderError('Missing order number. Please scan the QR code again or ask the store for a new link.');
 } else {
+    let activeOrder = null;
+    let archivedOrder = null;
+
+    const renderBestAvailableOrder = () => {
+        if (activeOrder) {
+            renderOrder(orderId, activeOrder);
+            return;
+        }
+        if (archivedOrder) {
+            renderOrder(orderId, archivedOrder);
+            return;
+        }
+        renderError('We could not find this order yet.');
+    };
+
     onSnapshot(
         doc(db, 'orders', orderId),
         (snapshot) => {
-            if (!snapshot.exists()) {
-                renderError('We could not find this order yet.');
-                return;
-            }
-            renderOrder(orderId, snapshot.data());
+            activeOrder = snapshot.exists() ? snapshot.data() : null;
+            renderBestAvailableOrder();
         },
         (error) => {
-            console.warn('Tracking listener failed:', error);
+            console.warn('Active tracking listener failed:', error);
             renderError('Live tracking could not connect. Please refresh in a moment.');
+        }
+    );
+
+    onSnapshot(
+        doc(db, 'orders_archive', orderId),
+        (snapshot) => {
+            archivedOrder = snapshot.exists() ? snapshot.data() : null;
+            renderBestAvailableOrder();
+        },
+        (error) => {
+            console.warn('Archived tracking listener failed:', error);
         }
     );
 }

@@ -1,11 +1,13 @@
 import { db } from '../firebase-config.js';
 import {
     collection,
+    limit,
     onSnapshot,
     orderBy,
     query,
     where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { ACTIVE_ORDER_STATUSES, LIVE_ORDER_LIMIT } from './orderArchiveService.js';
 
 function sortByCreatedAtDesc(orders = []) {
     return [...orders].sort((a, b) => {
@@ -16,8 +18,12 @@ function sortByCreatedAtDesc(orders = []) {
 }
 
 function createOrdersQuery(storeId, fieldName, shouldOrder = true) {
-    const constraints = [where(fieldName, '==', storeId)];
+    const constraints = [
+        where(fieldName, '==', storeId),
+        where('status', 'in', ACTIVE_ORDER_STATUSES)
+    ];
     if (shouldOrder) constraints.push(orderBy('createdAt', 'desc'));
+    constraints.push(limit(LIVE_ORDER_LIMIT));
     return query(collection(db, 'orders'), ...constraints);
 }
 
@@ -35,7 +41,7 @@ export function subscribeToOrders(storeId, callback) {
 
     const emit = (changes = [], error = null) => {
         if (closed) return;
-        callback(sortByCreatedAtDesc([...records.values()]), { changes, error });
+        callback(sortByCreatedAtDesc([...records.values()]).slice(0, LIVE_ORDER_LIMIT), { changes, error });
     };
 
     const attachListener = (fieldName, shouldOrder = true) => {

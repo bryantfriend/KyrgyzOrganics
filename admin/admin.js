@@ -3,7 +3,8 @@ import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/
 import { ensureBaseCompanies, getUserProfile, login } from '../tenant-auth.js';
 import { COMPANY_ID } from '../company-config.js';
 import { getSelectedCompanyId, loadSelectedCompany, setSelectedCompany } from '../store-context.js';
-import { collection, doc, getDoc, getDocs, orderBy, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { ACTIVE_ORDER_STATUSES } from '../services/orderArchiveService.js';
 import { CategoriesTab } from './tabs/CategoriesTab.js';
 import { ProductsTab } from './tabs/ProductsTab.js';
 import { BannersTab } from './tabs/BannersTab.js';
@@ -555,7 +556,13 @@ class AdminApp {
         this.getStoreDetails(companyId),
         this.getStorefrontConfig(companyId),
         getDocs(query(collection(db, 'products'), where('companyId', '==', companyId))),
-        getDocs(query(collection(db, 'orders'), where('companyId', '==', companyId))).catch(() => ({ docs: [] }))
+        getDocs(query(
+          collection(db, 'orders'),
+          where('companyId', '==', companyId),
+          where('status', 'in', ACTIVE_ORDER_STATUSES),
+          orderBy('createdAt', 'desc'),
+          limit(100)
+        )).catch(() => ({ docs: [] }))
       ]);
 
       const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));

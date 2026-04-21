@@ -4,6 +4,7 @@ import {
     serverTimestamp,
     updateDoc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { archiveOrder } from './orderArchiveService.js';
 
 export const STORE_ORDER_STATUSES = ['new', 'accepted', 'preparing', 'ready', 'delivery', 'completed'];
 
@@ -84,4 +85,8 @@ export async function updateOrderStatus(orderId, newStatus, options = {}) {
     if (options.estimatedTime) payload.estimatedTime = Number(options.estimatedTime);
 
     await updateDoc(doc(db, 'orders', orderId), payload);
+
+    if (newStatus === 'completed') {
+        await archiveOrder(orderId, payload);
+    }
 }

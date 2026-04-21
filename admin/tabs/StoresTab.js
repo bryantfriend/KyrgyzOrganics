@@ -4,6 +4,7 @@ import { COMPANY_ID } from '../../company-config.js';
 import { getSelectedCompanyId, setSelectedCompany } from '../../store-context.js';
 import { getInventoryDocId } from '../../firestore-paths.js';
 import { THEME_PRESETS, getFallbackStoreConfig } from '../../storefront/defaults/default-store-config.js';
+import { ACTIVE_ORDER_STATUSES } from '../../services/orderArchiveService.js';
 import { logAudit } from '../utils.js';
 import {
   addDoc,
@@ -1153,7 +1154,13 @@ export class StoresTab extends BaseTab {
 
   async loadMetricsForCompany(companyId) {
     try {
-      const ordersBase = query(collection(db, 'orders'), where('companyId', '==', companyId));
+      const ordersBase = query(
+        collection(db, 'orders'),
+        where('companyId', '==', companyId),
+        where('status', 'in', ACTIVE_ORDER_STATUSES),
+        orderBy('createdAt', 'desc'),
+        limit(100)
+      );
       const productsBase = query(collection(db, 'products'), where('companyId', '==', companyId));
       const eventsBase = query(collection(db, 'storefront_events'), where('companyId', '==', companyId));
 
