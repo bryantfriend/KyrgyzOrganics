@@ -8,10 +8,20 @@ import {
 import { storage } from '../../firebase-config.js';
 import { ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
+function escapeHtml(value = '') {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 export class OrdersTab extends BaseTab {
     constructor() {
         super('orders');
         this.list = document.getElementById('ordersList');
+        this.board = document.getElementById('ordersBoard');
         this.dashboard = document.getElementById('ordersDashboard');
         this.filterSelect = document.getElementById('orderFilterStatus');
         this.storeScope = document.getElementById('orderStoreScope');
@@ -33,7 +43,9 @@ export class OrdersTab extends BaseTab {
         window.markOrderOutForDelivery = this.markOrderOutForDelivery.bind(this);
         window.markOrderDelivered = this.markOrderDelivered.bind(this);
         window.cancelOrderAdmin = this.cancelOrderAdmin.bind(this);
+        window.moveOrderToStatus = this.moveOrderToStatus.bind(this);
 
+        this.bindBoardDragEvents();
         this.loadOrders();
     }
 
@@ -63,9 +75,11 @@ export class OrdersTab extends BaseTab {
             const snap = await getDocs(q);
             const docs = scope === 'all' ? snap.docs : this.filterCompanyDocs(snap.docs, 'orders');
             this.renderDashboard(docs);
+            this.renderBoard(docs, { showCompany: scope === 'all' });
             await this.renderList(docs, { showCompany: scope === 'all' });
         } catch (e) {
             console.error("Load Orders Error:", e);
+            if (this.board) this.board.innerHTML = '';
             this.list.innerHTML = `<p style="color:red">Error: ${e.message}</p>`;
 
             // Index correction hint
@@ -81,6 +95,7 @@ export class OrdersTab extends BaseTab {
                     .sort((a, b) => (b.data().createdAt?.toMillis?.() || 0) - (a.data().createdAt?.toMillis?.() || 0));
                 const docs = scope === 'all' ? filtered : this.filterCompanyDocs(filtered, 'orders');
                 this.renderDashboard(docs);
+                this.renderBoard(docs, { showCompany: scope === 'all' });
                 await this.renderList(docs, { showCompany: scope === 'all' });
             }
         }
@@ -119,6 +134,283 @@ export class OrdersTab extends BaseTab {
                 <div style="font-size:1.35rem; font-weight:900; color:#2e7d32;">${value}</div>
             </div>
         `).join('');
+    }
+
+    getBoardColumns() {
+        return [
+            {
+                id: 'new',
+                title: 'New Orders',
+                helper: 'Reserved or waiting for payment',
+                statuses: ['pending_payment', 'reserved'],
+                targetStatus: 'pending_payment'
+            },
+            {
+                id: 'verification',
+                title: 'Verify Payment',
+                helper: 'Receipt uploaded, needs approval',
+                statuses: ['pending_verification'],
+                targetStatus: 'pending_verification'
+            },
+            {
+                id: 'paid',
+                title: 'Accepted',
+                helper: 'Paid and ready to start',
+                statuses: ['paid'],
+                targetStatus: 'paid'
+            },
+            {
+                id: 'preparing',
+                title: 'Preparing',
+                helper: 'Being packed or baked',
+                statuses: ['preparing'],
+                targetStatus: 'preparing'
+            },
+            {
+                id: 'out_for_delivery',
+                title: 'Delivery / Pickup',
+                helper: 'On the way or ready for pickup',
+                statuses: ['out_for_delivery'],
+                targetStatus: 'out_for_delivery'
+            },
+            {
+                id: 'delivered',
+                title: 'Completed',
+                helper: 'Delivered or picked up',
+                statuses: ['delivered'],
+                targetStatus: 'delivered'
+            },
+            {
+                id: 'cancelled',
+                title: 'Cancelled',
+                helper: 'Released or rejected',
+                statuses: ['cancelled'],
+                targetStatus: 'cancelled'
+            }
+        ];
+    }
+
+    renderBoard(docs = [], { showCompany = false } = {}) {
+        if (!this.board) return;
+
+        const orders = docs.map((d) => ({ id: d.id, ...(d.data ? d.data() : d) }));
+        if (!orders.length) {
+            this.board.innerHTML = '<div class="orders-board-empty">No orders match this view yet.</div>';
+            return;
+        }
+
+        this.board.innerHTML = this.getBoardColumns().map((column) => {
+            const columnOrders = orders.filter((order) => column.statuses.includes(order.status));
+            return `
+                <section class="orders-column" data-board-status="${column.targetStatus}">
+                    <div class="orders-column-header">
+                        <div>
+                            <strong>${escapeHtml(column.title)}</strong>
+                            <small>${escapeHtml(column.helper)}</small>
+                        </div>
+                        <span>${columnOrders.length}</span>
+                    </div>
+                    <div class="orders-column-body">
+                        ${columnOrders.length
+                    ? columnOrders.map((order) => this.renderBoardCard(order, { showCompany })).join('')
+                    : '<div class="orders-drop-hint">Drop orders here</div>'}
+                    </div>
+                </section>
+            `;
+        }).join('');
+    }
+
+    renderBoardCard(order, { showCompany = false } = {}) {
+        const createdAt = order.createdAt?.toDate ? order.createdAt.toDate() : null;
+        const createdLabel = createdAt ? createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'New';
+        const items = this.getOrderItemsText(order);
+        const total = Number(order.total ?? order.price ?? 0);
+        const deliveryLabel = order.deliveryMethod === 'pickup' ? 'Pickup' : 'Delivery';
+        const receiptLabel = order.receiptUrl || order.receiptPath ? 'Receipt attached' : 'No receipt yet';
+        const actions = this.renderBoardCardActions(order);
+
+        return `
+            <article class="order-kanban-card" draggable="true" data-order-id="${escapeHtml(order.id)}" data-order-status="${escapeHtml(order.status || '')}">
+                <div class="order-card-topline">
+                    <span class="order-card-id">#${escapeHtml(order.id.slice(0, 8))}</span>
+                    <span class="order-chip" style="--chip-color:${this.getStatusColor(order.status)}">${escapeHtml(this.getStatusLabel(order.status))}</span>
+                </div>
+                <h4>${escapeHtml(items)}</h4>
+                <div class="order-card-meta">
+                    <span>${escapeHtml(order.customerName || 'Guest customer')}</span>
+                    <span>${escapeHtml(order.customerPhone || 'No phone')}</span>
+                    <span>${escapeHtml(deliveryLabel)}${order.customerAddress ? `: ${escapeHtml(order.customerAddress)}` : ''}</span>
+                </div>
+                <div class="order-card-footer">
+                    <strong>${Number.isFinite(total) ? total : 0} som</strong>
+                    <span>${escapeHtml(createdLabel)}</span>
+                </div>
+                ${showCompany ? `<div class="order-card-store">${escapeHtml(order.companyId || COMPANY_ID)}</div>` : ''}
+                <div class="order-card-receipt">${escapeHtml(receiptLabel)}</div>
+                ${actions}
+            </article>
+        `;
+    }
+
+    renderBoardCardActions(order) {
+        const id = escapeHtml(order.id);
+        const deliveryMethod = escapeHtml(order.deliveryMethod || 'delivery');
+
+        if (order.status === 'pending_verification') {
+            return `
+                <div class="order-card-actions">
+                    <button class="btn-primary" onclick="verifyOrder('${id}')">Approve</button>
+                    <button class="btn-danger" onclick="rejectOrder('${id}')">Reject</button>
+                </div>
+            `;
+        }
+        if (['pending_payment', 'reserved'].includes(order.status)) {
+            return `
+                <div class="order-card-actions">
+                    <button class="btn-danger" onclick="cancelOrderAdmin('${id}')">Cancel</button>
+                </div>
+            `;
+        }
+        if (order.status === 'paid') {
+            return `
+                <div class="order-card-actions">
+                    <button class="btn-secondary" onclick="markOrderPreparing('${id}')">Start</button>
+                    <button class="btn-danger" onclick="cancelOrderAdmin('${id}')">Cancel</button>
+                </div>
+            `;
+        }
+        if (order.status === 'preparing') {
+            return `
+                <div class="order-card-actions">
+                    <button class="btn-secondary" onclick="markOrderOutForDelivery('${id}', '${deliveryMethod}')">${order.deliveryMethod === 'pickup' ? 'Ready' : 'Ship'}</button>
+                    <button class="btn-danger" onclick="cancelOrderAdmin('${id}')">Cancel</button>
+                </div>
+            `;
+        }
+        if (order.status === 'out_for_delivery') {
+            return `
+                <div class="order-card-actions">
+                    <button class="btn-primary" onclick="markOrderDelivered('${id}')">${order.deliveryMethod === 'pickup' ? 'Picked Up' : 'Delivered'}</button>
+                </div>
+            `;
+        }
+        return '';
+    }
+
+    getOrderItemsText(order) {
+        if (Array.isArray(order.items) && order.items.length) {
+            return order.items
+                .map((item) => `${Number(item.quantity || 1)} x ${item.name_en || item.name_ru || item.name_kg || item.productName || item.productId || 'Item'}`)
+                .join(', ');
+        }
+        return order.productName || order.productId || 'Order item';
+    }
+
+    getStatusLabel(status) {
+        const labels = {
+            pending_payment: 'Pending',
+            pending_verification: 'Verify',
+            reserved: 'Reserved',
+            paid: 'Paid',
+            preparing: 'Preparing',
+            out_for_delivery: 'Delivery',
+            delivered: 'Done',
+            cancelled: 'Cancelled'
+        };
+        return labels[status] || status || 'Unknown';
+    }
+
+    bindBoardDragEvents() {
+        if (!this.board || this.board.dataset.dragBound === 'true') return;
+        this.board.dataset.dragBound = 'true';
+
+        this.board.addEventListener('dragstart', (event) => {
+            const card = event.target.closest('.order-kanban-card');
+            if (!card) return;
+            card.classList.add('is-dragging');
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', card.dataset.orderId);
+        });
+
+        this.board.addEventListener('dragend', (event) => {
+            const card = event.target.closest('.order-kanban-card');
+            if (card) card.classList.remove('is-dragging');
+            this.board.querySelectorAll('.orders-column').forEach((column) => column.classList.remove('is-drag-over'));
+        });
+
+        this.board.addEventListener('dragover', (event) => {
+            const column = event.target.closest('.orders-column');
+            if (!column) return;
+            event.preventDefault();
+            column.classList.add('is-drag-over');
+        });
+
+        this.board.addEventListener('dragleave', (event) => {
+            const column = event.target.closest('.orders-column');
+            if (!column || column.contains(event.relatedTarget)) return;
+            column.classList.remove('is-drag-over');
+        });
+
+        this.board.addEventListener('drop', async (event) => {
+            const column = event.target.closest('.orders-column');
+            if (!column) return;
+            event.preventDefault();
+            column.classList.remove('is-drag-over');
+
+            const orderId = event.dataTransfer.getData('text/plain');
+            const targetStatus = column.dataset.boardStatus;
+            if (!orderId || !targetStatus) return;
+
+            await this.moveOrderToStatus(orderId, targetStatus);
+        });
+    }
+
+    async moveOrderToStatus(orderId, targetStatus) {
+        try {
+            const order = await this.ensureCompanyOrder(orderId);
+            if (order.status === targetStatus || (order.status === 'reserved' && targetStatus === 'pending_payment')) return;
+
+            if (targetStatus === 'cancelled') {
+                if (!confirm("Cancel this order and release stock?")) return;
+                await this.cancelAndRelease(orderId, 'kanban_cancelled');
+                this.loadOrders();
+                return;
+            }
+
+            if (order.status === 'cancelled') {
+                alert('Cancelled orders cannot be moved back from the board yet.');
+                return;
+            }
+
+            const payload = this.getStatusUpdatePayload(targetStatus, order);
+            await updateDoc(doc(db, 'orders', orderId), payload);
+            this.loadOrders();
+        } catch (e) {
+            alert(e.message || e);
+        }
+    }
+
+    getStatusUpdatePayload(status, order = {}) {
+        const payload = {
+            status,
+            updatedAt: serverTimestamp()
+        };
+
+        if (status === 'pending_payment') payload.paymentStatus = 'pending';
+        if (status === 'pending_verification') payload.paymentStatus = 'pending_verification';
+        if (status === 'paid') {
+            payload.paymentStatus = 'paid';
+            payload.verifiedAt = serverTimestamp();
+            payload.paidAt = serverTimestamp();
+        }
+        if (status === 'preparing') payload.preparingAt = serverTimestamp();
+        if (status === 'out_for_delivery') {
+            const timestampField = order.deliveryMethod === 'pickup' ? 'readyForPickupAt' : 'outForDeliveryAt';
+            payload[timestampField] = serverTimestamp();
+        }
+        if (status === 'delivered') payload.deliveredAt = serverTimestamp();
+
+        return payload;
     }
 
     async renderList(docs, { showCompany = false } = {}) {
@@ -274,6 +566,7 @@ export class OrdersTab extends BaseTab {
         if (!order.companyId) {
             console.warn('Order missing companyId:', orderId);
         }
+        return { id: orderId, ...order };
     }
 
     async verifyOrder(orderId) {

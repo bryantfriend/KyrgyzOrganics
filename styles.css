@@ -1085,6 +1085,15 @@ body.has-sticky-cart .footer {
     margin-top: var(--section-gap);
 }
 
+.site-version {
+    margin: 0.35rem 0 0;
+    color: rgba(73, 80, 87, 0.72);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 .hero-carousel {
     position: relative;
     width: 100%;

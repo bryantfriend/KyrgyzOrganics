@@ -1220,15 +1220,18 @@
     <!-- ORDERS TAB -->
     <section id="orders" class="tab-content" style="display:none;">
       <div class="admin-card">
-        <h3>Order Management</h3>
+        <div class="card-heading-row">
+          <h3>Orders Board</h3>
+          <p>Drag orders across the columns as the store prepares, ships, and completes each delivery.</p>
+        </div>
         <div class="toolbar" style="margin-bottom:1rem; display:flex; gap:10px;">
           <button id="btnRefreshOrders" class="btn-secondary">🔄 Refresh</button>
           <button id="btnReleaseExpired" class="btn-danger" title="Release stock for orders older than 15 mins">Release
             Expired</button>
           <select id="orderFilterStatus" style="padding:8px; border-radius:4px;">
-            <option value="all">All Statuses</option>
+            <option value="all" selected>All Statuses</option>
             <option value="pending_payment">Pending Payment</option>
-            <option value="pending_verification" selected>Pending Verification</option>
+            <option value="pending_verification">Pending Verification</option>
             <option value="paid">Paid / Verified</option>
             <option value="preparing">Preparing</option>
             <option value="out_for_delivery">Out for Delivery / Ready</option>
@@ -1243,6 +1246,15 @@
         </div>
 
         <div id="ordersDashboard" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.75rem; margin:1rem 0;"></div>
+
+        <div id="ordersBoard" class="orders-board-shell">
+          <!-- Injected -->
+        </div>
+
+        <div class="card-heading-row order-details-heading">
+          <h3>Order Details</h3>
+          <p>Use this detailed list for receipts, addresses, totals, and manual actions.</p>
+        </div>
 
         <div id="ordersList" class="item-list">
           <!-- Injected -->

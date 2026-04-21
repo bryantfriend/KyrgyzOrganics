@@ -5,8 +5,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Daily Bread - Grocery Catalog</title>
-  <base href="../">
-  <link rel="stylesheet" href="styles.css?v=2.5">
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+  <link rel="stylesheet" href="../styles.css?v=2.10.1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -17,14 +17,14 @@
   <!-- Top Header -->
   <header class="header">
     <div class="container header-inner">
-      <a href="dailybread/" class="logo">Daily Bread</a>
+      <a href="./" class="logo">Daily Bread</a>
 
       <!-- Desktop Nav -->
       <nav class="nav-links">
-        <a href="dailybread/" id="navHome">Home</a>
+        <a href="./" id="navHome">Home</a>
 
-        <a href="about.html" id="navAbout">About</a>
-        <a href="contact.html" id="navContact">Contact</a>
+        <a href="../about.html" id="navAbout">About</a>
+        <a href="../contact.html" id="navContact">Contact</a>
       </nav>
 
       <!-- Mobile Hamburger -->
@@ -38,14 +38,14 @@
       <div class="mobile-menu">
         <button class="close-menu">&times;</button>
         <nav class="mobile-nav-links">
-          <a href="dailybread/" id="mobHome">Home</a>
+          <a href="./" id="mobHome">Home</a>
           <a href="#" id="mobCategories">Categories ▾</a>
           <div id="mobCategoryList" class="mobile-sub-menu"
             style="display:none; padding-left: 1.5rem; flex-direction: column; gap: 0.5rem;">
             <!-- Populated by JS -->
           </div>
-          <a href="about.html" id="mobAbout">About</a>
-          <a href="contact.html" id="mobContact">Contact</a>
+          <a href="../about.html" id="mobAbout">About</a>
+          <a href="../contact.html" id="mobContact">Contact</a>
         </nav>
       </div>
 
@@ -139,7 +139,7 @@
           <h2 class="cta-title">Invest in Biscotti Miste</h2>
           <p class="cta-text">Join our community of investors and support the growth of local organic production. Secure
             returns and sustainable impact.</p>
-          <a href="biscotti.html" class="cta-btn">Learn More</a>
+          <a href="../biscotti.html" class="cta-btn">Learn More</a>
         </div>
       </section>
 
@@ -183,8 +183,9 @@
         </div>
       </div>
       <div style="margin-top: 2rem; border-top: 1px solid #444; padding-top: 1rem; font-size: 0.8rem;">
-        <p><span id="copyrightText">© 2025 Daily Bread. All rights reserved. | </span><a href="admin/admin.html"
+        <p><span id="copyrightText">© 2025 Daily Bread. All rights reserved. | </span><a href="../admin/admin.html"
             style="color: #666; text-decoration: none;">Admin Login</a></p>
+        <p class="site-version">Website v2.10.1</p>
       </div>
     </div>
   </footer>
@@ -333,7 +334,7 @@
     window.OAKO_COMPANY_ID = 'dailybread';
     window.OAKO_STORE_NAME = 'Daily Bread';
   </script>
-  <script type="module" src="home.js?v=2.8"></script>
+  <script type="module" src="../home.js?v=2.10.1"></script>
 </body>
 
 </html>
