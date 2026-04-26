@@ -71,6 +71,16 @@ function safeFileName(name) {
   return cleaned || fallback;
 }
 
+function slugifyStoreName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+}
+
 export class StoresTab extends BaseTab {
   constructor() {
     super('stores');
@@ -78,6 +88,14 @@ export class StoresTab extends BaseTab {
     this.searchInput = document.getElementById('storesSearch');
     this.table = document.getElementById('storesTable');
     this.addStoreBtn = document.getElementById('addStoreBtn');
+    this.createStoreModal = document.getElementById('createStoreModal');
+    this.createStoreForm = document.getElementById('createStoreForm');
+    this.newStoreNameInput = document.getElementById('newStoreNameInput');
+    this.newStoreSlugHint = document.getElementById('newStoreSlugHint');
+    this.createStoreError = document.getElementById('createStoreError');
+    this.confirmCreateStoreBtn = document.getElementById('confirmCreateStoreBtn');
+    this.cancelCreateStoreBtn = document.getElementById('cancelCreateStoreBtn');
+    this.closeCreateStoreModalBtn = document.getElementById('closeCreateStoreModalBtn');
     this.startBakeryOnboardingBtn = document.getElementById('startBakeryOnboardingBtn');
     this.startOrganicOnboardingBtn = document.getElementById('startOrganicOnboardingBtn');
     this.startBlankOnboardingBtn = document.getElementById('startBlankOnboardingBtn');
@@ -297,9 +315,31 @@ export class StoresTab extends BaseTab {
     }
 
     if (this.addStoreBtn) {
-      this.addStoreBtn.addEventListener('click', () => {
-        this.resetForm();
-        this.showStoreForm();
+      this.addStoreBtn.addEventListener('click', () => this.openCreateStoreModal());
+    }
+
+    if (this.createStoreForm) {
+      this.createStoreForm.addEventListener('submit', (e) => this.createStoreFromName(e));
+    }
+
+    if (this.newStoreNameInput) {
+      this.newStoreNameInput.addEventListener('input', () => this.updateCreateStoreSlugHint());
+      this.newStoreNameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') this.closeCreateStoreModal();
+      });
+    }
+
+    if (this.cancelCreateStoreBtn) {
+      this.cancelCreateStoreBtn.addEventListener('click', () => this.closeCreateStoreModal());
+    }
+
+    if (this.closeCreateStoreModalBtn) {
+      this.closeCreateStoreModalBtn.addEventListener('click', () => this.closeCreateStoreModal());
+    }
+
+    if (this.createStoreModal) {
+      this.createStoreModal.addEventListener('click', (e) => {
+        if (e.target === this.createStoreModal) this.closeCreateStoreModal();
       });
     }
 
@@ -1308,6 +1348,170 @@ export class StoresTab extends BaseTab {
 
   hideStoreForm() {
     if (this.formCard) this.formCard.hidden = true;
+  }
+
+  openCreateStoreModal() {
+    if (!this.createStoreModal) return;
+    this.clearCreateStoreError();
+    this.createStoreForm?.reset?.();
+    this.updateCreateStoreSlugHint();
+    this.createStoreModal.classList.remove('hidden');
+    this.createStoreModal.setAttribute('aria-hidden', 'false');
+    window.setTimeout(() => this.newStoreNameInput?.focus(), 30);
+  }
+
+  closeCreateStoreModal() {
+    if (!this.createStoreModal) return;
+    this.createStoreModal.classList.add('hidden');
+    this.createStoreModal.setAttribute('aria-hidden', 'true');
+    this.clearCreateStoreError();
+    if (this.confirmCreateStoreBtn) this.confirmCreateStoreBtn.disabled = false;
+  }
+
+  clearCreateStoreError() {
+    if (!this.createStoreError) return;
+    this.createStoreError.hidden = true;
+    this.createStoreError.textContent = '';
+  }
+
+  showCreateStoreError(message) {
+    if (!this.createStoreError) return;
+    this.createStoreError.hidden = false;
+    this.createStoreError.textContent = message;
+  }
+
+  getUniqueCompanyId(name) {
+    const base = slugifyStoreName(name) || 'store';
+    const taken = new Set((Array.isArray(this.stores) ? this.stores : []).map((store) => String(store.companyId || store.id || '').toLowerCase()).filter(Boolean));
+    if (!taken.has(base)) return base;
+
+    let index = 2;
+    while (taken.has(`${base}-${index}`)) {
+      index += 1;
+    }
+    return `${base}-${index}`;
+  }
+
+  updateCreateStoreSlugHint() {
+    if (!this.newStoreSlugHint) return;
+    const name = String(this.newStoreNameInput?.value || '').trim();
+    const companyId = this.getUniqueCompanyId(name);
+    this.newStoreSlugHint.textContent = name
+      ? `Store ID will be created as "${companyId}".`
+      : 'Store ID will be generated automatically.';
+  }
+
+  buildQuickStoreRecord(companyId, name) {
+    return {
+      companyId,
+      name,
+      slug: companyId,
+      plan: 'free',
+      launchStatus: 'draft',
+      contactName: '',
+      phone: '',
+      address: '',
+      twoGisLink: '',
+      website: getStorePreviewPath(companyId),
+      email: '',
+      whatsapp: '',
+      instagram: '',
+      openingHours: '',
+      contact: {
+        name: '',
+        phone: '',
+        email: '',
+        whatsapp: '',
+        openingHours: ''
+      },
+      social: {
+        instagram: ''
+      },
+      hosting: {
+        customDomain: '',
+        githubTarget: '',
+        dnsStatus: 'not_started',
+        notes: '',
+        checklist: {
+          domainPurchased: false,
+          dnsConfigured: false,
+          hostingConnected: false,
+          sslActive: false,
+          finalTested: false
+        }
+      },
+      customDomain: '',
+      logoUrl: '',
+      tags: [],
+      notes: '',
+      active: true,
+      updatedAt: serverTimestamp()
+    };
+  }
+
+  async createStoreFromName(e) {
+    e.preventDefault();
+    const name = String(this.newStoreNameInput?.value || '').trim();
+    if (!name) {
+      this.showCreateStoreError('Enter the store name first.');
+      this.newStoreNameInput?.focus();
+      return;
+    }
+
+    const companyId = this.getUniqueCompanyId(name);
+    const storeData = this.buildQuickStoreRecord(companyId, name);
+
+    this.clearCreateStoreError();
+    if (this.confirmCreateStoreBtn) this.confirmCreateStoreBtn.disabled = true;
+
+    try {
+      const companyRef = doc(db, 'companies', companyId);
+      const existing = await getDoc(companyRef);
+      if (existing.exists()) {
+        throw new Error(`A store with the ID "${companyId}" already exists. Try a slightly different name.`);
+      }
+
+      await setDoc(companyRef, {
+        ...storeData,
+        createdAt: serverTimestamp()
+      }, { merge: true });
+
+      let storefrontSaved = true;
+      try {
+        const storefrontConfig = {
+          ...getFallbackStoreConfig(companyId),
+          companyId,
+          name,
+          slug: companyId,
+          domain: getStorePreviewPath(companyId),
+          launchStatus: 'draft',
+          status: 'active',
+          updatedAt: serverTimestamp()
+        };
+
+        await setDoc(doc(db, 'storefront_configs', companyId), storefrontConfig, { merge: true });
+      } catch (storefrontErr) {
+        storefrontSaved = false;
+        console.warn('Store created, but storefront config save failed:', storefrontErr);
+      }
+
+      this.stores = [...this.stores.filter((store) => (store.companyId || store.id) !== companyId), { id: companyId, ...storeData }]
+        .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+
+      setSelectedCompany(companyId);
+      this.render();
+      this.closeCreateStoreModal();
+      await logAudit('Store Created', `${name} (draft)`);
+      if (!storefrontSaved) {
+        alert('Store created, but storefront customization did not save. Check Firestore rules for storefront_configs.');
+      }
+      await this.editStore(companyId);
+    } catch (err) {
+      console.error(err);
+      this.showCreateStoreError(err.message || 'Failed to create store.');
+    } finally {
+      if (this.confirmCreateStoreBtn) this.confirmCreateStoreBtn.disabled = false;
+    }
   }
 
   refreshPreview() {

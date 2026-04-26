@@ -186,6 +186,33 @@
         </div>
       </div>
 
+      <div id="createStoreModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-panel quick-store-modal">
+          <div class="modal-header">
+            <div>
+              <div class="eyebrow">Create Store</div>
+              <h3>Start with the store name</h3>
+            </div>
+            <button type="button" id="closeCreateStoreModalBtn" class="icon-button" aria-label="Close create store modal">x</button>
+          </div>
+          <form id="createStoreForm" class="quick-store-form">
+            <div class="quick-store-copy">
+              <p>We’ll create the new store, switch the admin into it immediately, and then open the full editor so you can finish the setup.</p>
+            </div>
+            <div class="form-group">
+              <label for="newStoreNameInput">Store Name</label>
+              <input type="text" id="newStoreNameInput" placeholder="Daily Bread" required>
+              <small id="newStoreSlugHint" class="field-hint">Store ID will be generated automatically.</small>
+            </div>
+            <div id="createStoreError" class="inline-alert error" hidden></div>
+            <div class="quick-store-actions">
+              <button type="button" id="cancelCreateStoreBtn" class="btn-secondary">Cancel</button>
+              <button type="submit" id="confirmCreateStoreBtn" class="btn-primary">Create Store</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <div class="store-ops-grid">
         <div class="admin-card">
           <div class="card-heading-row">

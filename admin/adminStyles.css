@@ -1940,6 +1940,39 @@ button[type="submit"]:hover {
     #ffffff;
 }
 
+.quick-store-modal {
+  width: min(560px, 92vw);
+}
+
+.quick-store-form {
+  display: grid;
+  gap: 1rem;
+  padding: 0 1.25rem 1.25rem;
+}
+
+.quick-store-copy {
+  color: var(--admin-muted);
+  line-height: 1.6;
+}
+
+.quick-store-copy p {
+  margin: 0;
+}
+
+.field-hint {
+  display: inline-block;
+  margin-top: 0.45rem;
+  color: var(--admin-muted);
+  font-size: 0.9rem;
+}
+
+.quick-store-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .store-onboarding-copy h3 {
   margin: 0.2rem 0 0.35rem;
 }
