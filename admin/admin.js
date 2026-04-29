@@ -45,6 +45,17 @@ function getCompanyIdFromHost(hostname) {
   return null;
 }
 
+function getCompanyIdFromPathname(pathname) {
+  const parts = String(pathname || '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  if (!parts.length) return null;
+  if (parts[0] === 'admin') return null;
+  return parts[0].toLowerCase();
+}
+
 class AdminApp {
   constructor() {
     this.authScreen = document.getElementById('authScreen');
@@ -114,6 +125,7 @@ class AdminApp {
           const hostname = getHostname();
           const hqHost = isHqAdminHost(hostname);
           const hostCompanyId = getCompanyIdFromHost(hostname);
+          const pathCompanyId = getCompanyIdFromPathname(window.location.pathname);
 
           const profile = await getUserProfile(user.uid);
           const isLegacyAdmin = !profile;
@@ -132,11 +144,12 @@ class AdminApp {
           // Legacy admins (no users/{uid} profile) are treated like superadmins on HQ host to avoid breaking existing access.
           this.isSuperAdmin = hqHost && (role === 'superadmin' || role === 'super_admin' || isLegacyAdmin);
 
-          // Hard block: HQ admin portal is only for Kyrgyz Organic (plus superadmins).
-          // Store admins should use their own store subdomain (e.g. dailybread.oako.kg).
+          // HQ root admin portal is only for Kyrgyz Organic (plus superadmins).
+          // Store admins can still use a store-scoped admin path such as
+          // /dailybread/admin/admin.html on the shared host.
           const isProdHqHost = hostname === 'oako.kg' || hostname === 'www.oako.kg';
-          if (isProdHqHost && !this.isSuperAdmin && companyId !== COMPANY_ID) {
-            throw new Error(`This admin portal is for Kyrgyz Organic only. Please log in on your store website (for example: https://${companyId}.oako.kg/admin/admin.html).`);
+          if (isProdHqHost && !this.isSuperAdmin && companyId !== COMPANY_ID && !pathCompanyId) {
+            throw new Error(`This admin portal is for Kyrgyz Organic only. Please use your store path instead, for example: https://oako.kg/${companyId}/admin/admin.html`);
           }
 
           // Load stored selection (superadmin) or force to the user's company.
@@ -153,11 +166,16 @@ class AdminApp {
 
             setSelectedCompany(forcedCompanyId, { persist: false });
           } else if (!this.isSuperAdmin) {
-            // Regular admins always stay within their store, even on HQ domain.
-            setSelectedCompany(companyId, { persist: false });
+            // Regular admins always stay within their store. On the HQ host we support
+            // either the root Kyrgyz Organic admin or a store-scoped path such as
+            // /dailybread/admin/admin.html.
+            if (pathCompanyId && companyId && pathCompanyId !== companyId) {
+              throw new Error(`This admin portal is for "${pathCompanyId}". Please log in on the correct store admin path.`);
+            }
+            setSelectedCompany(pathCompanyId || companyId, { persist: false });
           } else if (!getSelectedCompanyId()) {
-            // Superadmin on HQ domain: default to Kyrgyz Organic if nothing was saved.
-            setSelectedCompany(COMPANY_ID, { persist: false });
+            // Superadmin on HQ domain: if a store path is open, keep the context on that store.
+            setSelectedCompany(pathCompanyId || COMPANY_ID, { persist: false });
           }
 
           await ensureBaseCompanies().catch(err => {
