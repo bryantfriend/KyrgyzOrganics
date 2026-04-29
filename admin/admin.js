@@ -4,8 +4,8 @@ import { ensureBaseCompanies, getUserProfile, login } from '../tenant-auth.js';
 import { COMPANY_ID } from '../company-config.js';
 import { getSelectedCompanyId, loadSelectedCompany, setSelectedCompany } from '../store-context.js';
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { ACTIVE_ORDER_STATUSES } from '../services/orderArchiveService.js';
 import { CategoriesTab } from './tabs/CategoriesTab.js';
+import { OverviewTab } from './tabs/OverviewTab.js';
 import { ProductsTab } from './tabs/ProductsTab.js';
 import { BannersTab } from './tabs/BannersTab.js';
 import { ContentTab } from './tabs/ContentTab.js';
@@ -470,6 +470,7 @@ class AdminApp {
 
   setupTabs() {
     // Instantiate Tabs
+    this.tabs['overview'] = new OverviewTab();
     this.tabs['categories'] = new CategoriesTab();
     this.tabs['products'] = new ProductsTab();
     this.tabs['banners'] = new BannersTab();
@@ -534,91 +535,10 @@ class AdminApp {
     };
     document.title = `${titles[tabName] || 'Admin'} | Oako Admin`;
     this.saveCurrentSectionBtn?.classList.toggle('is-muted', !['stores', 'products', 'categories', 'banners', 'content', 'settings', 'campaigns'].includes(tabName));
-    if (tabName === 'overview') this.loadOverview();
   }
 
   async loadOverview() {
-    const companyId = getSelectedCompanyId();
-    const setText = (id, value) => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.textContent = value;
-        el.classList.remove('skeleton-text');
-      }
-    };
-
-    setText('overviewTitle', `${this.getCompanyDisplayName(companyId)} dashboard`);
-    const updatedAt = document.getElementById('overviewUpdatedAt');
-    if (updatedAt) updatedAt.textContent = 'Refreshing...';
-
-    try {
-      const [store, config, productsSnap, ordersSnap] = await Promise.all([
-        this.getStoreDetails(companyId),
-        this.getStorefrontConfig(companyId),
-        getDocs(query(collection(db, 'products'), where('companyId', '==', companyId))),
-        getDocs(query(
-          collection(db, 'orders'),
-          where('companyId', '==', companyId),
-          where('status', 'in', ACTIVE_ORDER_STATUSES),
-          orderBy('createdAt', 'desc'),
-          limit(100)
-        )).catch(() => ({ docs: [] }))
-      ]);
-
-      const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const revenue = orders.reduce((sum, order) => {
-        const value = Number(order.total ?? order.price ?? 0);
-        return sum + (Number.isFinite(value) ? value : 0);
-      }, 0);
-      const checks = [
-        ['Store is active', store?.active !== false && (store?.launchStatus || config?.launchStatus || 'live') !== 'paused'],
-        ['Products added', productsSnap.docs.length > 0],
-        ['Domain planned', Boolean(store?.customDomain || store?.hosting?.customDomain || store?.website || config?.domain)],
-        ['SEO configured', Boolean(config?.seo?.title && config?.seo?.description)],
-        ['WhatsApp/contact ready', Boolean(store?.contact?.whatsapp || store?.whatsapp || store?.phone)]
-      ];
-      const passed = checks.filter(([, ok]) => ok).length;
-      const health = passed === checks.length ? 'Excellent' : passed >= 3 ? 'Good' : 'Needs work';
-
-      setText('overviewProductsCount', String(productsSnap.docs.length));
-      setText('overviewOrdersCount', String(orders.length));
-      setText('overviewRevenue', `${revenue} som`);
-      setText('overviewHealth', health);
-
-      const badge = document.getElementById('overviewLaunchBadge');
-      if (badge) {
-        badge.textContent = passed === checks.length ? 'Ready' : 'Review';
-        badge.className = `status-badge ${passed === checks.length ? 'success' : 'warning'}`;
-      }
-
-      const checklist = document.getElementById('overviewChecklist');
-      if (checklist) {
-        checklist.innerHTML = checks.map(([label, ok]) => `
-          <div class="checklist-item ${ok ? 'ok' : 'warn'}">
-            <span>${ok ? '✓' : '!'}</span>
-            <strong>${label}</strong>
-            <small>${ok ? 'Connected' : 'Missing data'}</small>
-          </div>
-        `).join('');
-      }
-
-      const activity = document.getElementById('overviewActivity');
-      if (activity) {
-        activity.innerHTML = `
-          <div class="activity-item"><span class="status-dot selected"></span><div><strong>${orders.length} orders recorded</strong><small>Revenue total: ${revenue} som</small></div></div>
-          <div class="activity-item"><span class="status-dot"></span><div><strong>${productsSnap.docs.length} products in catalog</strong><small>Keep availability updated daily</small></div></div>
-          <div class="activity-item"><span class="status-dot"></span><div><strong>${store?.launchStatus || config?.launchStatus || 'live'} storefront status</strong><small>${store?.website || config?.domain || this.getStorefrontPath(companyId)}</small></div></div>
-        `;
-      }
-
-      if (updatedAt) updatedAt.textContent = `Updated ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    } catch (err) {
-      console.warn('Overview load failed:', err);
-      setText('overviewHealth', 'Error');
-      const activity = document.getElementById('overviewActivity');
-      if (activity) activity.innerHTML = `<div class="inline-alert error">Overview could not load: ${err.message}</div>`;
-      if (updatedAt) updatedAt.textContent = 'Error';
-    }
+    return this.tabs['overview']?.refresh?.();
   }
 
   async onLogin() {

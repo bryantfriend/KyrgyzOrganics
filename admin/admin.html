@@ -72,18 +72,18 @@
       </div>
 
       <div class="sidebar-group" data-nav-group="store">
-        <div class="sidebar-group-label" id="storeWorkspaceLabel">Store Workspace</div>
+        <div class="sidebar-group-label" id="storeWorkspaceLabel">Daily Operations</div>
         <button class="nav-btn active" data-tab="overview" data-role-nav="store"><span class="nav-icon">⌂</span><span class="nav-label">Overview</span></button>
-        <button class="nav-btn" data-tab="products" data-role-nav="store"><span class="nav-icon">◇</span><span class="nav-label">Products</span></button>
-        <button class="nav-btn" data-tab="categories" data-role-nav="store"><span class="nav-icon">▦</span><span class="nav-label">Categories</span></button>
         <button class="nav-btn" data-tab="orders" data-role-nav="store"><span class="nav-icon">◆</span><span class="nav-label">Orders</span></button>
         <button class="nav-btn" data-tab="inventory" data-role-nav="store"><span class="nav-icon">▤</span><span class="nav-label">Inventory</span></button>
+        <button class="nav-btn" data-tab="products" data-role-nav="store"><span class="nav-icon">◇</span><span class="nav-label">Products</span></button>
+        <button class="nav-btn" data-tab="categories" data-role-nav="store"><span class="nav-icon">▦</span><span class="nav-label">Categories</span></button>
         <button class="nav-btn" data-tab="content" data-role-nav="store"><span class="nav-icon">✎</span><span class="nav-label">Content</span></button>
         <button class="nav-btn" data-tab="settings" data-role-nav="store"><span class="nav-icon">⚙</span><span class="nav-label">Settings</span></button>
       </div>
 
       <div class="sidebar-group" data-nav-group="extra">
-        <div class="sidebar-group-label">Growth</div>
+        <div class="sidebar-group-label">Website & Growth</div>
         <button class="nav-btn" data-tab="banners"><span class="nav-icon">▧</span><span class="nav-label">Banners</span></button>
         <button class="nav-btn" data-tab="campaigns"><span class="nav-icon">✦</span><span class="nav-label">Campaigns</span></button>
       </div>
@@ -91,68 +91,268 @@
 
     <!-- OVERVIEW -->
     <section id="overview" class="tab-content active">
-      <div class="dashboard-hero">
-        <div>
-          <div class="eyebrow">Store Overview</div>
-          <h2 id="overviewTitle">Welcome back</h2>
-          <p id="overviewSubtitle">A fast snapshot of this store's catalog, orders, health, and launch readiness.</p>
-        </div>
-        <div class="dashboard-hero-actions">
-          <button type="button" id="overviewRefreshBtn" class="btn-secondary">Refresh</button>
-          <button type="button" id="overviewViewSiteBtn" class="btn-primary">View Site</button>
-        </div>
-      </div>
-
-      <div class="metric-grid">
-        <article class="metric-card">
-          <span class="metric-label">Products</span>
-          <strong id="overviewProductsCount" class="skeleton-text">--</strong>
-          <small id="overviewProductsHint">Live catalog items</small>
-        </article>
-        <article class="metric-card">
-          <span class="metric-label">Orders</span>
-          <strong id="overviewOrdersCount" class="skeleton-text">--</strong>
-          <small id="overviewOrdersHint">All-time order count</small>
-        </article>
-        <article class="metric-card">
-          <span class="metric-label">Revenue</span>
-          <strong id="overviewRevenue" class="skeleton-text">--</strong>
-          <small>Total recorded sales</small>
-        </article>
-        <article class="metric-card">
-          <span class="metric-label">Store Health</span>
-          <strong id="overviewHealth" class="skeleton-text">Checking</strong>
-          <small id="overviewHealthHint">SEO, domain, products, and status</small>
-        </article>
-      </div>
-
-      <div class="dashboard-grid">
-        <div class="admin-card">
-          <div class="card-heading-row">
-            <div>
-              <h3>Launch Readiness</h3>
-              <p>Signals that help each store feel complete before sharing.</p>
+      <div class="overview-shell">
+        <div class="overview-hero-card">
+          <div class="overview-hero-main">
+            <div id="overviewStoreLogo" class="overview-store-logo">DB</div>
+            <div class="overview-hero-copy">
+              <div class="eyebrow">Store Operations Center</div>
+              <div class="overview-title-row">
+                <h2 id="overviewTitle">Welcome back</h2>
+                <span id="overviewHeroStatus" class="status-badge info">Loading</span>
+              </div>
+              <p id="overviewSubtitle">Daily Bread is live. Here is the website. Here is what needs attention today.</p>
+              <div class="overview-meta-grid">
+                <div class="overview-meta-item">
+                  <span class="overview-meta-label">Public URL</span>
+                  <strong id="overviewStoreUrl">--</strong>
+                </div>
+                <div class="overview-meta-item">
+                  <span class="overview-meta-label">Store Slug</span>
+                  <strong id="overviewStoreSlug">--</strong>
+                </div>
+                <div class="overview-meta-item">
+                  <span class="overview-meta-label">Last Updated</span>
+                  <strong id="overviewUpdatedAt">Loading</strong>
+                </div>
+                <div class="overview-meta-item">
+                  <span class="overview-meta-label">Store Mode</span>
+                  <strong id="overviewHeroMode">Preparing dashboard</strong>
+                </div>
+              </div>
+              <div id="overviewStoreBranding" class="overview-branding-row">
+                <span class="muted-pill">Contact info loading</span>
+              </div>
             </div>
-            <span id="overviewLaunchBadge" class="status-badge warning">Review</span>
           </div>
-          <div id="overviewChecklist" class="checklist-list">
-            <div class="skeleton-row"></div>
-            <div class="skeleton-row"></div>
-            <div class="skeleton-row"></div>
+          <div class="overview-hero-actions">
+            <button type="button" id="overviewRefreshBtn" class="btn-secondary">Refresh</button>
+            <button type="button" id="overviewViewSiteBtn" class="btn-primary">View Site</button>
+            <button type="button" id="overviewCopyLinkBtn" class="btn-secondary">Copy Store Link</button>
+            <button type="button" id="overviewQrBtn" class="btn-secondary">View QR Code</button>
+            <button type="button" id="overviewDownloadQrBtn" class="btn-secondary">Download QR</button>
+            <button type="button" id="overviewOpenToggleBtn" class="btn-secondary" disabled>Hours not configured</button>
           </div>
         </div>
 
-        <div class="admin-card">
-          <div class="card-heading-row">
-            <div>
-              <h3>Activity</h3>
-              <p>Recent admin and storefront movement.</p>
-            </div>
-            <span id="overviewUpdatedAt" class="muted-pill">Loading</span>
+        <div class="overview-toolbar">
+          <div class="overview-toolbar-copy">
+            <div class="eyebrow">Today Mode</div>
+            <p>Switch the dashboard between today’s work and a wider recent operating window without loading full history.</p>
           </div>
-          <div id="overviewActivity" class="activity-feed">
-            <div class="skeleton-row"></div>
-            <div class="skeleton-row"></div>
+          <div id="overviewRangeFilters" class="overview-range-filters" role="tablist" aria-label="Overview date range">
+            <button type="button" class="overview-range-btn active" data-range="today">Today</button>
+            <button type="button" class="overview-range-btn" data-range="7d">7 Days</button>
+            <button type="button" class="overview-range-btn" data-range="30d">30 Days</button>
+            <button type="button" class="overview-range-btn" data-range="all">All Time</button>
+          </div>
+        </div>
+
+        <div class="overview-summary-grid">
+          <article class="overview-summary-card tone-blue">
+            <div class="overview-summary-head">
+              <span class="overview-summary-icon">◆</span>
+              <div>
+                <span class="metric-label">Today's Orders</span>
+                <strong id="overviewOrdersCount" class="overview-summary-value">--</strong>
+              </div>
+            </div>
+            <div id="overviewOrdersBreakdown" class="overview-summary-breakdown">
+              <span class="muted-pill">Loading recent order counts</span>
+            </div>
+            <small id="overviewOrdersHint">Recent active work only</small>
+          </article>
+
+          <article class="overview-summary-card tone-amber">
+            <div class="overview-summary-head">
+              <span class="overview-summary-icon">▤</span>
+              <div>
+                <span class="metric-label">Inventory Alerts</span>
+                <strong id="overviewInventoryAlertCount" class="overview-summary-value">--</strong>
+              </div>
+            </div>
+            <div id="overviewInventoryBreakdown" class="overview-summary-breakdown">
+              <span class="muted-pill">Checking stock health</span>
+            </div>
+            <small id="overviewProductsHint">Low stock, out of stock, hidden, and missing today</small>
+          </article>
+
+          <article class="overview-summary-card tone-green">
+            <div class="overview-summary-head">
+              <span class="overview-summary-icon">₸</span>
+              <div>
+                <span class="metric-label">Today's Revenue</span>
+                <strong id="overviewRevenue" class="overview-summary-value">--</strong>
+              </div>
+            </div>
+            <div id="overviewRevenueBreakdown" class="overview-summary-breakdown">
+              <span class="muted-pill">Preparing revenue snapshot</span>
+            </div>
+            <small id="overviewRevenueHint">Paid and completed orders in the selected range</small>
+          </article>
+
+          <article class="overview-summary-card tone-slate">
+            <div class="overview-summary-head">
+              <span class="overview-summary-icon">◎</span>
+              <div>
+                <span class="metric-label">Website Health</span>
+                <strong id="overviewHealth" class="overview-summary-value">Checking</strong>
+              </div>
+            </div>
+            <div id="overviewHealthBreakdown" class="overview-summary-breakdown">
+              <span class="muted-pill">Inspecting storefront status</span>
+            </div>
+            <small id="overviewHealthHint">Live, visible, reachable, and ready for orders</small>
+          </article>
+        </div>
+
+        <div class="overview-main-grid">
+          <div class="overview-column overview-column-primary">
+            <div class="admin-card overview-panel">
+              <div class="card-heading-row">
+                <div>
+                  <h3>New Orders Command Panel</h3>
+                  <p>Recent active orders only. Quick actions here should handle the flow staff use most often during the day.</p>
+                </div>
+                <div class="overview-panel-actions">
+                  <span id="overviewOrdersMeta" class="muted-pill">Live feed</span>
+                  <button type="button" id="overviewViewAllOrdersBtn" class="btn-secondary">View all orders</button>
+                </div>
+              </div>
+              <div id="overviewOrdersLoading" class="overview-loading-panel">
+                <div class="overview-spinner"></div>
+                <div>
+                  <strong>Opening the live store queue</strong>
+                  <p>Only recent active orders are loaded here for speed.</p>
+                </div>
+              </div>
+              <div id="overviewOrdersList" class="overview-orders-list" hidden></div>
+            </div>
+
+            <div class="admin-card overview-panel">
+              <div class="card-heading-row">
+                <div>
+                  <h3>Launch Readiness</h3>
+                  <p>Turn each warning into a concrete next step so the store owner always knows what to fix next.</p>
+                </div>
+                <span id="overviewLaunchBadge" class="status-badge warning">Review</span>
+              </div>
+              <div id="overviewChecklist" class="overview-checklist">
+                <div class="skeleton-row"></div>
+                <div class="skeleton-row"></div>
+                <div class="skeleton-row"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="overview-column overview-column-secondary">
+            <div class="admin-card overview-panel">
+              <div class="card-heading-row">
+                <div>
+                  <h3>Quick Actions</h3>
+                  <p>Jump straight into the parts of the admin that matter most during store operations.</p>
+                </div>
+              </div>
+              <div class="overview-action-grid">
+                <button type="button" class="overview-quick-action" data-nav-tab="products">
+                  <span>Add Product</span>
+                  <small>Create or update a catalog item</small>
+                </button>
+                <button type="button" class="overview-quick-action" data-nav-tab="inventory">
+                  <span>Update Inventory</span>
+                  <small>Refresh what customers can buy today</small>
+                </button>
+                <button type="button" class="overview-quick-action" data-nav-tab="orders">
+                  <span>View New Orders</span>
+                  <small>Open the full live order board</small>
+                </button>
+                <button type="button" class="overview-quick-action" data-nav-tab="banners">
+                  <span>Create Banner</span>
+                  <small>Refresh homepage promotions</small>
+                </button>
+                <button type="button" class="overview-quick-action" data-nav-tab="campaigns">
+                  <span>Create Campaign</span>
+                  <small>Launch a special promotion</small>
+                </button>
+                <button type="button" class="overview-quick-action" id="overviewQuickCopyLinkBtn">
+                  <span>Copy Store Link</span>
+                  <small>Share the public storefront instantly</small>
+                </button>
+                <button type="button" class="overview-quick-action" id="overviewQuickQrBtn">
+                  <span>View QR Code</span>
+                  <small>Customer scan access to the store</small>
+                </button>
+                <button type="button" class="overview-quick-action is-disabled" disabled>
+                  <span>More tools coming soon</span>
+                  <small>Keep this board focused on today’s work</small>
+                </button>
+              </div>
+            </div>
+
+            <div class="admin-card overview-panel">
+              <div class="card-heading-row">
+                <div>
+                  <h3>Inventory Status</h3>
+                  <p>Customers only trust the store if the website reflects what is really available today.</p>
+                </div>
+                <div class="overview-panel-actions">
+                  <button type="button" class="btn-secondary" data-nav-tab="inventory">Update Inventory</button>
+                  <button type="button" class="btn-secondary" data-nav-tab="products">View Products</button>
+                </div>
+              </div>
+              <div id="overviewInventoryStatus" class="overview-health-list">
+                <div class="skeleton-row"></div>
+                <div class="skeleton-row"></div>
+              </div>
+            </div>
+
+            <div class="admin-card overview-panel">
+              <div class="card-heading-row">
+                <div>
+                  <h3>Website Preview &amp; QR</h3>
+                  <p>Everything a store owner needs to verify the customer-facing storefront is ready to share.</p>
+                </div>
+              </div>
+              <div class="overview-preview-panel">
+                <div id="overviewQrPreview" class="overview-qr-preview">
+                  <div class="overview-qr-placeholder">
+                    <strong>QR preview</strong>
+                    <p>Preparing customer scan access</p>
+                  </div>
+                </div>
+                <div class="overview-preview-copy">
+                  <div class="overview-preview-row">
+                    <span class="overview-meta-label">Public Store Link</span>
+                    <strong id="overviewPreviewUrl">--</strong>
+                  </div>
+                  <div class="overview-preview-row">
+                    <span class="overview-meta-label">Customer-facing Status</span>
+                    <div id="overviewPreviewStatus" class="overview-health-list compact">
+                      <span class="muted-pill">Checking website health</span>
+                    </div>
+                  </div>
+                  <div class="overview-preview-actions">
+                    <button type="button" id="overviewPreviewCopyBtn" class="btn-secondary">Copy Link</button>
+                    <button type="button" id="overviewPreviewViewBtn" class="btn-primary">View Site</button>
+                    <button type="button" id="overviewPreviewDownloadQrBtn" class="btn-secondary">Download QR</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-card overview-panel">
+              <div class="card-heading-row">
+                <div>
+                  <h3>Activity Feed</h3>
+                  <p>Recent admin and storefront movement for the selected store and time filter.</p>
+                </div>
+                <span id="overviewActivityMeta" class="muted-pill">Latest 10</span>
+              </div>
+              <div id="overviewActivity" class="overview-activity-feed">
+                <div class="skeleton-row"></div>
+                <div class="skeleton-row"></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
