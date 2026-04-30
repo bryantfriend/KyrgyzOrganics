@@ -25,6 +25,30 @@ export function loc(item, field) {
     return item[`${field}_${currentLang}`] || item[`${field}_ru`] || item[field] || ''; // Fallback chain
 }
 
+function getStoreSlugFromPathname(pathname = window.location.pathname) {
+    const parts = String(pathname || '')
+        .split('/')
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    if (!parts.length) return null;
+
+    const first = parts[0].toLowerCase();
+    if (first === 'admin' || first.endsWith('.html')) return null;
+    return first;
+}
+
+export function getAdminLoginPath(pathname = window.location.pathname) {
+    const storeSlug = getStoreSlugFromPathname(pathname);
+    return storeSlug ? `/${storeSlug}/admin/admin.html` : '/admin/admin.html';
+}
+
+export function syncFooterAdminLink() {
+    const adminLink = document.getElementById('footAdmin');
+    if (!adminLink) return;
+    adminLink.setAttribute('href', getAdminLoginPath());
+}
+
 export function setupLanguage() {
     // Nav Items translate
     if (document.getElementById('navHome')) document.getElementById('navHome').textContent = t('home');
@@ -49,6 +73,7 @@ export function setupLanguage() {
     if (document.getElementById('footAdmin')) document.getElementById('footAdmin').textContent = t('admin_login');
     if (document.getElementById('footAboutTitle')) document.getElementById('footAboutTitle').textContent = t('title');
     if (document.getElementById('footAboutText')) document.getElementById('footAboutText').textContent = t('footer_text');
+    syncFooterAdminLink();
 
     // Trust Icons
     if (document.getElementById('iconDelivery')) document.getElementById('iconDelivery').textContent = t('delivery_title');
@@ -80,6 +105,12 @@ window.setLang = (lang) => {
     return false;
 };
 window.changeLanguage = window.setLang; // Alias for HTML calls
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', syncFooterAdminLink, { once: true });
+} else {
+    syncFooterAdminLink();
+}
 
 export function initMobileMenu() {
     const hamburgerBtn = document.querySelector('.hamburger-btn');
