@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Bread Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #173321 0%, #2e5a3d 55%, #f4f0e6 55%, #fbfaf6 100%);
+      color: #122112;
+      font-family: system-ui, sans-serif;
+    }
+
+    .store-admin-loader {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(23, 51, 33, 0.08);
+      border-radius: 22px;
+      box-shadow: 0 22px 48px rgba(18, 33, 18, 0.14);
+      max-width: 480px;
+      padding: 1.75rem;
+      text-align: center;
+    }
+
+    .store-admin-loader strong {
+      display: block;
+      font-size: 1.15rem;
+      margin-bottom: 0.45rem;
+    }
+
+    .store-admin-loader p {
+      color: #5a675f;
+      line-height: 1.55;
+      margin: 0;
+    }
+
+    .store-admin-loader a {
+      color: #1f6feb;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="store-admin-loader">
+    <strong>Loading Daily Bread Admin</strong>
+    <p>Preparing the store-specific admin workspace. If this takes too long, you can also open <a href="/admin/admin.html?store=dailybread">the shared admin entry</a>.</p>
+  </div>
+
+  <script>
+    (async () => {
+      try {
+        const response = await fetch('/admin/admin.html', { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`Shared admin returned ${response.status}`);
+        }
+
+        const html = await response.text();
+        document.open();
+        document.write(html);
+        document.close();
+      } catch (error) {
+        console.error('Daily Bread admin shell failed:', error);
+        document.querySelector('.store-admin-loader').innerHTML = `
+          <strong>Daily Bread admin could not load.</strong>
+          <p>Please try again, or open <a href="/admin/admin.html?store=dailybread">the shared admin entry</a> while we investigate the local store shell.</p>
+        `;
+      }
+    })();
+  </script>
+</body>
+
+</html>

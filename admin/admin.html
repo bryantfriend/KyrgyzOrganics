@@ -5,8 +5,8 @@
   <meta charset="UTF-8" />
   <title>OA Kyrgyz Organic – Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
-  <link rel="stylesheet" href="adminStyles.css" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/admin/adminStyles.css" />
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 </head>
@@ -1953,14 +1953,14 @@
     <div id="adminToast" class="admin-toast" role="status" aria-live="polite"></div>
   </div>
 
-  <script type="module" src="admin.js"></script>
+  <script type="module" src="/admin/admin.js"></script>
   <script type="module">
     // One-time migration runner: only loads when explicitly requested via URL flag.
     // Example: /admin/admin.html?runCompanyIdMigration=true
     try {
       const params = new URLSearchParams(window.location.search);
       if (params.get('runCompanyIdMigration') === 'true') {
-        import('../migrate-companyId.js');
+        import('/migrate-companyId.js');
       }
     } catch (_) {
       // ignore

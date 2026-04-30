@@ -56,6 +56,16 @@ function getCompanyIdFromPathname(pathname) {
   return parts[0].toLowerCase();
 }
 
+function getCompanyIdFromQuery() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const storeId = String(params.get('store') || params.get('companyId') || '').trim().toLowerCase();
+    return storeId || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 class AdminApp {
   constructor() {
     this.authScreen = document.getElementById('authScreen');
@@ -126,6 +136,8 @@ class AdminApp {
           const hqHost = isHqAdminHost(hostname);
           const hostCompanyId = getCompanyIdFromHost(hostname);
           const pathCompanyId = getCompanyIdFromPathname(window.location.pathname);
+          const queryCompanyId = getCompanyIdFromQuery();
+          const routedCompanyId = pathCompanyId || queryCompanyId;
 
           const profile = await getUserProfile(user.uid);
           const isLegacyAdmin = !profile;
@@ -148,7 +160,7 @@ class AdminApp {
           // Store admins can still use a store-scoped admin path such as
           // /dailybread/admin/admin.html on the shared host.
           const isProdHqHost = hostname === 'oako.kg' || hostname === 'www.oako.kg';
-          if (isProdHqHost && !this.isSuperAdmin && companyId !== COMPANY_ID && !pathCompanyId) {
+          if (isProdHqHost && !this.isSuperAdmin && companyId !== COMPANY_ID && !routedCompanyId) {
             throw new Error(`This admin portal is for Kyrgyz Organic only. Please use your store path instead, for example: https://oako.kg/${companyId}/admin/admin.html`);
           }
 
@@ -169,13 +181,13 @@ class AdminApp {
             // Regular admins always stay within their store. On the HQ host we support
             // either the root Kyrgyz Organic admin or a store-scoped path such as
             // /dailybread/admin/admin.html.
-            if (pathCompanyId && companyId && pathCompanyId !== companyId) {
-              throw new Error(`This admin portal is for "${pathCompanyId}". Please log in on the correct store admin path.`);
+            if (routedCompanyId && companyId && routedCompanyId !== companyId) {
+              throw new Error(`This admin portal is for "${routedCompanyId}". Please log in on the correct store admin path.`);
             }
-            setSelectedCompany(pathCompanyId || companyId, { persist: false });
+            setSelectedCompany(routedCompanyId || companyId, { persist: false });
           } else if (!getSelectedCompanyId()) {
             // Superadmin on HQ domain: if a store path is open, keep the context on that store.
-            setSelectedCompany(pathCompanyId || COMPANY_ID, { persist: false });
+            setSelectedCompany(routedCompanyId || COMPANY_ID, { persist: false });
           }
 
           await ensureBaseCompanies().catch(err => {
