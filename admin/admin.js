@@ -17,7 +17,7 @@ import { AnalyticsTab } from './tabs/AnalyticsTab.js';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js';
 
-const ADMIN_VERSION = '3.0';
+const ADMIN_VERSION = '3.1';
 
 function getHostname() {
   try {
