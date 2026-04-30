@@ -424,6 +424,11 @@ export class OverviewTab extends BaseTab {
                 return;
             }
 
+            if (event.target.closest('#overviewQuickViewSiteBtn')) {
+                window.adminApp?.openSelectedStorefront?.();
+                return;
+            }
+
             if (event.target.closest('#overviewViewAllOrdersBtn')) {
                 window.dispatchEvent(new CustomEvent('oako:navigate-admin-tab', {
                     detail: { tab: 'orders' }
@@ -786,6 +791,7 @@ export class OverviewTab extends BaseTab {
         if (orders.length === 0) {
             this.ordersListEl.innerHTML = `
                 <div class="overview-empty-state">
+                  <span class="overview-empty-icon" aria-hidden="true">◇</span>
                   <strong>No orders yet.</strong>
                   <p>Once customers place orders from the website, they will appear here automatically.</p>
                   <button type="button" class="btn-secondary" id="overviewEmptyViewSiteBtn">View Website</button>
@@ -1019,6 +1025,7 @@ export class OverviewTab extends BaseTab {
         if (visibleItems.length === 0) {
             this.activityEl.innerHTML = `
                 <div class="overview-empty-state compact">
+                  <span class="overview-empty-icon" aria-hidden="true">◎</span>
                   <strong>No activity yet.</strong>
                   <p>Once orders, inventory updates, or content changes happen, they will show up here.</p>
                 </div>
