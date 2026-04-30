@@ -144,6 +144,10 @@ export class OrdersTab extends BaseTab {
 
     startLiveOrders() {
         if (!this.list) return;
+        if (!window.adminApp?.hasActiveSession?.()) {
+            this.pauseLiveUpdates('Reconnecting session...');
+            return;
+        }
 
         const scope = this.storeScope ? this.storeScope.value : 'selected';
         if (scope === 'all') {
@@ -213,6 +217,16 @@ export class OrdersTab extends BaseTab {
             window.clearInterval(this.timerClock);
             this.timerClock = null;
         }
+    }
+
+    pauseLiveUpdates(message = 'Reconnecting session...') {
+        this.stopLiveOrders();
+        this.renderOrdersLoading(message, 'Holding the live queue until your session reconnects.');
+    }
+
+    resumeLiveUpdates() {
+        if (!this.isInitialized) return;
+        this.startLiveOrders();
     }
 
     startLiveClock() {

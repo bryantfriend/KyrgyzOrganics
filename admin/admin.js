@@ -102,6 +102,11 @@ class AdminApp {
     this.companiesCache = [];
     this.currentStore = null;
     this.currentStorefrontConfig = null;
+    this.authRecoveryTimer = null;
+    this.lastStableUser = null;
+    this.logoutRequested = false;
+    this.hasResolvedInitialAuth = false;
+    this.reconnectToastShown = false;
 
     this.init();
   }
@@ -128,9 +133,14 @@ class AdminApp {
 
   setupAuth() {
     onAuthStateChanged(auth, async user => {
-      this.authScreen.hidden = !!user;
-      this.mainApp.hidden = !user;
       if (user) {
+        this.hasResolvedInitialAuth = true;
+        this.lastStableUser = user;
+        this.logoutRequested = false;
+        this.clearAuthRecoveryTimer();
+        this.reconnectToastShown = false;
+        this.applySignedInShell();
+
         try {
           const hostname = getHostname();
           const hqHost = isHqAdminHost(hostname);
@@ -200,19 +210,27 @@ class AdminApp {
 
           this.applyRoleUi();
           await this.refreshHeaderContext();
+          this.resumeLiveTabs();
           this.onLogin();
         } catch (err) {
           console.error("Company context failed:", err);
+          const message = err?.message ? String(err.message) : 'Login Failed';
           const errorP = document.getElementById('loginError');
-          if (errorP) errorP.textContent = err?.message ? String(err.message) : 'Login Failed';
-          this.authScreen.hidden = false;
-          this.mainApp.hidden = true;
-          await signOut(auth);
+          if (errorP) errorP.textContent = message;
+          this.authScreen.hidden = true;
+          this.mainApp.hidden = false;
+          this.pauseLiveTabs('Session reconnecting...');
+          this.showToast(`Session kept active. ${message}`, 'error');
         }
+      } else {
+        this.handleSignedOutState();
       }
     });
 
-    this.logoutBtn?.addEventListener('click', () => signOut(auth));
+    this.logoutBtn?.addEventListener('click', () => {
+      this.logoutRequested = true;
+      signOut(auth);
+    });
 
     if (this.loginForm) {
       this.loginForm.addEventListener('submit', async (e) => {
@@ -260,6 +278,93 @@ class AdminApp {
           tab.onStoreChanged();
         }
       });
+    });
+  }
+
+  applySignedInShell() {
+    this.authScreen.hidden = true;
+    this.mainApp.hidden = false;
+    const errorP = document.getElementById('loginError');
+    if (errorP) errorP.textContent = '';
+  }
+
+  applySignedOutShell() {
+    this.authScreen.hidden = false;
+    this.mainApp.hidden = true;
+  }
+
+  clearAuthRecoveryTimer() {
+    if (!this.authRecoveryTimer) return;
+    window.clearTimeout(this.authRecoveryTimer);
+    this.authRecoveryTimer = null;
+  }
+
+  hasActiveSession() {
+    return !!auth.currentUser;
+  }
+
+  handleSignedOutState() {
+    this.pauseLiveTabs('Session reconnecting...');
+
+    if (this.logoutRequested) {
+      this.clearAuthRecoveryTimer();
+      this.lastStableUser = null;
+      this.reconnectToastShown = false;
+      this.applySignedOutShell();
+      return;
+    }
+
+    const hasPriorSession = !!this.lastStableUser;
+    if (!hasPriorSession && !this.hasResolvedInitialAuth) {
+      this.hasResolvedInitialAuth = true;
+      this.reconnectToastShown = false;
+      this.applySignedOutShell();
+      return;
+    }
+
+    const initialGraceMs = 0;
+    const recoveryGraceMs = hasPriorSession ? 12000 : initialGraceMs;
+
+    if (recoveryGraceMs <= 0) {
+      this.lastStableUser = null;
+      this.applySignedOutShell();
+      return;
+    }
+
+    this.applySignedInShell();
+    if (!this.reconnectToastShown) {
+      this.showToast('Reconnecting your session...', 'warning');
+      this.reconnectToastShown = true;
+    }
+
+    if (this.authRecoveryTimer) return;
+
+    this.authRecoveryTimer = window.setTimeout(() => {
+      this.authRecoveryTimer = null;
+      if (auth.currentUser) return;
+      this.lastStableUser = null;
+      this.reconnectToastShown = false;
+      this.applySignedOutShell();
+      const errorP = document.getElementById('loginError');
+      if (errorP && !errorP.textContent) {
+        errorP.textContent = 'Session expired. Please sign in again.';
+      }
+    }, recoveryGraceMs);
+  }
+
+  pauseLiveTabs(message = 'Session reconnecting...') {
+    Object.values(this.tabs).forEach((tab) => {
+      if (typeof tab?.pauseLiveUpdates === 'function') {
+        tab.pauseLiveUpdates(message);
+      }
+    });
+  }
+
+  resumeLiveTabs() {
+    Object.values(this.tabs).forEach((tab) => {
+      if (typeof tab?.resumeLiveUpdates === 'function') {
+        tab.resumeLiveUpdates();
+      }
     });
   }
 

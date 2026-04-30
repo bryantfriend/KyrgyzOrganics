@@ -537,6 +537,7 @@ export class OverviewTab extends BaseTab {
     }
 
     startOrdersFeed() {
+        if (!window.adminApp?.hasActiveSession?.()) return;
         const companyId = getSelectedCompanyId();
         if (!companyId || this.ordersUnsubscribe) return;
 
@@ -559,6 +560,18 @@ export class OverviewTab extends BaseTab {
             this.ordersUnsubscribe();
         }
         this.ordersUnsubscribe = null;
+    }
+
+    pauseLiveUpdates(message = 'Reconnecting session...') {
+        this.stopOrdersFeed();
+        if (this.ordersLoadingEl) this.ordersLoadingEl.hidden = false;
+        if (this.ordersListEl) this.ordersListEl.hidden = true;
+        if (this.ordersMetaEl) this.ordersMetaEl.textContent = message;
+    }
+
+    resumeLiveUpdates() {
+        if (!this.isInitialized) return;
+        this.startOrdersFeed();
     }
 
     async handleOrderAction(orderId, nextStatus) {
