@@ -71,6 +71,8 @@ class AdminApp {
     this.authScreen = document.getElementById('authScreen');
     this.mainApp = document.getElementById('mainApp');
     this.loginForm = document.getElementById('loginForm');
+    this.loginSubmitBtn = document.getElementById('loginSubmitBtn');
+    this.loginStatus = document.getElementById('loginStatus');
     this.logoutBtn = document.getElementById('logoutBtn');
     this.tabs = {};
     this.activeTabName = 'overview';
@@ -107,6 +109,9 @@ class AdminApp {
     this.logoutRequested = false;
     this.hasResolvedInitialAuth = false;
     this.reconnectToastShown = false;
+    this.loginAttemptInFlight = false;
+    this.authBootstrapInFlight = false;
+    this.loginAttemptTimer = null;
 
     this.init();
   }
@@ -134,11 +139,15 @@ class AdminApp {
   setupAuth() {
     onAuthStateChanged(auth, async user => {
       if (user) {
+        this.clearLoginAttemptTimer();
         this.hasResolvedInitialAuth = true;
         this.lastStableUser = user;
         this.logoutRequested = false;
         this.clearAuthRecoveryTimer();
         this.reconnectToastShown = false;
+        this.loginAttemptInFlight = false;
+        this.authBootstrapInFlight = true;
+        this.setLoginUiState({ pending: true, status: 'Loading your admin workspace...' });
         this.applySignedInShell();
 
         try {
@@ -210,13 +219,18 @@ class AdminApp {
 
           this.applyRoleUi();
           await this.refreshHeaderContext();
+          this.authBootstrapInFlight = false;
           this.resumeLiveTabs();
           this.onLogin();
+          this.loginForm?.reset();
+          this.setLoginUiState({ pending: false, status: '' });
         } catch (err) {
+          this.authBootstrapInFlight = false;
           console.error("Company context failed:", err);
           const message = err?.message ? String(err.message) : 'Login Failed';
           const errorP = document.getElementById('loginError');
           if (errorP) errorP.textContent = message;
+          this.setLoginUiState({ pending: false, status: '' });
           this.authScreen.hidden = true;
           this.mainApp.hidden = false;
           this.pauseLiveTabs('Session reconnecting...');
@@ -235,17 +249,42 @@ class AdminApp {
     if (this.loginForm) {
       this.loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (this.loginAttemptInFlight || this.authBootstrapInFlight) return;
+
         const email = document.getElementById('loginEmail').value;
         const pwd = document.getElementById('loginPwd').value;
         const errorP = document.getElementById('loginError');
 
         try {
+          this.loginAttemptInFlight = true;
+          this.authBootstrapInFlight = false;
+          this.clearLoginAttemptTimer();
+          this.setLoginUiState({ pending: true, status: 'Signing you in...', error: '' });
           await login(email, pwd);
-          this.loginForm.reset();
           if (errorP) errorP.textContent = '';
+          this.setLoginUiState({ pending: true, status: 'Loading your admin workspace...' });
+          this.loginAttemptTimer = window.setTimeout(() => {
+            this.loginAttemptTimer = null;
+            if (auth.currentUser) {
+              this.setLoginUiState({ pending: true, status: 'Still loading your workspace...' });
+              return;
+            }
+            this.loginAttemptInFlight = false;
+            this.authBootstrapInFlight = false;
+            this.setLoginUiState({
+              pending: false,
+              status: '',
+              error: 'We could not finish signing you in. Please try again.'
+            });
+          }, 10000);
         } catch (err) {
+          this.clearLoginAttemptTimer();
+          this.loginAttemptInFlight = false;
+          this.authBootstrapInFlight = false;
           console.error(err);
-          if (errorP) errorP.textContent = "Login Failed: " + err.message;
+          const message = "Login Failed: " + err.message;
+          if (errorP) errorP.textContent = message;
+          this.setLoginUiState({ pending: false, status: '', error: message });
         }
       });
     }
@@ -299,6 +338,30 @@ class AdminApp {
     this.authRecoveryTimer = null;
   }
 
+  clearLoginAttemptTimer() {
+    if (!this.loginAttemptTimer) return;
+    window.clearTimeout(this.loginAttemptTimer);
+    this.loginAttemptTimer = null;
+  }
+
+  setLoginUiState({ pending = false, status = '', error = null } = {}) {
+    if (this.loginSubmitBtn) {
+      this.loginSubmitBtn.disabled = pending;
+      this.loginSubmitBtn.textContent = pending ? 'Signing In...' : 'Sign In';
+      this.loginSubmitBtn.setAttribute('aria-busy', pending ? 'true' : 'false');
+    }
+
+    if (this.loginStatus) {
+      this.loginStatus.textContent = status || '';
+      this.loginStatus.hidden = !status;
+    }
+
+    if (error !== null) {
+      const errorP = document.getElementById('loginError');
+      if (errorP) errorP.textContent = error || '';
+    }
+  }
+
   hasActiveSession() {
     return !!auth.currentUser;
   }
@@ -306,10 +369,20 @@ class AdminApp {
   handleSignedOutState() {
     this.pauseLiveTabs('Session reconnecting...');
 
+    if (this.loginAttemptInFlight || this.authBootstrapInFlight) {
+      this.applySignedOutShell();
+      this.setLoginUiState({ pending: true, status: 'Signing you in...' });
+      return;
+    }
+
     if (this.logoutRequested) {
       this.clearAuthRecoveryTimer();
+      this.clearLoginAttemptTimer();
       this.lastStableUser = null;
       this.reconnectToastShown = false;
+      this.loginAttemptInFlight = false;
+      this.authBootstrapInFlight = false;
+      this.setLoginUiState({ pending: false, status: '', error: '' });
       this.applySignedOutShell();
       return;
     }
@@ -318,6 +391,7 @@ class AdminApp {
     if (!hasPriorSession && !this.hasResolvedInitialAuth) {
       this.hasResolvedInitialAuth = true;
       this.reconnectToastShown = false;
+      this.setLoginUiState({ pending: false, status: '', error: '' });
       this.applySignedOutShell();
       return;
     }
@@ -327,6 +401,7 @@ class AdminApp {
 
     if (recoveryGraceMs <= 0) {
       this.lastStableUser = null;
+      this.setLoginUiState({ pending: false, status: '', error: '' });
       this.applySignedOutShell();
       return;
     }
@@ -344,11 +419,12 @@ class AdminApp {
       if (auth.currentUser) return;
       this.lastStableUser = null;
       this.reconnectToastShown = false;
+      this.loginAttemptInFlight = false;
+      this.authBootstrapInFlight = false;
       this.applySignedOutShell();
       const errorP = document.getElementById('loginError');
-      if (errorP && !errorP.textContent) {
-        errorP.textContent = 'Session expired. Please sign in again.';
-      }
+      const nextMessage = errorP?.textContent ? errorP.textContent : 'Session expired. Please sign in again.';
+      this.setLoginUiState({ pending: false, status: '', error: nextMessage });
     }, recoveryGraceMs);
   }
 

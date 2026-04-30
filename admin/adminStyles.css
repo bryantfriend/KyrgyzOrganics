@@ -978,6 +978,29 @@ button[type="submit"]:hover {
   transform: translateY(0);
 }
 
+.login-box button[disabled] {
+  cursor: wait;
+  opacity: 0.78;
+  box-shadow: none;
+  transform: none;
+}
+
+.login-status {
+  min-height: 1.25rem;
+  margin: 0.9rem 0 0;
+  color: #2563eb;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+#loginError {
+  min-height: 1.25rem;
+  margin: 0.55rem 0 0;
+  color: #b91c1c;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
 #authScreen {
   height: 100vh;
   display: flex;
