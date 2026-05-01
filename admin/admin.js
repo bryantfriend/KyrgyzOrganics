@@ -17,7 +17,7 @@ import { AnalyticsTab } from './tabs/AnalyticsTab.js';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js';
 
-const ADMIN_VERSION = '3.2';
+const ADMIN_VERSION = '3.3';
 const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
 const PLATFORM_TABS = new Set(['stores', 'analytics', 'audit']);
 
@@ -74,6 +74,13 @@ function normalizeRole(role) {
 
 function isSuperAdminRole(role) {
   return SUPER_ADMIN_ROLES.has(normalizeRole(role));
+}
+
+class AdminAccessError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'AdminAccessError';
+  }
 }
 
 class AdminApp {
@@ -169,6 +176,7 @@ class AdminApp {
           const routedCompanyId = pathCompanyId || queryCompanyId;
 
           const profile = await getUserProfile(user.uid);
+          const isLegacyAdmin = !profile;
           const role = profile?.role || 'admin';
           const companyId = profile?.companyId || COMPANY_ID;
 
@@ -180,15 +188,17 @@ class AdminApp {
             companyId
           };
 
-          // Superadmin powers require an explicit role and only unlock on the HQ admin domain.
-          this.isSuperAdmin = hqHost && isSuperAdminRole(role);
+          const isProdHqHost = hostname === 'oako.kg' || hostname === 'www.oako.kg';
+
+          // Superadmin powers require an explicit role, except for the legacy HQ root
+          // account path still allowed by Firestore rules.
+          this.isSuperAdmin = hqHost && (isSuperAdminRole(role) || (isLegacyAdmin && isProdHqHost && !routedCompanyId));
 
           // HQ root admin portal is only for Kyrgyz Organic (plus superadmins).
           // Store admins can still use a store-scoped admin path such as
           // /dailybread/admin/admin.html on the shared host.
-          const isProdHqHost = hostname === 'oako.kg' || hostname === 'www.oako.kg';
           if (isProdHqHost && !this.isSuperAdmin && companyId !== COMPANY_ID && !routedCompanyId) {
-            throw new Error(`This admin portal is for Kyrgyz Organic only. Please use your store path instead, for example: https://oako.kg/${companyId}/admin/admin.html`);
+            throw new AdminAccessError(`This admin portal is for Kyrgyz Organic only. Please use your store path instead, for example: https://oako.kg/${companyId}/admin/admin.html`);
           }
 
           // Load stored selection (superadmin) or force to the user's company.
@@ -200,7 +210,7 @@ class AdminApp {
 
             // If this isn't a superadmin account, ensure they only log into their own store domain.
             if (!isSuperAdminRole(role) && hostCompanyId && companyId && hostCompanyId !== companyId) {
-              throw new Error(`This admin portal is for "${hostCompanyId}". Please log in on the correct store website.`);
+              throw new AdminAccessError(`This admin portal is for "${hostCompanyId}". Please log in on the correct store website.`);
             }
 
             setSelectedCompany(forcedCompanyId, { persist: false });
@@ -209,7 +219,7 @@ class AdminApp {
             // either the root Kyrgyz Organic admin or a store-scoped path such as
             // /dailybread/admin/admin.html.
             if (routedCompanyId && companyId && routedCompanyId !== companyId) {
-              throw new Error(`This admin portal is for "${routedCompanyId}". Please log in on the correct store admin path.`);
+              throw new AdminAccessError(`This admin portal is for "${routedCompanyId}". Please log in on the correct store admin path.`);
             }
             setSelectedCompany(routedCompanyId || companyId, { persist: false });
           } else if (!getSelectedCompanyId()) {
@@ -239,16 +249,25 @@ class AdminApp {
           const errorP = document.getElementById('loginError');
           if (errorP) errorP.textContent = message;
           this.setLoginUiState({ pending: false, status: '' });
-          this.applySignedOutShell();
-          this.isSuperAdmin = false;
-          this.logoutRequested = true;
-          this.lastStableUser = null;
+          if (err instanceof AdminAccessError) {
+            this.applySignedOutShell();
+            this.isSuperAdmin = false;
+            this.logoutRequested = true;
+            this.lastStableUser = null;
+            this.applyRoleUi();
+            this.pauseLiveTabs('Admin access needs the correct store context.');
+            this.showToast(message, 'error');
+            signOut(auth).catch((signOutErr) => {
+              console.warn('Failed to sign out after admin context error:', signOutErr);
+            });
+            return;
+          }
+
           this.applyRoleUi();
-          this.pauseLiveTabs('Admin access needs the correct store context.');
-          this.showToast(message, 'error');
-          signOut(auth).catch((signOutErr) => {
-            console.warn('Failed to sign out after admin context error:', signOutErr);
-          });
+          this.applySignedInShell();
+          this.resumeLiveTabs();
+          this.onLogin();
+          this.showToast(`Session kept active. ${message}`, 'error');
         }
       } else {
         this.handleSignedOutState();
