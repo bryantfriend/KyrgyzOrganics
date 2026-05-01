@@ -17,7 +17,9 @@ import { AnalyticsTab } from './tabs/AnalyticsTab.js';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js';
 
-const ADMIN_VERSION = '3.1';
+const ADMIN_VERSION = '3.2';
+const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
+const PLATFORM_TABS = new Set(['stores', 'analytics', 'audit']);
 
 function getHostname() {
   try {
@@ -64,6 +66,14 @@ function getCompanyIdFromQuery() {
   } catch (_) {
     return null;
   }
+}
+
+function normalizeRole(role) {
+  return String(role || '').trim().toLowerCase();
+}
+
+function isSuperAdminRole(role) {
+  return SUPER_ADMIN_ROLES.has(normalizeRole(role));
 }
 
 class AdminApp {
@@ -159,7 +169,6 @@ class AdminApp {
           const routedCompanyId = pathCompanyId || queryCompanyId;
 
           const profile = await getUserProfile(user.uid);
-          const isLegacyAdmin = !profile;
           const role = profile?.role || 'admin';
           const companyId = profile?.companyId || COMPANY_ID;
 
@@ -171,9 +180,8 @@ class AdminApp {
             companyId
           };
 
-          // Superadmin powers only on the HQ admin domain (oako.kg).
-          // Legacy admins (no users/{uid} profile) are treated like superadmins on HQ host to avoid breaking existing access.
-          this.isSuperAdmin = hqHost && (role === 'superadmin' || role === 'super_admin' || isLegacyAdmin);
+          // Superadmin powers require an explicit role and only unlock on the HQ admin domain.
+          this.isSuperAdmin = hqHost && isSuperAdminRole(role);
 
           // HQ root admin portal is only for Kyrgyz Organic (plus superadmins).
           // Store admins can still use a store-scoped admin path such as
@@ -191,7 +199,7 @@ class AdminApp {
             const forcedCompanyId = hostCompanyId || companyId;
 
             // If this isn't a superadmin account, ensure they only log into their own store domain.
-            if (role !== 'superadmin' && role !== 'super_admin' && hostCompanyId && companyId && hostCompanyId !== companyId) {
+            if (!isSuperAdminRole(role) && hostCompanyId && companyId && hostCompanyId !== companyId) {
               throw new Error(`This admin portal is for "${hostCompanyId}". Please log in on the correct store website.`);
             }
 
@@ -231,10 +239,16 @@ class AdminApp {
           const errorP = document.getElementById('loginError');
           if (errorP) errorP.textContent = message;
           this.setLoginUiState({ pending: false, status: '' });
-          this.authScreen.hidden = true;
-          this.mainApp.hidden = false;
-          this.pauseLiveTabs('Session reconnecting...');
-          this.showToast(`Session kept active. ${message}`, 'error');
+          this.applySignedOutShell();
+          this.isSuperAdmin = false;
+          this.logoutRequested = true;
+          this.lastStableUser = null;
+          this.applyRoleUi();
+          this.pauseLiveTabs('Admin access needs the correct store context.');
+          this.showToast(message, 'error');
+          signOut(auth).catch((signOutErr) => {
+            console.warn('Failed to sign out after admin context error:', signOutErr);
+          });
         }
       } else {
         this.handleSignedOutState();
@@ -710,8 +724,18 @@ class AdminApp {
   openTab(tabName, sourceButton = null) {
     if (!tabName) return;
 
+    if (!this.isSuperAdmin && PLATFORM_TABS.has(tabName)) {
+      this.openTab('overview');
+      return;
+    }
+
     const buttons = document.querySelectorAll('.tabs button[data-tab], .nav-btn[data-tab]');
     const targetButton = sourceButton || Array.from(buttons).find((btn) => btn.dataset.tab === tabName && !btn.hidden);
+
+    if (!this.isSuperAdmin && targetButton?.dataset.roleNav === 'super') {
+      this.openTab('overview');
+      return;
+    }
 
     buttons.forEach(b => b.classList.remove('active'));
     if (targetButton) targetButton.classList.add('active');
