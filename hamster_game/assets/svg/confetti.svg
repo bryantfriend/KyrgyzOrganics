@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160" role="img" aria-labelledby="title desc">
+  <title id="title">Конфетти</title>
+  <desc id="desc">Праздничное конфетти для выигрыша.</desc>
+  <g fill="none" stroke-linecap="round" stroke-width="8">
+    <path d="M34 104c18-23 38-26 61-12" stroke="#f1b82d"/>
+    <path d="M148 44c26 1 44 12 53 34" stroke="#2f8c4f"/>
+    <path d="M75 35c20 10 29 25 25 44" stroke="#e65d4f"/>
+  </g>
+  <g>
+    <rect x="31" y="38" width="14" height="14" rx="3" fill="#2f8c4f" transform="rotate(18 38 45)"/>
+    <rect x="126" y="94" width="16" height="16" rx="4" fill="#f1b82d" transform="rotate(35 134 102)"/>
+    <rect x="190" y="109" width="14" height="14" rx="3" fill="#e65d4f" transform="rotate(-18 197 116)"/>
+    <circle cx="62" cy="126" r="8" fill="#f1b82d"/>
+    <circle cx="171" cy="28" r="7" fill="#e65d4f"/>
+    <path d="M211 44 198 62l22 1Z" fill="#2f8c4f"/>
+    <path d="M101 20 88 38l22 1Z" fill="#f1b82d"/>
+  </g>
+</svg>

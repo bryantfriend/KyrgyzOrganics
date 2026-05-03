@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">Грецкий орех</title>
+  <desc id="desc">Джекпотный грецкий орех.</desc>
+  <defs>
+    <radialGradient id="walnut" cx="38%" cy="28%" r="70%">
+      <stop offset="0" stop-color="#e4aa63"/>
+      <stop offset=".7" stop-color="#955729"/>
+      <stop offset="1" stop-color="#4f2b17"/>
+    </radialGradient>
+  </defs>
+  <path d="M74 17c-23 1-43 19-48 43-8 39 19 78 54 82 36 4 67-23 66-61-1-36-29-66-72-64Z" fill="url(#walnut)" stroke="#3b2114" stroke-width="7"/>
+  <path d="M79 23c-18 17-14 36-1 49 15 15 13 38-4 61" fill="none" stroke="#6e3f21" stroke-width="7" stroke-linecap="round"/>
+  <path d="M50 44c21 6 33 20 36 42M111 43c-16 7-25 20-27 38M50 103c18-4 31 2 39 18M103 100c-13 3-22 12-27 27" fill="none" stroke="#d0934b" stroke-width="5" stroke-linecap="round" opacity=".85"/>
+</svg>

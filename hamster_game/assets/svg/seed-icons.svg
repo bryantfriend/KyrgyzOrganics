@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 80" role="img" aria-labelledby="title desc">
+  <title id="title">Иконки семян</title>
+  <desc id="desc">Мак, кунжут, миндаль и орех в игровом стиле.</desc>
+  <ellipse cx="35" cy="42" rx="20" ry="27" fill="#2e2927"/>
+  <ellipse cx="35" cy="34" rx="8" ry="13" fill="#4e4845"/>
+  <ellipse cx="95" cy="42" rx="18" ry="25" fill="#f7f1df" stroke="#d9cda7" stroke-width="4"/>
+  <path d="M95 19c9 16 9 31 0 47" stroke="#d5c393" stroke-width="3" fill="none"/>
+  <ellipse cx="155" cy="42" rx="21" ry="29" fill="#b8743a" stroke="#6b3a1d" stroke-width="4"/>
+  <path d="M144 25c12 12 20 28 21 44" stroke="#e3aa68" stroke-width="4" fill="none"/>
+  <path d="M212 20c28-5 42 17 33 39-7 18-36 22-51 5-15-17-4-40 18-44Z" fill="#9a5d2e" stroke="#5a321b" stroke-width="5"/>
+  <path d="M203 33c13 3 24 12 32 26" stroke="#d79a52" stroke-width="4" fill="none"/>
+</svg>

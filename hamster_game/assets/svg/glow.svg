@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" role="img" aria-labelledby="title desc">
+  <title id="title">Золотое сияние</title>
+  <desc id="desc">Светящийся круг для джекпота.</desc>
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fff7b1"/>
+      <stop offset=".42" stop-color="#ffc94f" stop-opacity=".82"/>
+      <stop offset="1" stop-color="#ffc94f" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="110" cy="110" r="104" fill="url(#glow)"/>
+  <g stroke="#ffe28a" stroke-width="7" stroke-linecap="round" opacity=".85">
+    <path d="M110 6v34M110 180v34M6 110h34M180 110h34"/>
+    <path d="M36 36l25 25M159 159l25 25M184 36l-25 25M61 159l-25 25"/>
+  </g>
+</svg>
