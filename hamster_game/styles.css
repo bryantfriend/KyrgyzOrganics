@@ -329,6 +329,11 @@
   text-align: center;
 }
 
+.hg-guest-finished {
+  border-color: rgba(255, 201, 79, 0.48);
+  background: linear-gradient(180deg, #fff8dc, #fff0c4);
+}
+
 .hg-jackpot {
   position: relative;
 }

@@ -13,8 +13,10 @@ import {
 
 const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
+const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
 const APP_VERSION = "1.00";
+const GUEST_SPINS = 5;
 
 const seedMeta = {
   poppy: { name: "Маковые семена", short: "Мак", value: 1, icon: "🌑" },
@@ -69,6 +71,7 @@ let state = {
   authTab: "login",
   userId: localStorage.getItem(SESSION_KEY),
   user: null,
+  guest: loadGuestTrial(),
   loading: true,
   busy: false,
   message: "",
@@ -134,7 +137,8 @@ function renderShell() {
 }
 
 function renderTopbar() {
-  const spins = state.user?.spins?.available ?? 0;
+  const spins = getActiveSpins();
+  const pillLabel = state.user ? `🎰 ${spins}` : `🎰 Гость ${spins}/${GUEST_SPINS}`;
   return `
     <header class="hg-topbar">
       <div>
@@ -142,13 +146,13 @@ function renderTopbar() {
         <h1 class="hg-title">Счастливый хомяк</h1>
         <span class="hg-version">Версия ${APP_VERSION}</span>
       </div>
-      <div class="hg-pill" aria-label="Доступные вращения">🎰 ${spins}</div>
+      <div class="hg-pill" aria-label="Доступные вращения">${pillLabel}</div>
     </header>
   `;
 }
 
 function renderActiveScreen() {
-  if (!state.user && state.tab !== "account") {
+  if (!state.user && state.tab !== "game" && state.tab !== "account") {
     return renderLoggedOutPrompt();
   }
   if (state.tab === "wallet") return renderWallet();
@@ -163,7 +167,7 @@ function renderLoggedOutPrompt() {
     <section class="hg-screen">
       <div class="hg-card">
         <h2 class="hg-section-title">Хомяк вас ещё не знает</h2>
-        <p class="hg-muted">Войдите или создайте аккаунт, чтобы крутить барабаны и собирать семена.</p>
+        <p class="hg-muted">Вы можете покрутить 5 раз как гость. Создайте аккаунт, чтобы сохранить свои семена и орехи.</p>
         <button class="hg-button" data-tab="account" type="button">Открыть аккаунт</button>
       </div>
     </section>
@@ -171,17 +175,20 @@ function renderLoggedOutPrompt() {
 }
 
 function renderGame() {
-  const dailyAvailable = canClaimDailySpin();
+  const dailyAvailable = state.user && canClaimDailySpin();
+  const spins = getActiveSpins();
   return `
     <section class="hg-screen">
       ${renderBalanceSummary()}
-      <div class="hg-card hg-daily-row">
-        <div>
-          <strong>Ежедневное вращение</strong>
-          <div class="hg-muted">${dailyAvailable ? "Хомяк приготовил подарок на сегодня." : "Сегодняшний подарок уже получен."}</div>
+      ${state.user ? `
+        <div class="hg-card hg-daily-row">
+          <div>
+            <strong>Ежедневное вращение</strong>
+            <div class="hg-muted">${dailyAvailable ? "Хомяк приготовил подарок на сегодня." : "Сегодняшний подарок уже получен."}</div>
+          </div>
+          <button class="hg-button hg-button-secondary" data-action="daily" ${dailyAvailable || state.busy ? "" : "disabled"} type="button">Получить</button>
         </div>
-        <button class="hg-button hg-button-secondary" data-action="daily" ${dailyAvailable || state.busy ? "" : "disabled"} type="button">Получить</button>
-      </div>
+      ` : renderGuestNotice()}
       <div class="hg-slot-wrap ${state.spinning ? "hg-is-spinning" : ""}">
         <div id="hgConfetti"></div>
         <img class="hg-slot-frame-art" src="./assets/svg/slot-machine.svg" alt="">
@@ -193,11 +200,12 @@ function renderGame() {
         <div class="hg-reels" aria-label="Игровые барабаны">
           ${state.resultSymbols.map((symbol) => `<div class="hg-reel ${state.spinning ? "hg-spinning" : ""}"><span class="hg-reel-symbol">${symbol}</span></div>`).join("")}
         </div>
-        <button class="hg-button hg-spin-button" data-action="spin" ${state.busy || !state.user?.spins?.available ? "disabled" : ""} type="button">
+        <button class="hg-button hg-spin-button" data-action="spin" ${state.busy || !spins ? "disabled" : ""} type="button">
           ${state.spinning ? "Хомяк крутит..." : "Крутить!"}
         </button>
       </div>
       <div class="hg-result ${state.resultMessage.includes("ДЖЕКПОТ") ? "hg-jackpot" : ""}">${escapeHtml(state.resultMessage)}</div>
+      ${!state.user && !spins ? renderGuestFinishedCard() : ""}
       <div class="hg-card">
         <h2 class="hg-section-title">Свежие выигрыши</h2>
         <div class="hg-feed">
@@ -209,7 +217,7 @@ function renderGame() {
 }
 
 function renderBalanceSummary() {
-  const seeds = state.user?.seeds || defaultSeeds();
+  const seeds = getActiveSeeds();
   return `
     <div class="hg-card">
       <div class="hg-balance-grid">
@@ -225,8 +233,31 @@ function renderBalanceSummary() {
   `;
 }
 
+function renderGuestNotice() {
+  const used = GUEST_SPINS - getActiveSpins();
+  return `
+    <div class="hg-card hg-daily-row">
+      <div>
+        <strong>Пробная игра</strong>
+        <div class="hg-muted">У вас есть 5 гостевых вращений. Использовано: ${used} из ${GUEST_SPINS}.</div>
+      </div>
+      <button class="hg-button hg-button-secondary" data-tab="account" type="button">Сохранить</button>
+    </div>
+  `;
+}
+
+function renderGuestFinishedCard() {
+  return `
+    <div class="hg-card hg-guest-finished">
+      <h2 class="hg-section-title">Пробные вращения закончились</h2>
+      <p class="hg-muted">Создайте аккаунт, чтобы хомяк сохранил ваши семена и орехи 🥜</p>
+      <button class="hg-button" data-tab="account" type="button">Создать аккаунт</button>
+    </div>
+  `;
+}
+
 function renderWallet() {
-  const seeds = state.user.seeds || defaultSeeds();
+  const seeds = getActiveSeeds();
   const total = walletTotal(seeds);
   return `
     <section class="hg-screen">
@@ -359,6 +390,7 @@ function renderAccount() {
 }
 
 function renderAuthForms() {
+  const guestTotal = walletTotal(state.guest.seeds || defaultSeeds());
   return `
     <section class="hg-screen">
       <div class="hg-card">
@@ -369,6 +401,7 @@ function renderAuthForms() {
       </div>
       <div class="hg-card">
         <h2 class="hg-section-title">${state.authTab === "login" ? "Войти" : "Создать аккаунт"}</h2>
+        ${guestTotal ? `<p class="hg-success">Создайте аккаунт, и хомяк сохранит ваши пробные семена на ${guestTotal} сом.</p>` : ""}
         ${state.message ? `<p class="hg-success">${state.message}</p>` : ""}
         ${state.error ? `<p class="hg-error">${state.error}</p>` : ""}
         <form class="hg-form" data-form="${state.authTab}">
@@ -462,6 +495,8 @@ async function registerUser(username, pin, confirmPin) {
     if (existing) throw new Error("Это имя уже занято. Попробуйте другое.");
     const userRef = doc(collection(db, CUSTOMER_COLLECTION));
     const pinHash = await hashPin(usernameIndex, pin);
+    const guestSeeds = state.guest?.seeds || defaultSeeds();
+    const guestStats = state.guest?.stats || defaultGuestStats();
     await setDoc(userRef, {
       username: username.trim(),
       usernameIndex,
@@ -469,26 +504,27 @@ async function registerUser(username, pin, confirmPin) {
       category: "free",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-      seeds: defaultSeeds(),
+      seeds: { ...defaultSeeds(), ...guestSeeds },
       spins: {
         available: 5,
         dailyFreeUsedDate: null,
         totalEarnedFromTasks: 0
       },
       stats: {
-        totalSpins: 0,
-        totalWins: 0,
-        biggestWin: "",
+        totalSpins: guestStats.totalSpins || 0,
+        totalWins: guestStats.totalWins || 0,
+        biggestWin: guestStats.biggestWin || "",
         lastSpinAt: null
       },
       rewards: [],
       tasks: defaultTasks()
     });
     localStorage.setItem(SESSION_KEY, userRef.id);
+    clearGuestTrial();
     state.userId = userRef.id;
     await loadCurrentUser();
     state.tab = "game";
-    showToast("Добро пожаловать! Хомяк дарит вам 5 первых вращений 🎰");
+    showToast("Добро пожаловать! Хомяк сохранил ваши семена и дарит 5 вращений 🎰");
   });
 }
 
@@ -548,14 +584,19 @@ async function claimDailySpin() {
 }
 
 async function spin() {
-  if (!state.user) return;
-  if ((state.user.spins?.available || 0) < 1) {
-    return showToast("У вас закончились вращения. Выполните задание или приходите завтра!");
+  const spins = getActiveSpins();
+  if (spins < 1) {
+    const message = state.user
+      ? "У вас закончились вращения. Выполните задание или приходите завтра!"
+      : "Пробные вращения закончились. Создайте аккаунт, чтобы сохранить свои семена и орехи 🥜";
+    state.resultMessage = message;
+    render();
+    return showToast(message);
   }
   state.busy = true;
   state.spinning = true;
   state.resultMessage = "Хомяк крутит барабаны...";
-  state.user.spins.available -= 1;
+  decrementActiveSpin();
   render();
   const ticker = window.setInterval(() => {
     state.resultSymbols = randomSymbols();
@@ -567,24 +608,30 @@ async function spin() {
   window.clearInterval(ticker);
   const finalSymbols = randomSymbols();
   const reward = calculateReward(finalSymbols);
-  const updatedSeeds = addSeeds(state.user.seeds, reward.reward);
-  const remainingSpins = Math.max((state.user.spins?.available || 0), 0);
-  const totalWins = (state.user.stats?.totalWins || 0) + (reward.isWin ? 1 : 0);
-  const stats = {
-    ...state.user.stats,
-    totalSpins: (state.user.stats?.totalSpins || 0) + 1,
-    totalWins,
-    biggestWin: chooseBiggestWin(state.user.stats?.biggestWin || "", reward),
-    lastSpinAt: new Date().toISOString()
-  };
   try {
-    await saveUserData({
-      seeds: updatedSeeds,
-      spins: { ...state.user.spins, available: remainingSpins },
-      stats
-    });
+    if (state.user) {
+      const updatedSeeds = addSeeds(state.user.seeds, reward.reward);
+      const remainingSpins = Math.max((state.user.spins?.available || 0), 0);
+      const totalWins = (state.user.stats?.totalWins || 0) + (reward.isWin ? 1 : 0);
+      const stats = {
+        ...state.user.stats,
+        totalSpins: (state.user.stats?.totalSpins || 0) + 1,
+        totalWins,
+        biggestWin: chooseBiggestWin(state.user.stats?.biggestWin || "", reward),
+        lastSpinAt: new Date().toISOString()
+      };
+      await saveUserData({
+        seeds: updatedSeeds,
+        spins: { ...state.user.spins, available: remainingSpins },
+        stats
+      });
+    } else {
+      applyGuestReward(reward);
+    }
     state.resultSymbols = finalSymbols;
-    state.resultMessage = reward.message;
+    state.resultMessage = !state.user && getActiveSpins() < 1
+      ? `${reward.message} Создайте аккаунт, чтобы сохранить свои семена и орехи 🥜`
+      : reward.message;
     state.spinning = false;
     state.busy = false;
     render();
@@ -694,6 +741,49 @@ function normalizeUser(user) {
   };
 }
 
+function defaultGuestStats() {
+  return {
+    totalSpins: 0,
+    totalWins: 0,
+    biggestWin: "",
+    lastSpinAt: null
+  };
+}
+
+function defaultGuestTrial() {
+  return {
+    seeds: defaultSeeds(),
+    spins: { available: GUEST_SPINS },
+    stats: defaultGuestStats()
+  };
+}
+
+function loadGuestTrial() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(GUEST_SESSION_KEY) || "null");
+    if (!stored) return defaultGuestTrial();
+    return {
+      seeds: { ...defaultSeeds(), ...(stored.seeds || {}) },
+      spins: {
+        available: Math.max(0, Math.min(GUEST_SPINS, Number(stored.spins?.available ?? GUEST_SPINS)))
+      },
+      stats: { ...defaultGuestStats(), ...(stored.stats || {}) }
+    };
+  } catch (error) {
+    console.warn("Failed to read guest trial:", error);
+    return defaultGuestTrial();
+  }
+}
+
+function saveGuestTrial() {
+  localStorage.setItem(GUEST_SESSION_KEY, JSON.stringify(state.guest));
+}
+
+function clearGuestTrial() {
+  localStorage.removeItem(GUEST_SESSION_KEY);
+  state.guest = defaultGuestTrial();
+}
+
 function defaultSeeds() {
   return { poppy: 0, sesame: 0, almond: 0, walnut: 0 };
 }
@@ -714,6 +804,39 @@ function validateCredentials(usernameIndex, pin, confirmPin, isRegister) {
   if (!/^\d{4}$/.test(pin)) return "PIN-код должен состоять ровно из 4 цифр.";
   if (isRegister && pin !== confirmPin) return "PIN-коды не совпадают.";
   return "";
+}
+
+function getActiveSeeds() {
+  return state.user?.seeds || state.guest?.seeds || defaultSeeds();
+}
+
+function getActiveSpins() {
+  return state.user?.spins?.available ?? state.guest?.spins?.available ?? 0;
+}
+
+function decrementActiveSpin() {
+  if (state.user) {
+    state.user.spins.available = Math.max(0, (state.user.spins?.available || 0) - 1);
+    return;
+  }
+  state.guest.spins.available = Math.max(0, (state.guest.spins?.available || 0) - 1);
+  saveGuestTrial();
+}
+
+function applyGuestReward(reward) {
+  const stats = state.guest.stats || defaultGuestStats();
+  state.guest = {
+    ...state.guest,
+    seeds: addSeeds(state.guest.seeds, reward.reward),
+    stats: {
+      ...stats,
+      totalSpins: (stats.totalSpins || 0) + 1,
+      totalWins: (stats.totalWins || 0) + (reward.isWin ? 1 : 0),
+      biggestWin: chooseBiggestWin(stats.biggestWin || "", reward),
+      lastSpinAt: new Date().toISOString()
+    }
+  };
+  saveGuestTrial();
 }
 
 async function hashPin(usernameIndex, pin) {
