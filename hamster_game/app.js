@@ -15,7 +15,7 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.03";
+const APP_VERSION = "1.04";
 const GUEST_SPINS = 5;
 const avatarOptions = {
   ages: [
@@ -190,7 +190,7 @@ function renderShell() {
 
 function renderTopbar() {
   const spins = getActiveSpins();
-  const pillLabel = state.user ? `🎰 ${spins}` : `🎰 Гость ${spins}/${GUEST_SPINS}`;
+  const pillLabel = state.user ? `${spins} вращ.` : `${spins}/${GUEST_SPINS} вращ.`;
   const userLabel = state.user ? escapeHtml(state.user.username) : "Гость";
   const userAvatar = state.user
     ? `<img class="hg-user-avatar" src="${renderAvatarDataUrl(state.user.avatar)}" alt="Аватар игрока">`
@@ -200,16 +200,18 @@ function renderTopbar() {
       <div class="hg-hero-panel">
         <div class="hg-hero-badges">
           <div class="hg-user-pill ${state.user ? "" : "is-guest"}">${userAvatar}<span>${userLabel}</span></div>
-          <div class="hg-pill" aria-label="Доступные вращения">${pillLabel}</div>
         </div>
         <div class="hg-hero-grid">
           <div class="hg-hero-mascot">
             <img class="hg-hero-hamster" src="./assets/characters/hamster-chef-main.webp" alt="Хомяк-повар">
           </div>
           <div class="hg-hero-copy">
-            <p class="hg-brand-kicker">Kyrgyz Organics</p>
-            <h1 class="hg-title">Счастливый<br>хомяк</h1>
-            <span class="hg-version">v${APP_VERSION}</span>
+            <p class="hg-brand-kicker"><span class="hg-brand-leaf" aria-hidden="true"></span><span>Kyrgyz<br>Organics</span></p>
+            <h1 class="hg-title"><span class="hg-title-top">Счастливый</span><span class="hg-title-bottom">Хомяк</span></h1>
+            <div class="hg-hero-meta">
+              <span class="hg-version">v${APP_VERSION}</span>
+              <span class="hg-pill hg-pill-spins" aria-label="Доступные вращения">${pillLabel}</span>
+            </div>
           </div>
           <div class="hg-hero-sign">
             <div class="hg-hero-sign-inner">
@@ -282,7 +284,10 @@ function renderGame() {
           </div>
         </div>
         <button class="hg-button hg-spin-button" data-action="spin" ${state.busy || !spins ? "disabled" : ""} type="button">
-          ${state.spinning ? "Хомяк крутит..." : "Крутить!"}
+          <span class="hg-spin-lights" aria-hidden="true">
+            ${Array.from({ length: 14 }, (_, index) => `<span class="hg-spin-bulb hg-spin-bulb--${index + 1}"></span>`).join("")}
+          </span>
+          <span class="hg-spin-label">${state.spinning ? "Хомяк крутит..." : "КРУТИТЬ!"}</span>
         </button>
       </div>
       <div class="hg-result ${state.resultMessage.includes("ДЖЕКПОТ") ? "hg-jackpot" : ""}">
@@ -315,10 +320,10 @@ function renderBalanceSummary() {
     <div class="hg-card hg-card-hero hg-balance-shell">
       <div class="hg-balance-head">
         <div>
-          <div class="hg-kicker">Семенной кошелёк</div>
+          <div class="hg-kicker hg-kicker-wallet">Ваш кошелёк семян</div>
           <h2 class="hg-section-title">Ваш кошелёк семян</h2>
         </div>
-        <div class="hg-balance-badge">${total} сомов</div>
+        <div class="hg-balance-badge"><span class="hg-balance-badge-icon ${seedMeta.sesame.art}" aria-hidden="true"></span>${total} сомов</div>
       </div>
       <div class="hg-balance-grid">
         ${Object.entries(seedMeta).map(([key, meta]) => `
