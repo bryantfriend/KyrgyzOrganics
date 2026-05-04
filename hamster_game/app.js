@@ -15,7 +15,7 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.00";
+const APP_VERSION = "1.01";
 const GUEST_SPINS = 5;
 
 const seedMeta = {
@@ -139,14 +139,19 @@ function renderShell() {
 function renderTopbar() {
   const spins = getActiveSpins();
   const pillLabel = state.user ? `🎰 ${spins}` : `🎰 Гость ${spins}/${GUEST_SPINS}`;
+  const userLabel = state.user ? `👤 ${escapeHtml(state.user.username)}` : "Гостевой режим";
   return `
     <header class="hg-topbar">
-      <div>
+      <div class="hg-brand-panel">
         <p class="hg-brand-kicker">Kyrgyz Organics</p>
         <h1 class="hg-title">Счастливый хомяк</h1>
+        <p class="hg-subtitle">Органическая игра с семенами, орехами и очень старательным хомяком.</p>
         <span class="hg-version">Версия ${APP_VERSION}</span>
       </div>
-      <div class="hg-pill" aria-label="Доступные вращения">${pillLabel}</div>
+      <div class="hg-topbar-side">
+        <div class="hg-user-pill ${state.user ? "" : "is-guest"}">${userLabel}</div>
+        <div class="hg-pill" aria-label="Доступные вращения">${pillLabel}</div>
+      </div>
     </header>
   `;
 }
@@ -181,7 +186,7 @@ function renderGame() {
     <section class="hg-screen">
       ${renderBalanceSummary()}
       ${state.user ? `
-        <div class="hg-card hg-daily-row">
+        <div class="hg-card hg-card-ribbon hg-daily-row">
           <div>
             <strong>Ежедневное вращение</strong>
             <div class="hg-muted">${dailyAvailable ? "Хомяк приготовил подарок на сегодня." : "Сегодняшний подарок уже получен."}</div>
@@ -193,23 +198,31 @@ function renderGame() {
         <div id="hgConfetti"></div>
         <img class="hg-slot-frame-art" src="./assets/svg/slot-machine.svg" alt="">
         <div class="hg-slot-head">
-          <img class="hg-hamster" src="./assets/svg/hamster.svg" alt="Хомяк-повар">
-          <div class="hg-slot-logo">Хомяк крутит<br>барабаны</div>
+          <div class="hg-slot-mascot">
+            <img class="hg-hamster" src="./assets/svg/hamster.svg" alt="Хомяк-повар">
+          </div>
+          <div class="hg-slot-logo">
+            <div class="hg-kicker">Пекарня удачи</div>
+            <div class="hg-slot-logo-title">${state.spinning ? "Хомяк крутит барабаны..." : "Деревянный барабан удачи"}</div>
+            <div class="hg-slot-logo-sub">Собирайте семена и охотьтесь за грецким орехом.</div>
+          </div>
           <img class="hg-wheel" src="./assets/svg/hamster-wheel.svg" alt="Колесо хомяка">
         </div>
-        <div class="hg-reels" aria-label="Игровые барабаны">
-          ${state.resultSymbols.map((symbol) => `<div class="hg-reel ${state.spinning ? "hg-spinning" : ""}"><span class="hg-reel-symbol">${symbol}</span></div>`).join("")}
+        <div class="hg-reels-shell">
+          <div class="hg-reels" aria-label="Игровые барабаны">
+            ${state.resultSymbols.map((symbol) => `<div class="hg-reel ${state.spinning ? "hg-spinning" : ""}"><span class="hg-reel-symbol">${symbol}</span></div>`).join("")}
+          </div>
         </div>
         <button class="hg-button hg-spin-button" data-action="spin" ${state.busy || !spins ? "disabled" : ""} type="button">
           ${state.spinning ? "Хомяк крутит..." : "Крутить!"}
         </button>
       </div>
-      <div class="hg-result ${state.resultMessage.includes("ДЖЕКПОТ") ? "hg-jackpot" : ""}">${escapeHtml(state.resultMessage)}</div>
+      <div class="hg-result ${state.resultMessage.includes("ДЖЕКПОТ") ? "hg-jackpot" : ""}"><div class="hg-result-text">${escapeHtml(state.resultMessage)}</div></div>
       ${!state.user && !spins ? renderGuestFinishedCard() : ""}
-      <div class="hg-card">
+      <div class="hg-card hg-card-hero">
         <h2 class="hg-section-title">Свежие выигрыши</h2>
         <div class="hg-feed">
-          ${recentWins.map((win) => `<div class="hg-feed-item"><span>🌱</span><span>${win}</span></div>`).join("")}
+          ${recentWins.map((win) => `<div class="hg-feed-item"><span class="hg-feed-icon">🌱</span><span>${win}</span></div>`).join("")}
         </div>
       </div>
     </section>
@@ -218,14 +231,23 @@ function renderGame() {
 
 function renderBalanceSummary() {
   const seeds = getActiveSeeds();
+  const total = walletTotal(seeds);
   return `
-    <div class="hg-card">
+    <div class="hg-card hg-card-hero hg-balance-shell">
+      <div class="hg-balance-head">
+        <div>
+          <div class="hg-kicker">Семенной кошелёк</div>
+          <h2 class="hg-section-title">Запасы хомяка</h2>
+        </div>
+        <div class="hg-balance-badge">${total} сом</div>
+      </div>
       <div class="hg-balance-grid">
         ${Object.entries(seedMeta).map(([key, meta]) => `
           <div class="hg-seed-chip" data-seed="${key}">
             <span class="hg-seed-icon">${meta.icon}</span>
             <span class="hg-seed-amount">${seeds[key] || 0}</span>
             <span class="hg-seed-label">${meta.short}</span>
+            <span class="hg-seed-value">${meta.value} сом</span>
           </div>
         `).join("")}
       </div>
@@ -236,7 +258,7 @@ function renderBalanceSummary() {
 function renderGuestNotice() {
   const used = GUEST_SPINS - getActiveSpins();
   return `
-    <div class="hg-card hg-daily-row">
+    <div class="hg-card hg-card-ribbon hg-daily-row">
       <div>
         <strong>Пробная игра</strong>
         <div class="hg-muted">У вас есть 5 гостевых вращений. Использовано: ${used} из ${GUEST_SPINS}.</div>
@@ -261,7 +283,7 @@ function renderWallet() {
   const total = walletTotal(seeds);
   return `
     <section class="hg-screen">
-      <div class="hg-card">
+      <div class="hg-card hg-card-hero">
         <h2 class="hg-section-title">Мои семена</h2>
         <p class="hg-muted">Собирайте семена в игре и меняйте их на бонусы Kyrgyz Organics.</p>
       </div>
@@ -290,10 +312,10 @@ function renderWallet() {
 }
 
 function renderStore() {
-  const rewards = state.user.rewards || [];
+  const rewards = state.user?.rewards || [];
   return `
     <section class="hg-screen">
-      <div class="hg-card">
+      <div class="hg-card hg-card-hero">
         <h2 class="hg-section-title">Магазин наград</h2>
         <p class="hg-muted">Маленькие награды активируются сразу. Большие награды ждут подтверждения.</p>
       </div>
@@ -335,7 +357,7 @@ function renderReward(reward) {
 function renderTasks() {
   return `
     <section class="hg-screen">
-      <div class="hg-card">
+      <div class="hg-card hg-card-hero">
         <h2 class="hg-section-title">Задания хомяка</h2>
         <p class="hg-muted">Выполняйте задания и получайте дополнительные вращения.</p>
       </div>
@@ -370,7 +392,7 @@ function renderAccount() {
   const user = state.user;
   return `
     <section class="hg-screen">
-      <div class="hg-card">
+      <div class="hg-card hg-card-hero">
         <h2 class="hg-section-title">Аккаунт</h2>
         <div class="hg-row">
           <strong>${escapeHtml(user.username)}</strong>
@@ -393,13 +415,13 @@ function renderAuthForms() {
   const guestTotal = walletTotal(state.guest.seeds || defaultSeeds());
   return `
     <section class="hg-screen">
-      <div class="hg-card">
+      <div class="hg-card hg-card-hero">
         <div class="hg-tabs" role="tablist" aria-label="Аккаунт">
           <button class="hg-tab-button ${state.authTab === "login" ? "hg-active" : ""}" data-auth-tab="login" type="button">Войти</button>
           <button class="hg-tab-button ${state.authTab === "register" ? "hg-active" : ""}" data-auth-tab="register" type="button">Регистрация</button>
         </div>
       </div>
-      <div class="hg-card">
+      <div class="hg-card hg-card-wood">
         <h2 class="hg-section-title">${state.authTab === "login" ? "Войти" : "Создать аккаунт"}</h2>
         ${guestTotal ? `<p class="hg-success">Создайте аккаунт, и хомяк сохранит ваши пробные семена на ${guestTotal} сом.</p>` : ""}
         ${state.message ? `<p class="hg-success">${state.message}</p>` : ""}
