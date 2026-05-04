@@ -15,7 +15,7 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.02";
+const APP_VERSION = "1.03";
 const GUEST_SPINS = 5;
 const avatarOptions = {
   ages: [
@@ -122,6 +122,7 @@ let state = {
   userId: localStorage.getItem(SESSION_KEY),
   user: null,
   avatarDraft: null,
+  avatarPanel: "basics",
   guest: loadGuestTrial(),
   loading: true,
   busy: false,
@@ -190,12 +191,15 @@ function renderShell() {
 function renderTopbar() {
   const spins = getActiveSpins();
   const pillLabel = state.user ? `🎰 ${spins}` : `🎰 Гость ${spins}/${GUEST_SPINS}`;
-  const userLabel = state.user ? `👤 ${escapeHtml(state.user.username)}` : "👤 Гость";
+  const userLabel = state.user ? escapeHtml(state.user.username) : "Гость";
+  const userAvatar = state.user
+    ? `<img class="hg-user-avatar" src="${renderAvatarDataUrl(state.user.avatar)}" alt="Аватар игрока">`
+    : `<span class="hg-user-avatar hg-user-avatar--guest" aria-hidden="true">👤</span>`;
   return `
     <header class="hg-topbar">
       <div class="hg-hero-panel">
         <div class="hg-hero-badges">
-          <div class="hg-user-pill ${state.user ? "" : "is-guest"}">${userLabel}</div>
+          <div class="hg-user-pill ${state.user ? "" : "is-guest"}">${userAvatar}<span>${userLabel}</span></div>
           <div class="hg-pill" aria-label="Доступные вращения">${pillLabel}</div>
         </div>
         <div class="hg-hero-grid">
@@ -495,14 +499,14 @@ function renderAccount() {
             </div>
           </div>
           <div class="hg-avatar-controls">
-            ${renderAvatarSegment("Возраст", "age", avatarOptions.ages, avatar.age)}
-            ${renderAvatarSegment("Стиль", "gender", avatarOptions.genders, avatar.gender)}
-            ${renderAvatarNumberOptions("Лицо", "face", avatarOptions.faces.map((item) => item.label), avatar.face)}
-            ${renderAvatarNumberOptions("Причёска", "hairStyle", avatarOptions.hairStyles, avatar.hairStyle)}
-            ${renderAvatarColorOptions("Цвет волос", avatar.hairColor)}
-            ${renderAvatarToggle("Борода", "beard", avatar.beard)}
-            ${renderAvatarNumberOptions("Очки", "glasses", avatarOptions.glasses, avatar.glasses)}
-            ${renderAvatarNumberOptions("Головной убор", "hat", avatarOptions.hats, avatar.hat)}
+            <div class="hg-avatar-panel-tabs">
+              ${renderAvatarPanelTab("basics", "Основа")}
+              ${renderAvatarPanelTab("face", "Лицо")}
+              ${renderAvatarPanelTab("hair", "Волосы")}
+              ${renderAvatarPanelTab("glasses", "Очки")}
+              ${renderAvatarPanelTab("hats", "Головной убор")}
+            </div>
+            ${renderAvatarPanelContent(avatar)}
           </div>
         </div>
         <button class="hg-button" data-action="avatar-save" ${state.busy ? "disabled" : ""} type="button">Сохранить аватар</button>
@@ -638,6 +642,40 @@ function renderAvatarToggle(title, field, enabled) {
   `;
 }
 
+function renderAvatarPanelTab(key, label) {
+  return `
+    <button
+      class="hg-avatar-panel-tab ${state.avatarPanel === key ? "hg-active" : ""}"
+      data-action="avatar-panel"
+      data-panel="${key}"
+      type="button"
+    >${label}</button>
+  `;
+}
+
+function renderAvatarPanelContent(avatar) {
+  if (state.avatarPanel === "face") {
+    return renderAvatarNumberOptions("Лицо", "face", avatarOptions.faces.map((item) => item.label), avatar.face);
+  }
+  if (state.avatarPanel === "hair") {
+    return `
+      ${renderAvatarNumberOptions("Причёска", "hairStyle", avatarOptions.hairStyles, avatar.hairStyle)}
+      ${renderAvatarColorOptions("Цвет волос", avatar.hairColor)}
+      ${renderAvatarToggle("Борода", "beard", avatar.beard)}
+    `;
+  }
+  if (state.avatarPanel === "glasses") {
+    return renderAvatarNumberOptions("Очки", "glasses", avatarOptions.glasses, avatar.glasses);
+  }
+  if (state.avatarPanel === "hats") {
+    return renderAvatarNumberOptions("Головной убор", "hat", avatarOptions.hats, avatar.hat);
+  }
+  return `
+    ${renderAvatarSegment("Возраст", "age", avatarOptions.ages, avatar.age)}
+    ${renderAvatarSegment("Стиль", "gender", avatarOptions.genders, avatar.gender)}
+  `;
+}
+
 function bindEvents() {
   app.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -673,6 +711,7 @@ async function handleAction(button) {
   if (action === "avatar-set") return setAvatarOption(button.dataset.field, button.dataset.value);
   if (action === "avatar-color") return setAvatarColor(button.dataset.color);
   if (action === "avatar-toggle") return toggleAvatarBoolean(button.dataset.field);
+  if (action === "avatar-panel") return setAvatarPanel(button.dataset.panel);
   if (action === "avatar-save") return saveAvatar();
   if (action === "avatar-reset") return resetAvatarDraft();
 }
@@ -916,6 +955,11 @@ function setAvatarOption(field, rawValue) {
     ...state.avatarDraft,
     [field]: value
   });
+  render();
+}
+
+function setAvatarPanel(panel) {
+  state.avatarPanel = panel || "basics";
   render();
 }
 
