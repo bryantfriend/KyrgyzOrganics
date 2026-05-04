@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <defs>
+            <linearGradient id="plaque-bg" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#DC2626" />
+                <stop offset="100%" stop-color="#991B1B" />
+            </linearGradient>
+            <linearGradient id="gold-border" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#FCD34D" />
+                <stop offset="50%" stop-color="#F59E0B" />
+                <stop offset="100%" stop-color="#D97706" />
+            </linearGradient>
+        </defs>
+        <path d="M 20 0 L 180 0 Q 200 0 200 20 L 200 40 Q 200 60 180 60 L 20 60 Q 0 60 0 40 L 0 20 Q 0 0 20 0" fill="url(#plaque-bg)" stroke="url(#gold-border)" stroke-width="4" />
+        <circle cx="15" cy="30" r="4" fill="#FDE68A" />
+        <circle cx="185" cy="30" r="4" fill="#FDE68A" />
+    </svg>

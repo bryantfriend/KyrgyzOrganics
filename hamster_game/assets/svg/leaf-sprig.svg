@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 64" role="img" aria-labelledby="title">
+  <title id="title">Листья</title>
+  <path d="M58 56c3-21 10-35 20-45" fill="none" stroke="#5a8f43" stroke-width="4" stroke-linecap="round"/>
+  <path d="M44 43c-15-4-25-15-26-30 16-2 29 7 34 22" fill="#78b35f"/>
+  <path d="M72 28c4-15 17-25 33-25-1 16-12 30-28 33" fill="#5a9a46"/>
+  <path d="M84 46c9-12 22-17 36-14-4 14-16 22-31 22" fill="#87c069"/>
+</svg>

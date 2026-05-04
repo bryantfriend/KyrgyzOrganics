@@ -1,33 +1,53 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 280" role="img" aria-labelledby="title desc">
   <title id="title">Хомяк-повар</title>
-  <desc id="desc">Милый хомяк в поварском колпаке для игры Kyrgyz Organics.</desc>
+  <desc id="desc">Радостный хомяк в колпаке и зелёном фартуке машет лапкой.</desc>
   <defs>
-    <radialGradient id="fur" cx="45%" cy="36%" r="62%">
-      <stop offset="0" stop-color="#ffd99a"/>
-      <stop offset="0.6" stop-color="#d8934c"/>
-      <stop offset="1" stop-color="#9c5b2d"/>
+    <radialGradient id="hgFur" cx="46%" cy="34%" r="68%">
+      <stop offset="0" stop-color="#ffe6b4"/>
+      <stop offset=".44" stop-color="#efb56c"/>
+      <stop offset="1" stop-color="#a55e2f"/>
     </radialGradient>
-    <linearGradient id="hat" x1="0" x2="1">
-      <stop offset="0" stop-color="#fffaf0"/>
-      <stop offset="1" stop-color="#f2e2bf"/>
+    <linearGradient id="hgHat" x1="0" x2="1">
+      <stop offset="0" stop-color="#fffef8"/>
+      <stop offset=".7" stop-color="#f2e1bd"/>
+      <stop offset="1" stop-color="#d9bb87"/>
+    </linearGradient>
+    <linearGradient id="hgApron" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#4f9b53"/>
+      <stop offset="1" stop-color="#295f32"/>
     </linearGradient>
   </defs>
-  <ellipse cx="110" cy="119" rx="72" ry="67" fill="url(#fur)"/>
-  <circle cx="59" cy="85" r="25" fill="#b46c39"/>
-  <circle cx="161" cy="85" r="25" fill="#b46c39"/>
-  <circle cx="59" cy="85" r="14" fill="#f1b978"/>
-  <circle cx="161" cy="85" r="14" fill="#f1b978"/>
-  <path d="M65 67c-3-22 11-38 32-30 7-24 39-24 46 0 20-7 34 8 31 30H65Z" fill="url(#hat)" stroke="#7a4b26" stroke-width="5" stroke-linejoin="round"/>
-  <rect x="77" y="56" width="66" height="27" rx="13" fill="#fff8e8" stroke="#7a4b26" stroke-width="5"/>
-  <ellipse cx="110" cy="127" rx="48" ry="43" fill="#ffe0aa"/>
-  <circle cx="88" cy="108" r="8" fill="#3b2414"/>
-  <circle cx="132" cy="108" r="8" fill="#3b2414"/>
-  <circle cx="91" cy="105" r="3" fill="#fff"/>
-  <circle cx="135" cy="105" r="3" fill="#fff"/>
-  <path d="M105 124c4-5 10-5 14 0-2 8-12 8-14 0Z" fill="#8a3f32"/>
-  <path d="M78 135c14 12 50 12 64 0" fill="none" stroke="#78411f" stroke-width="5" stroke-linecap="round"/>
-  <path d="M63 128c-22 3-34 14-35 29" fill="none" stroke="#7a4b26" stroke-width="6" stroke-linecap="round"/>
-  <path d="M157 128c22 3 34 14 35 29" fill="none" stroke="#7a4b26" stroke-width="6" stroke-linecap="round"/>
-  <path d="M74 180c16 12 56 17 82 0" fill="none" stroke="#6f3c1c" stroke-width="9" stroke-linecap="round"/>
-  <path d="M40 169c14 26 123 32 142 0" fill="#fff3d1" opacity=".55"/>
+  <ellipse cx="148" cy="250" rx="95" ry="18" fill="#6d3e1e" opacity=".16"/>
+  <g transform="translate(10 0)">
+    <path d="M39 203c11-31 36-45 60-44 24 1 46 12 62 30 8 9 13 22 15 38H34c-1-8 0-16 5-24Z" fill="url(#hgApron)"/>
+    <path d="M88 165c22 20 68 20 90 0v27c0 25-18 41-44 41s-46-16-46-41v-27Z" fill="#f5ecd5"/>
+    <circle cx="86" cy="102" r="31" fill="#bd7543"/>
+    <circle cx="191" cy="101" r="31" fill="#bd7543"/>
+    <circle cx="86" cy="102" r="17" fill="#f2bb7a"/>
+    <circle cx="191" cy="101" r="17" fill="#f2bb7a"/>
+    <path d="M79 86c-5-28 13-49 39-40 8-29 46-29 54 0 24-8 43 14 35 40H79Z" fill="url(#hgHat)" stroke="#8e5c30" stroke-width="5" stroke-linejoin="round"/>
+    <rect x="92" y="73" width="92" height="31" rx="15" fill="#fffaf0" stroke="#8e5c30" stroke-width="5"/>
+    <ellipse cx="139" cy="131" rx="83" ry="76" fill="url(#hgFur)"/>
+    <ellipse cx="139" cy="150" rx="56" ry="49" fill="#ffe9bf"/>
+    <ellipse cx="114" cy="126" rx="13" ry="16" fill="#241710"/>
+    <ellipse cx="165" cy="126" rx="13" ry="16" fill="#241710"/>
+    <circle cx="118" cy="121" r="4" fill="#fff"/>
+    <circle cx="169" cy="121" r="4" fill="#fff"/>
+    <path d="M132 144c5-7 11-7 16 0-1 10-15 10-16 0Z" fill="#8b4332"/>
+    <path d="M104 160c14 17 55 17 70 0" fill="none" stroke="#714223" stroke-width="6" stroke-linecap="round"/>
+    <path d="M74 160c-23 4-38 19-42 39" fill="none" stroke="#835028" stroke-width="8" stroke-linecap="round"/>
+    <path d="M204 162c24 4 37 17 40 38" fill="none" stroke="#835028" stroke-width="8" stroke-linecap="round"/>
+    <g transform="translate(184 134) rotate(-8)">
+      <path d="M10 44c16 0 29-14 29-29S26-14 10-14-19-1-19 15-6 44 10 44Z" fill="#f6bd82"/>
+      <path d="M-1 4c17 6 29 20 33 37" fill="none" stroke="#8c572e" stroke-width="7" stroke-linecap="round"/>
+      <path d="M10 15c12-2 24 3 31 13" fill="none" stroke="#8c572e" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="34" cy="8" r="12" fill="#f7d6af"/>
+    </g>
+    <g transform="translate(64 176)">
+      <rect x="9" y="10" width="112" height="63" rx="22" fill="url(#hgApron)" stroke="#204d28" stroke-width="5"/>
+      <path d="M65 10V76" stroke="#f7e6bd" stroke-width="6" opacity=".65"/>
+      <path d="M34 10v63M95 10v63" stroke="#2d6d38" stroke-width="3" opacity=".34"/>
+      <path d="M48 8c5-14 28-14 33 0" fill="none" stroke="#f7e6bd" stroke-width="5" stroke-linecap="round"/>
+    </g>
+  </g>
 </svg>

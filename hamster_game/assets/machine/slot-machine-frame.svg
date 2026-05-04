@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 200" preserveAspectRatio="none">
+        <defs>
+            <linearGradient id="frame-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#D97706" />
+                <stop offset="50%" stop-color="#F59E0B" />
+                <stop offset="100%" stop-color="#B45309" />
+            </linearGradient>
+            <filter id="inner-shadow">
+                <feOffset dx="0" dy="4"/>
+                <feGaussianBlur stdDeviation="4" result="offset-blur"/>
+                <feComposite operator="out" in="SourceGraphic" in2="offset-blur" result="inverse"/>
+                <feFlood flood-color="black" flood-opacity="0.5" result="color"/>
+                <feComposite operator="in" in="color" in2="inverse" result="shadow"/>
+                <feComposite operator="over" in="shadow" in2="SourceGraphic"/>
+            </filter>
+        </defs>
+        <rect width="340" height="200" rx="30" fill="url(#frame-grad)" />
+        <rect x="10" y="10" width="320" height="180" rx="20" fill="#451A03" filter="url(#inner-shadow)" />
+    </svg>

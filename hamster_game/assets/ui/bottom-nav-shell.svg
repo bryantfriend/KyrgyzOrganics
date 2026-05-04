@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 80" preserveAspectRatio="none">
+        <defs>
+            <filter id="nav-shadow">
+                <feDropShadow dx="0" dy="-4" stdDeviation="6" flood-color="#000000" flood-opacity="0.06" />
+            </filter>
+        </defs>
+        <path d="M 0 20 Q 0 0 20 0 L 380 0 Q 400 0 400 20 L 400 80 L 0 80 Z" fill="#FFFFFF" filter="url(#nav-shadow)" />
+    </svg>

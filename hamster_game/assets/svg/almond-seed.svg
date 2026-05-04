@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 96" role="img" aria-labelledby="title">
+  <title id="title">Миндаль</title>
+  <defs>
+    <linearGradient id="aShell" x1="0" x2="1">
+      <stop offset="0" stop-color="#b6723f"/>
+      <stop offset="1" stop-color="#7e4826"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 62c12-30 26-40 43-28 15 12 10 34-5 48-13 11-31 7-38-20Z" fill="url(#aShell)" stroke="#65371a" stroke-width="3"/>
+  <path d="M73 67c12-30 26-40 43-28 15 12 10 34-5 48-13 11-31 7-38-20Z" fill="url(#aShell)" stroke="#65371a" stroke-width="3"/>
+  <path d="M28 53c-3-11 10-21 21-16-1 10-8 18-21 16Z" fill="#5ca348"/>
+  <path d="M89 37c7-9 21-7 25 4-10 2-18 1-25-4Z" fill="#62a84b"/>
+</svg>

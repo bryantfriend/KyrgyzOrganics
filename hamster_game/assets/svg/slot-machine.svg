@@ -1,24 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 420" role="img" aria-labelledby="title desc">
-  <title id="title">Деревянный слот-автомат</title>
-  <desc id="desc">Тёплая деревянная рамка слот-машины.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420" role="img" aria-labelledby="title desc">
+  <title id="title">Декоративный слот-автомат</title>
+  <desc id="desc">Каркас деревянного слот-автомата с лампочками и рычагом.</desc>
   <defs>
-    <linearGradient id="wood" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0" stop-color="#9e5b2d"/>
-      <stop offset=".55" stop-color="#6e3a1f"/>
-      <stop offset="1" stop-color="#3d2417"/>
+    <linearGradient id="smWood" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#8a522f"/>
+      <stop offset=".55" stop-color="#5b321d"/>
+      <stop offset="1" stop-color="#341b10"/>
     </linearGradient>
-    <linearGradient id="gold" x1="0" x2="1">
-      <stop offset="0" stop-color="#ffe08a"/>
-      <stop offset="1" stop-color="#d99824"/>
+    <linearGradient id="smGold" x1="0" x2="1">
+      <stop offset="0" stop-color="#fff0ad"/>
+      <stop offset="1" stop-color="#db982f"/>
     </linearGradient>
   </defs>
-  <rect x="22" y="42" width="316" height="326" rx="38" fill="url(#wood)" stroke="#2b180f" stroke-width="12"/>
-  <rect x="48" y="84" width="264" height="158" rx="25" fill="#fff3d6" stroke="url(#gold)" stroke-width="12"/>
-  <path d="M66 278h228" stroke="#f5bf54" stroke-width="16" stroke-linecap="round"/>
-  <circle cx="68" cy="314" r="18" fill="#f5bf54"/>
-  <circle cx="292" cy="314" r="18" fill="#f5bf54"/>
-  <path d="M318 142c33 4 39 55 5 65" fill="none" stroke="#9b5b2a" stroke-width="17" stroke-linecap="round"/>
-  <circle cx="330" cy="131" r="21" fill="#d43d2f" stroke="#6e241b" stroke-width="8"/>
-  <path d="M61 63c64 22 174 17 238-2" stroke="#d08b45" stroke-width="8" opacity=".45"/>
-  <path d="M69 356c48 25 172 25 222 0" stroke="#2b180f" stroke-width="12" stroke-linecap="round"/>
+  <rect x="24" y="30" width="324" height="340" rx="44" fill="url(#smWood)" stroke="#2a170e" stroke-width="14"/>
+  <rect x="52" y="68" width="268" height="176" rx="30" fill="#fff4d9" stroke="url(#smGold)" stroke-width="12"/>
+  <rect x="73" y="264" width="226" height="60" rx="28" fill="#673a20" stroke="url(#smGold)" stroke-width="10"/>
+  <g fill="#ffd976">
+    <circle cx="58" cy="246" r="8"/><circle cx="102" cy="246" r="8"/><circle cx="146" cy="246" r="8"/>
+    <circle cx="190" cy="246" r="8"/><circle cx="234" cy="246" r="8"/><circle cx="278" cy="246" r="8"/>
+    <circle cx="322" cy="246" r="8"/>
+  </g>
+  <path d="M352 116c36 4 43 61 6 72" fill="none" stroke="#9a5c2e" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="368" cy="102" r="22" fill="#f2c24d" stroke="#7b461f" stroke-width="8"/>
+  <path d="M75 46c79 26 187 24 240 0" stroke="#bc7b45" stroke-width="9" opacity=".4"/>
+  <path d="M84 350c48 26 163 28 206 0" stroke="#2c180f" stroke-width="13" stroke-linecap="round"/>
 </svg>

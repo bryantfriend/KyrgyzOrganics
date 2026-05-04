@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120">
+        <defs>
+            <filter id="coupon-shadow">
+                <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.1" />
+            </filter>
+        </defs>
+        <path d="M 10 10 L 290 10 C 295 10 300 15 300 20 L 300 50 A 10 10 0 0 1 300 70 L 300 100 C 300 105 295 110 290 110 L 10 110 C 5 110 0 105 0 100 L 0 70 A 10 10 0 0 1 0 50 L 0 20 C 0 15 5 10 10 10 Z" fill="#FFFBEB" filter="url(#coupon-shadow)" stroke="#FCD34D" stroke-width="2" />
+        <line x1="80" y1="20" x2="80" y2="100" stroke="#FDE68A" stroke-width="2" stroke-dasharray="6,4" />
+    </svg>
