@@ -15,7 +15,7 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.07";
+const APP_VERSION = "1.08";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
 const avatarOptions = {
@@ -145,14 +145,22 @@ const rewardRules = {
 };
 
 const storeItems = [
-  { name: "Хлеб", type: "product", cost: { poppy: 50 }, approval: false },
-  { name: "Органический чай", type: "product", cost: { poppy: 20 }, approval: false },
-  { name: "Скидка 5%", type: "discount", cost: { poppy: 100 }, approval: false },
-  { name: "Скидка 10%", type: "discount", cost: { sesame: 1 }, approval: false },
-  { name: "Бесплатная доставка", type: "delivery", cost: { sesame: 2 }, approval: false },
-  { name: "Круассан", type: "product", cost: { sesame: 10 }, approval: false },
-  { name: "Набор выпечки", type: "bundle", cost: { almond: 1 }, approval: true },
-  { name: "Полный заказ", type: "order", cost: { walnut: 1 }, approval: true }
+  { name: "Хлеб", type: "product", category: "food", subtitle: "Тёплый хлеб", icon: "🍞", tint: "bread", cost: { poppy: 50 }, approval: false },
+  { name: "Органический чай", type: "product", category: "food", subtitle: "Травяной чай", icon: "🍵", tint: "tea", cost: { poppy: 20 }, approval: false },
+  { name: "Скидка 5%", type: "discount", category: "discount", subtitle: "Купон на скидку", icon: "🏷️", tint: "ticket", cost: { poppy: 100 }, approval: false },
+  { name: "Скидка 10%", type: "discount", category: "discount", subtitle: "Большой купон", icon: "🎫", tint: "ticket", cost: { sesame: 1 }, approval: false },
+  { name: "Бесплатная доставка", type: "delivery", category: "special", subtitle: "Купон доставки", icon: "🛵", tint: "delivery", cost: { sesame: 2 }, approval: false },
+  { name: "Круассан", type: "product", category: "food", subtitle: "Свежий круассан", icon: "🥐", tint: "pastry", cost: { sesame: 10 }, approval: false },
+  { name: "Набор выпечки", type: "bundle", category: "bundle", subtitle: "Коробка вкусностей", icon: "🧺", tint: "bundle", cost: { almond: 1 }, approval: true },
+  { name: "Полный заказ", type: "order", category: "special", subtitle: "Большой приз", icon: "🥜", tint: "special", cost: { walnut: 1 }, approval: true }
+];
+
+const storeCategories = [
+  { key: "all", label: "Все награды", icon: "🛍️" },
+  { key: "food", label: "Еда и напитки", icon: "🍞" },
+  { key: "discount", label: "Скидки", icon: "🏷️" },
+  { key: "bundle", label: "Наборы", icon: "🎁" },
+  { key: "special", label: "Особые", icon: "⭐" }
 ];
 
 const taskMeta = {
@@ -175,6 +183,7 @@ let state = {
   tab: "game",
   authTab: "login",
   headerMenuOpen: false,
+  storeCategory: "all",
   userId: localStorage.getItem(SESSION_KEY),
   user: null,
   avatarDraft: null,
@@ -489,23 +498,53 @@ function renderWallet() {
 
 function renderStore() {
   const rewards = state.user?.rewards || [];
+  const activeCategory = state.storeCategory || "all";
+  const visibleItems = storeItems
+    .map((item, index) => ({ ...item, index }))
+    .filter((item) => activeCategory === "all" || item.category === activeCategory);
   return `
     <section class="hg-screen">
-      <div class="hg-card hg-card-hero">
-        <h2 class="hg-section-title">Магазин наград</h2>
-        <p class="hg-muted">Маленькие награды активируются сразу. Большие награды ждут подтверждения.</p>
-      </div>
-      <div class="hg-store-grid">
-        ${storeItems.map((item, index) => `
-          <article class="hg-store-item">
-            <div class="hg-row">
-              <h3 class="hg-item-name">${item.name}</h3>
-              <span class="hg-cost">${formatCost(item.cost)}</span>
+      <div class="hg-card hg-store-shell">
+        <div class="hg-store-head">
+          <div>
+            <div class="hg-kicker">Магазин наград</div>
+            <h2 class="hg-section-title">Лавка обмена</h2>
+            <p class="hg-muted">Тратьте семена на вкусные награды и полезные бонусы Kyrgyz Organics.</p>
+          </div>
+        </div>
+        <div class="hg-store-board">
+          <aside class="hg-store-sidebar">
+            ${storeCategories.map((category) => `
+              <button
+                class="hg-store-filter ${activeCategory === category.key ? "hg-active" : ""}"
+                data-action="store-category"
+                data-category="${category.key}"
+                type="button"
+              ><span>${category.icon}</span><span>${category.label}</span></button>
+            `).join("")}
+          </aside>
+          <div class="hg-store-catalog">
+            <div class="hg-store-banner">
+              <strong>Касса хомяка</strong>
+              <span>Маленькие награды активируются сразу, большие переходят на подтверждение.</span>
             </div>
-            <div class="hg-muted">${item.approval ? "Требуется подтверждение" : "Можно использовать сразу"}</div>
-            <button class="hg-button" data-action="redeem" data-index="${index}" ${state.busy ? "disabled" : ""} type="button">Обменять</button>
-          </article>
-        `).join("")}
+            <div class="hg-store-grid">
+              ${visibleItems.map((item) => `
+                <article class="hg-store-item hg-store-item--${item.tint}">
+                  <div class="hg-store-art" aria-hidden="true">${item.icon}</div>
+                  <div class="hg-store-copy">
+                    <h3 class="hg-item-name">${item.name}</h3>
+                    <div class="hg-store-subtitle">${item.subtitle}</div>
+                  </div>
+                  <div class="hg-store-price">${formatCost(item.cost)}</div>
+                  <div class="hg-store-note">${item.approval ? "Проверка перед выдачей" : "Готово сразу после обмена"}</div>
+                  <button class="hg-button hg-store-button" data-action="redeem" data-index="${item.index}" ${state.busy ? "disabled" : ""} type="button">Обменять</button>
+                </article>
+              `).join("")}
+            </div>
+            <div class="hg-store-footnote">Награды выдаются как игровые бонусы Kyrgyz Organics и активируются в вашем аккаунте.</div>
+          </div>
+        </div>
       </div>
       <div class="hg-card">
         <h2 class="hg-section-title">Мои награды</h2>
@@ -828,6 +867,7 @@ async function handleAction(button) {
   if (action === "daily") return claimDailySpin();
   if (action === "logout") return logout();
   if (action === "redeem") return redeemReward(Number(button.dataset.index));
+  if (action === "store-category") return setStoreCategory(button.dataset.category);
   if (action === "task") return claimTask(button.dataset.task);
   if (action === "avatar-set") return setAvatarOption(button.dataset.field, button.dataset.value);
   if (action === "avatar-color") return setAvatarColor(button.dataset.color);
@@ -1136,6 +1176,11 @@ function logout() {
 
 function toggleHeaderMenu() {
   state.headerMenuOpen = !state.headerMenuOpen;
+  render();
+}
+
+function setStoreCategory(category) {
+  state.storeCategory = category || "all";
   render();
 }
 
