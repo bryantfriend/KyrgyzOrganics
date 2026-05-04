@@ -15,7 +15,7 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.05";
+const APP_VERSION = "1.06";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
 const avatarOptions = {
@@ -120,6 +120,7 @@ const recentWins = [
 let state = {
   tab: "game",
   authTab: "login",
+  headerMenuOpen: false,
   userId: localStorage.getItem(SESSION_KEY),
   user: null,
   avatarDraft: null,
@@ -194,6 +195,21 @@ function renderTopbar() {
   const spinLabel = formatSpinCount(spins);
   const pillLabel = state.user ? `${spinLabel} вращ.` : `${spinLabel} вращ.`;
   const userLabel = state.user ? escapeHtml(state.user.username) : "Гость";
+  const headerMenu = state.user
+    ? `
+      <div class="hg-header-menu ${state.headerMenuOpen ? "hg-open" : ""}" role="menu" aria-label="Меню игрока">
+        <button class="hg-header-menu-item" data-tab="account" type="button" role="menuitem">Мой аккаунт</button>
+        <button class="hg-header-menu-item" data-tab="wallet" type="button" role="menuitem">Мои семена</button>
+        <button class="hg-header-menu-item" data-tab="store" type="button" role="menuitem">Магазин наград</button>
+        <button class="hg-header-menu-item hg-header-menu-item--danger" data-action="logout" type="button" role="menuitem">Выйти</button>
+      </div>
+    `
+    : `
+      <div class="hg-header-menu ${state.headerMenuOpen ? "hg-open" : ""}" role="menu" aria-label="Меню гостя">
+        <button class="hg-header-menu-item" data-tab="account" type="button" role="menuitem">Войти или создать аккаунт</button>
+        <button class="hg-header-menu-item" data-tab="game" type="button" role="menuitem">Вернуться к игре</button>
+      </div>
+    `;
   const userAvatar = state.user
     ? `<img class="hg-user-avatar" src="${renderAvatarDataUrl(state.user.avatar)}" alt="Аватар игрока">`
     : `<span class="hg-user-avatar hg-user-avatar--guest" aria-hidden="true">👤</span>`;
@@ -201,7 +217,16 @@ function renderTopbar() {
     <header class="hg-topbar">
       <div class="hg-hero-panel">
         <div class="hg-hero-badges">
-          <div class="hg-user-pill ${state.user ? "" : "is-guest"}">${userAvatar}<span>${userLabel}</span></div>
+          <div class="hg-header-menu-wrap" data-header-menu>
+            <button
+              class="hg-user-pill ${state.user ? "" : "is-guest"} ${state.headerMenuOpen ? "hg-open" : ""}"
+              data-action="toggle-header-menu"
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded="${state.headerMenuOpen ? "true" : "false"}"
+            >${userAvatar}<span>${userLabel}</span></button>
+            ${headerMenu}
+          </div>
         </div>
         <div class="hg-hero-grid">
           <div class="hg-hero-mascot">
@@ -695,9 +720,19 @@ function renderAvatarPanelContent(avatar) {
 }
 
 function bindEvents() {
+  const shell = app.querySelector(".hg-phone-shell");
+  if (shell) {
+    shell.addEventListener("click", (event) => {
+      if (!state.headerMenuOpen) return;
+      if (event.target.closest("[data-header-menu]")) return;
+      state.headerMenuOpen = false;
+      render();
+    });
+  }
   app.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       state.tab = button.dataset.tab;
+      state.headerMenuOpen = false;
       state.error = "";
       state.message = "";
       render();
@@ -706,6 +741,7 @@ function bindEvents() {
   app.querySelectorAll("[data-auth-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       state.authTab = button.dataset.authTab;
+      state.headerMenuOpen = false;
       state.error = "";
       state.message = "";
       render();
@@ -721,6 +757,7 @@ function bindEvents() {
 
 async function handleAction(button) {
   const action = button.dataset.action;
+  if (action === "toggle-header-menu") return toggleHeaderMenu();
   if (action === "spin") return spin();
   if (action === "daily") return claimDailySpin();
   if (action === "logout") return logout();
@@ -1022,9 +1059,15 @@ function logout() {
   state.userId = null;
   state.user = null;
   state.avatarDraft = null;
+  state.headerMenuOpen = false;
   state.tab = "account";
   state.message = "";
   state.error = "";
+  render();
+}
+
+function toggleHeaderMenu() {
+  state.headerMenuOpen = !state.headerMenuOpen;
   render();
 }
 
