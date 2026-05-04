@@ -15,8 +15,9 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.04";
+const APP_VERSION = "1.05";
 const GUEST_SPINS = 5;
+const TEST_INFINITE_SPINS = true;
 const avatarOptions = {
   ages: [
     { key: "kid", label: "Ребёнок" },
@@ -190,7 +191,8 @@ function renderShell() {
 
 function renderTopbar() {
   const spins = getActiveSpins();
-  const pillLabel = state.user ? `${spins} вращ.` : `${spins}/${GUEST_SPINS} вращ.`;
+  const spinLabel = formatSpinCount(spins);
+  const pillLabel = state.user ? `${spinLabel} вращ.` : `${spinLabel} вращ.`;
   const userLabel = state.user ? escapeHtml(state.user.username) : "Гость";
   const userAvatar = state.user
     ? `<img class="hg-user-avatar" src="${renderAvatarDataUrl(state.user.avatar)}" alt="Аватар игрока">`
@@ -340,6 +342,17 @@ function renderBalanceSummary() {
 }
 
 function renderGuestNotice() {
+  if (hasInfiniteSpins()) {
+    return `
+      <div class="hg-card hg-card-ribbon hg-daily-row">
+        <div>
+          <strong>Тестовый режим</strong>
+          <div class="hg-muted">Сейчас для проверки интерфейса и наград включены бесконечные вращения.</div>
+        </div>
+        <button class="hg-button hg-button-secondary" data-tab="account" type="button">Сохранить</button>
+      </div>
+    `;
+  }
   const used = GUEST_SPINS - getActiveSpins();
   return `
     <div class="hg-card hg-card-ribbon hg-daily-row">
@@ -517,7 +530,7 @@ function renderAccount() {
         <button class="hg-button" data-action="avatar-save" ${state.busy ? "disabled" : ""} type="button">Сохранить аватар</button>
       </div>
       <div class="hg-account-stat-grid">
-        <div class="hg-stat">Вращения<span class="hg-stat-value">${user.spins?.available || 0}</span></div>
+        <div class="hg-stat">Вращения<span class="hg-stat-value">${formatSpinCount(getActiveSpins())}</span></div>
         <div class="hg-stat">Всего игр<span class="hg-stat-value">${user.stats?.totalSpins || 0}</span></div>
         <div class="hg-stat">Победы<span class="hg-stat-value">${user.stats?.totalWins || 0}</span></div>
         <div class="hg-stat">Лучший приз<span class="hg-stat-value">${escapeHtml(user.stats?.biggestWin || "—")}</span></div>
@@ -863,7 +876,9 @@ async function spin() {
   try {
     if (state.user) {
       const updatedSeeds = addSeeds(state.user.seeds, reward.reward);
-      const remainingSpins = Math.max((state.user.spins?.available || 0), 0);
+      const remainingSpins = hasInfiniteSpins()
+        ? (state.user.spins?.available || 0)
+        : Math.max((state.user.spins?.available || 0), 0);
       const totalWins = (state.user.stats?.totalWins || 0) + (reward.isWin ? 1 : 0);
       const stats = {
         ...state.user.stats,
@@ -881,7 +896,7 @@ async function spin() {
       applyGuestReward(reward);
     }
     state.resultSymbols = finalSymbols;
-    state.resultMessage = !state.user && getActiveSpins() < 1
+    state.resultMessage = !state.user && !hasInfiniteSpins() && getActiveSpins() < 1
       ? `${reward.message} Создайте аккаунт, чтобы сохранить свои семена и орехи 🥜`
       : reward.message;
     state.spinning = false;
@@ -1257,10 +1272,12 @@ function getActiveSeeds() {
 }
 
 function getActiveSpins() {
+  if (hasInfiniteSpins()) return Number.POSITIVE_INFINITY;
   return state.user?.spins?.available ?? state.guest?.spins?.available ?? 0;
 }
 
 function decrementActiveSpin() {
+  if (hasInfiniteSpins()) return;
   if (state.user) {
     state.user.spins.available = Math.max(0, (state.user.spins?.available || 0) - 1);
     return;
@@ -1375,6 +1392,14 @@ function todayKey() {
 
 function canClaimDailySpin() {
   return Boolean(state.user && state.user.spins?.dailyFreeUsedDate !== todayKey());
+}
+
+function hasInfiniteSpins() {
+  return TEST_INFINITE_SPINS;
+}
+
+function formatSpinCount(value) {
+  return Number.isFinite(value) ? String(value) : "∞";
 }
 
 async function withBusy(work) {
