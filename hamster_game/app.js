@@ -15,7 +15,7 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.01";
+const APP_VERSION = "1.02";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
 const NOTIFICATION_LAST_BONUS_KEY = "hg_bonus_notification_date";
@@ -241,6 +241,7 @@ let state = {
   message: "",
   error: "",
   resultSymbols: ["bread", "wheat", "milk"],
+  lastRewardKeys: ["poppy"],
   resultMessage: "Хомяк ждёт вашего первого вращения 🎰",
   spinning: false,
   toasts: []
@@ -439,19 +440,11 @@ function renderLoggedOutPrompt() {
 function renderGame() {
   const dailyAvailable = state.user && canClaimDailySpin();
   const spins = getActiveSpins();
+  const resultSeedKey = state.lastRewardKeys?.[0] || (state.resultMessage.includes("ДЖЕКПОТ") ? "walnut" : "poppy");
   return `
-    <section class="hg-screen">
+    <section class="hg-screen hg-game-screen">
       ${renderBalanceSummary()}
-      ${state.user ? `
-        <div class="hg-card hg-card-ribbon hg-daily-row">
-          <div>
-            <strong>Ежедневное вращение</strong>
-            <div class="hg-muted">${dailyAvailable ? "Хомяк приготовил подарок на сегодня." : "Сегодняшний подарок уже получен."}</div>
-          </div>
-          <button class="hg-button hg-button-secondary" data-action="daily" ${dailyAvailable || state.busy ? "" : "disabled"} type="button">Получить</button>
-        </div>
-        ${renderLoginBonusCard()}
-      ` : renderGuestNotice()}
+      ${state.user ? renderGameRewardStrip(dailyAvailable) : renderGuestNotice()}
       <div class="hg-slot-wrap ${state.spinning ? "hg-is-spinning" : ""}">
         <div id="hgConfetti"></div>
         <div class="hg-slot-glow" aria-hidden="true"></div>
@@ -480,6 +473,9 @@ function renderGame() {
           ${renderAssetImage("./assets/characters/hamster-wheel.png", "Колесо хомяка", "hg-wheel-img hg-wheel", "⚙️")}
         </div>
         <div class="hg-reels-shell">
+          <div class="hg-reels-bulbs" aria-hidden="true">
+            ${Array.from({ length: 18 }, (_, index) => `<span class="hg-reels-bulb hg-reels-bulb--${index + 1}"></span>`).join("")}
+          </div>
           <div class="hg-reels" aria-label="Игровые барабаны">
             ${state.resultSymbols.map((symbol) => `<div class="hg-reel ${state.spinning ? "hg-spinning" : ""}"><span class="hg-reel-symbol">${renderSlotSymbol(symbol)}</span></div>`).join("")}
           </div>
@@ -492,10 +488,11 @@ function renderGame() {
         </button>
       </div>
       <div class="hg-result ${state.resultMessage.includes("ДЖЕКПОТ") ? "hg-jackpot" : ""}">
+        <div class="hg-result-icon">${renderSeedImage(resultSeedKey, "hg-seed-img--result")}</div>
         <div class="hg-result-text">${escapeHtml(state.resultMessage)}</div>
       </div>
       ${!state.user && !spins ? renderGuestFinishedCard() : ""}
-      <div class="hg-card hg-card-hero">
+      <div class="hg-fresh-wins">
         <div class="hg-row">
           <h2 class="hg-section-title">Свежие выигрыши</h2>
           <button class="hg-feed-link" type="button">Смотреть все</button>
@@ -518,10 +515,9 @@ function renderBalanceSummary() {
   const seeds = getActiveSeeds();
   const total = walletTotal(seeds);
   return `
-    <div class="hg-card hg-card-hero hg-balance-shell">
+    <div class="hg-balance-shell">
       <div class="hg-balance-head">
         <div>
-          <div class="hg-kicker hg-kicker-wallet">Ваш кошелёк семян</div>
           <h2 class="hg-section-title">Ваш кошелёк семян</h2>
         </div>
         <div class="hg-balance-badge">${renderSeedImage("sesame", "hg-seed-img--badge")}${total} сомов</div>
@@ -543,23 +539,42 @@ function renderBalanceSummary() {
 function renderGuestNotice() {
   if (hasInfiniteSpins()) {
     return `
-      <div class="hg-card hg-card-ribbon hg-daily-row">
-        <div>
-          <strong>Тестовый режим</strong>
-          <div class="hg-muted">Сейчас для проверки интерфейса и наград включены бесконечные вращения.</div>
+      <div class="hg-reward-strip">
+        <div class="hg-reward-strip-item">
+          <span class="hg-reward-strip-icon">🎁</span>
+          <span><strong>Тестовый режим</strong><small>∞ вращений для проверки</small></span>
         </div>
-        <button class="hg-button hg-button-secondary" data-tab="account" type="button">Сохранить</button>
+        <button class="hg-button hg-strip-button" data-tab="account" type="button">Сохранить</button>
       </div>
     `;
   }
   const used = GUEST_SPINS - getActiveSpins();
   return `
-    <div class="hg-card hg-card-ribbon hg-daily-row">
-      <div>
-        <strong>Пробная игра</strong>
-        <div class="hg-muted">У вас есть 5 гостевых вращений. Использовано: ${used} из ${GUEST_SPINS}.</div>
+    <div class="hg-reward-strip">
+      <div class="hg-reward-strip-item">
+        <span class="hg-reward-strip-icon">🎁</span>
+        <span><strong>Пробная игра</strong><small>Использовано: ${used} из ${GUEST_SPINS}</small></span>
       </div>
-      <button class="hg-button hg-button-secondary" data-tab="account" type="button">Сохранить</button>
+      <button class="hg-button hg-strip-button" data-tab="account" type="button">Сохранить</button>
+    </div>
+  `;
+}
+
+function renderGameRewardStrip(dailyAvailable) {
+  const bonusState = state.user?.loginBonus || defaultLoginBonus();
+  const todayClaimed = bonusState.lastClaimDate === todayKey();
+  const currentDay = todayClaimed ? Math.max(1, bonusState.day || 1) : nextLoginBonusDay(bonusState);
+  return `
+    <div class="hg-reward-strip hg-reward-strip--daily">
+      <div class="hg-reward-strip-item">
+        <span class="hg-reward-strip-icon">🎁</span>
+        <span><strong>Ежедневный подарок</strong><small>${dailyAvailable ? "Готов к получению" : "Уже получен"}</small></span>
+      </div>
+      <button class="hg-button hg-strip-button" data-action="daily" ${dailyAvailable && !state.busy ? "" : "disabled"} type="button">Получить</button>
+      <div class="hg-reward-strip-item hg-reward-strip-item--streak">
+        <span class="hg-reward-strip-icon">🔥</span>
+        <span><strong>Серия входов</strong><small>День ${currentDay}/14</small></span>
+      </div>
     </div>
   `;
 }
@@ -1236,6 +1251,7 @@ async function spin() {
       applyGuestReward(reward);
     }
     state.resultSymbols = finalSymbols;
+    state.lastRewardKeys = Object.keys(reward.reward);
     state.resultMessage = !state.user && !hasInfiniteSpins() && getActiveSpins() < 1
       ? `${reward.message} Создайте аккаунт, чтобы сохранить свои семена и орехи 🥜`
       : reward.message;
