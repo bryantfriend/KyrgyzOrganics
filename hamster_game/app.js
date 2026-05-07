@@ -317,9 +317,9 @@ function renderAssetImage(src, alt, className = "", fallback = "", loading = "la
   `;
 }
 
-function renderSeedImage(key, modifier = "") {
+function renderSeedImage(key, modifier = "", includeFallback = true) {
   const meta = seedMeta[key] || seedMeta.poppy;
-  return renderAssetImage(meta.img, meta.name, `hg-seed-img ${modifier}`, meta.fallback);
+  return renderAssetImage(meta.img, meta.name, `hg-seed-img ${modifier}`, includeFallback ? meta.fallback : "");
 }
 
 function renderSlotSymbol(symbolKey) {
@@ -525,7 +525,7 @@ function renderBalanceSummary() {
       <div class="hg-balance-grid">
         ${Object.entries(seedMeta).map(([key, meta]) => `
           <div class="hg-seed-chip" data-seed="${key}">
-            <span class="hg-seed-image-plate">${renderSeedImage(key, "hg-seed-img--chip")}</span>
+            <span class="hg-seed-image-plate">${renderSeedImage(key, "hg-seed-img--chip", false)}</span>
             <span class="hg-seed-amount">${seeds[key] || 0}</span>
             <span class="hg-seed-label">${meta.short}</span>
             <span class="hg-seed-value">${meta.value} сом</span>
@@ -658,7 +658,7 @@ function renderWallet() {
           return `
             <article class="hg-wallet-card hg-seed-card" data-seed="${key}">
               <div class="hg-seed-card-art">
-                ${renderSeedImage(key, "hg-seed-img--wallet")}
+                ${renderSeedImage(key, "hg-seed-img--wallet", false)}
                 <span class="hg-seed-amount">${amount}</span>
               </div>
               <h2 class="hg-item-name">${meta.name}</h2>

@@ -85,6 +85,10 @@
   line-height: 1;
 }
 
+.hg-img-fallback[hidden] {
+  display: none;
+}
+
 .hg-mascot-img,
 .hg-wheel-img,
 .hg-seed-img,
