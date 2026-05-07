@@ -691,16 +691,6 @@
   box-shadow: inset 0 1px 0 rgba(221, 255, 197, 0.25), 0 10px 16px rgba(47, 92, 33, 0.16);
 }
 
-.hg-balance-badge-icon {
-  width: 18px;
-  height: 18px;
-  display: inline-block;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-  filter: drop-shadow(0 2px 2px rgba(27, 54, 15, 0.18));
-}
-
 .hg-balance-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -730,15 +720,6 @@
   inset: 6px;
   border-radius: 20px;
   border: 1px solid rgba(242, 186, 61, 0.16);
-}
-
-.hg-seed-icon {
-  width: 76px;
-  height: 64px;
-  justify-self: center;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
 }
 
 .hg-seed-image-plate {
@@ -775,34 +756,6 @@
 .hg-seed-img--wallet {
   width: 108px;
   height: 92px;
-}
-
-.hg-seed-art--poppy {
-  background-image: url("./assets/seeds/seed-poppy.png");
-}
-
-.hg-seed-art--sesame {
-  background-image: url("./assets/seeds/seed-sesame.png");
-}
-
-.hg-seed-art--almond {
-  background-image: url("./assets/seeds/seed-almond.png");
-}
-
-.hg-seed-art--walnut {
-  background-image: url("./assets/seeds/seed-walnut.png");
-}
-
-.hg-seed-inline {
-  width: 34px;
-  height: 30px;
-  flex: 0 0 auto;
-  display: inline-block;
-  margin-right: 8px;
-  vertical-align: middle;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
 }
 
 .hg-seed-amount {
@@ -843,17 +796,6 @@
   justify-items: center;
   text-align: center;
   overflow: hidden;
-}
-
-.hg-seed-card::before {
-  content: "";
-  position: absolute;
-  inset: 8px;
-  border-radius: 18px;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(255, 233, 171, 0.46), transparent 48%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent);
 }
 
 .hg-seed-card-art {

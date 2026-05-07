@@ -15,7 +15,7 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.02";
+const APP_VERSION = "1.03";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
 const NOTIFICATION_LAST_BONUS_KEY = "hg_bonus_notification_date";
@@ -142,10 +142,10 @@ const avatarOptions = {
 };
 
 const seedMeta = {
-  poppy: { name: "Маковые семена", short: "Мак", value: 1, icon: "🌑", fallback: "🌑", img: "./assets/seeds/seed-poppy.png", art: "hg-seed-art--poppy" },
-  sesame: { name: "Кунжутные семена", short: "Кунжут", value: 5, icon: "⚪", fallback: "⚪", img: "./assets/seeds/seed-sesame.png", art: "hg-seed-art--sesame" },
-  almond: { name: "Миндальные семена", short: "Миндаль", value: 50, icon: "🌰", fallback: "🌰", img: "./assets/seeds/seed-almond.png", art: "hg-seed-art--almond" },
-  walnut: { name: "Грецкие орехи", short: "Грецкий орех", value: 1000, icon: "🥜", fallback: "🥜", img: "./assets/seeds/seed-walnut.png", art: "hg-seed-art--walnut" }
+  poppy: { name: "Маковые семена", short: "Мак", value: 1, icon: "🌑", fallback: "🌑", img: "./assets/seeds/seed-poppy.png" },
+  sesame: { name: "Кунжутные семена", short: "Кунжут", value: 5, icon: "⚪", fallback: "⚪", img: "./assets/seeds/seed-sesame.png" },
+  almond: { name: "Миндальные семена", short: "Миндаль", value: 50, icon: "🌰", fallback: "🌰", img: "./assets/seeds/seed-almond.png" },
+  walnut: { name: "Грецкие орехи", short: "Грецкий орех", value: 1000, icon: "🥜", fallback: "🥜", img: "./assets/seeds/seed-walnut.png" }
 };
 
 const SLOT_SYMBOLS = [
@@ -520,7 +520,7 @@ function renderBalanceSummary() {
         <div>
           <h2 class="hg-section-title">Ваш кошелёк семян</h2>
         </div>
-        <div class="hg-balance-badge">${renderSeedImage("sesame", "hg-seed-img--badge")}${total} сомов</div>
+        <div class="hg-balance-badge">${total} сомов</div>
       </div>
       <div class="hg-balance-grid">
         ${Object.entries(seedMeta).map(([key, meta]) => `
