@@ -15,9 +15,26 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.08";
+const APP_VERSION = "1.01";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
+const NOTIFICATION_LAST_BONUS_KEY = "hg_bonus_notification_date";
+const loginBonusSchedule = [
+  { day: 1, spins: 1, seeds: {}, title: "1 вращение" },
+  { day: 2, spins: 0, seeds: { poppy: 10 }, title: "10 маковых семян" },
+  { day: 3, spins: 0, seeds: { sesame: 1 }, title: "1 кунжутное семя" },
+  { day: 4, spins: 2, seeds: {}, title: "2 вращения" },
+  { day: 5, spins: 0, seeds: { poppy: 25 }, title: "25 маковых семян" },
+  { day: 6, spins: 0, seeds: { sesame: 1 }, title: "1 кунжутное семя" },
+  { day: 7, spins: 0, seeds: { almond: 1 }, title: "1 миндальное семя" },
+  { day: 8, spins: 3, seeds: {}, title: "3 вращения" },
+  { day: 9, spins: 0, seeds: { poppy: 40 }, title: "40 маковых семян" },
+  { day: 10, spins: 0, seeds: { sesame: 2 }, title: "2 кунжутных семени" },
+  { day: 11, spins: 4, seeds: {}, title: "4 вращения" },
+  { day: 12, spins: 0, seeds: { almond: 1 }, title: "1 миндальное семя" },
+  { day: 13, spins: 2, seeds: { poppy: 75 }, title: "75 маковых семян и 2 вращения" },
+  { day: 14, spins: 10, seeds: { sesame: 5, walnut: 1 }, title: "Грецкий орех, 5 кунжутных семян и 10 вращений" }
+];
 const avatarOptions = {
   sizes: [
     { key: "tiny", label: "Кроха" },
@@ -125,34 +142,64 @@ const avatarOptions = {
 };
 
 const seedMeta = {
-  poppy: { name: "Маковые семена", short: "Мак", value: 1, icon: "🌑", art: "hg-seed-art--poppy" },
-  sesame: { name: "Кунжутные семена", short: "Кунжут", value: 5, icon: "⚪", art: "hg-seed-art--sesame" },
-  almond: { name: "Миндальные семена", short: "Миндаль", value: 50, icon: "🌰", art: "hg-seed-art--almond" },
-  walnut: { name: "Грецкие орехи", short: "Грецкий орех", value: 1000, icon: "🥜", art: "hg-seed-art--walnut" }
+  poppy: { name: "Маковые семена", short: "Мак", value: 1, icon: "🌑", fallback: "🌑", img: "./assets/seeds/seed-poppy.png", art: "hg-seed-art--poppy" },
+  sesame: { name: "Кунжутные семена", short: "Кунжут", value: 5, icon: "⚪", fallback: "⚪", img: "./assets/seeds/seed-sesame.png", art: "hg-seed-art--sesame" },
+  almond: { name: "Миндальные семена", short: "Миндаль", value: 50, icon: "🌰", fallback: "🌰", img: "./assets/seeds/seed-almond.png", art: "hg-seed-art--almond" },
+  walnut: { name: "Грецкие орехи", short: "Грецкий орех", value: 1000, icon: "🥜", fallback: "🥜", img: "./assets/seeds/seed-walnut.png", art: "hg-seed-art--walnut" }
 };
 
-const symbols = ["🍞", "🥐", "🍪", "🌾", "🥛", "🧀", "⭐", "🥜"];
+const SLOT_SYMBOLS = [
+  { key: "bread", label: "Хлеб", img: "./assets/symbols/symbol-bread-classic.png", fallback: "🍞" },
+  { key: "croissant", label: "Круассан", img: "./assets/rewards/reward-bread-long.png", fallback: "🥐" },
+  { key: "cookie", label: "Печенье", img: "./assets/symbols/symbol-chocolate-cookies.png", fallback: "🍪" },
+  { key: "wheat", label: "Пшеница", img: "./assets/decor/wheat-bundle.png", fallback: "🌾" },
+  { key: "milk", label: "Молоко", img: null, fallback: "🥛" },
+  { key: "cheese", label: "Сыр", img: null, fallback: "🧀" },
+  { key: "star", label: "Звезда", img: "./assets/symbols/symbol-star-cookies.png", fallback: "⭐" },
+  { key: "walnut", label: "Грецкий орех", img: "./assets/seeds/seed-walnut.png", fallback: "🥜" }
+];
+
+const slotSymbolByKey = Object.fromEntries(SLOT_SYMBOLS.map((symbol) => [symbol.key, symbol]));
+const symbols = SLOT_SYMBOLS.map((symbol) => symbol.key);
 
 const rewardRules = {
-  "🍞": { two: { poppy: 5 }, three: { poppy: 25 } },
-  "🥐": { two: { sesame: 1 }, three: { sesame: 3 } },
-  "🍪": { two: { sesame: 1 }, three: { sesame: 5 } },
-  "🌾": { two: { poppy: 10 }, three: { poppy: 75 } },
-  "🥛": { two: { sesame: 1 }, three: { sesame: 2 } },
-  "🧀": { two: { poppy: 10 }, three: { almond: 1 } },
-  "⭐": { two: { almond: 1 }, three: { almond: 2 } },
-  "🥜": { two: { poppy: 25 }, three: { walnut: 1 } }
+  bread: { two: { poppy: 5 }, three: { poppy: 25 } },
+  croissant: { two: { sesame: 1 }, three: { sesame: 3 } },
+  cookie: { two: { sesame: 1 }, three: { sesame: 5 } },
+  wheat: { two: { poppy: 10 }, three: { poppy: 75 } },
+  milk: { two: { sesame: 1 }, three: { sesame: 2 } },
+  cheese: { two: { poppy: 10 }, three: { almond: 1 } },
+  star: { two: { almond: 1 }, three: { almond: 2 } },
+  walnut: { two: { poppy: 25 }, three: { walnut: 1 } }
 };
 
 const storeItems = [
-  { name: "Хлеб", type: "product", category: "food", subtitle: "Тёплый хлеб", icon: "🍞", tint: "bread", cost: { poppy: 50 }, approval: false },
-  { name: "Органический чай", type: "product", category: "food", subtitle: "Травяной чай", icon: "🍵", tint: "tea", cost: { poppy: 20 }, approval: false },
-  { name: "Скидка 5%", type: "discount", category: "discount", subtitle: "Купон на скидку", icon: "🏷️", tint: "ticket", cost: { poppy: 100 }, approval: false },
-  { name: "Скидка 10%", type: "discount", category: "discount", subtitle: "Большой купон", icon: "🎫", tint: "ticket", cost: { sesame: 1 }, approval: false },
+  {
+    name: "Хлеб",
+    type: "product",
+    category: "food",
+    subtitle: "Тёплый хлеб",
+    icon: "🍞",
+    img: "./assets/rewards/reward-bread-classic.png",
+    tint: "bread",
+    cost: { poppy: 50 },
+    approval: false,
+    variants: [
+      { img: "./assets/rewards/reward-bread-loaf.png", label: "Буханка", fallback: "🍞" },
+      { img: "./assets/rewards/reward-bread-round.png", label: "Круглый хлеб", fallback: "🥖" }
+    ],
+    symbolVariants: [
+      { img: "./assets/symbols/symbol-bread-loaf.png", label: "Символ буханки", fallback: "🍞" },
+      { img: "./assets/symbols/symbol-bread-round.png", label: "Символ круглого хлеба", fallback: "🥖" }
+    ]
+  },
+  { name: "Органический чай", type: "product", category: "food", subtitle: "Травяной чай", icon: "🍵", img: "./assets/rewards/reward-tea.png", tint: "tea", cost: { poppy: 20 }, approval: false },
+  { name: "Скидка 5%", type: "discount", category: "discount", subtitle: "Купон на скидку", icon: "🏷️", badge: "5%", tint: "ticket", cost: { poppy: 100 }, approval: false },
+  { name: "Скидка 10%", type: "discount", category: "discount", subtitle: "Большой купон", icon: "🎫", badge: "10%", tint: "ticket", cost: { sesame: 1 }, approval: false },
   { name: "Бесплатная доставка", type: "delivery", category: "special", subtitle: "Купон доставки", icon: "🛵", tint: "delivery", cost: { sesame: 2 }, approval: false },
-  { name: "Круассан", type: "product", category: "food", subtitle: "Свежий круассан", icon: "🥐", tint: "pastry", cost: { sesame: 10 }, approval: false },
-  { name: "Набор выпечки", type: "bundle", category: "bundle", subtitle: "Коробка вкусностей", icon: "🧺", tint: "bundle", cost: { almond: 1 }, approval: true },
-  { name: "Полный заказ", type: "order", category: "special", subtitle: "Большой приз", icon: "🥜", tint: "special", cost: { walnut: 1 }, approval: true }
+  { name: "Круассан", type: "product", category: "food", subtitle: "Свежая длинная выпечка", icon: "🥐", img: "./assets/rewards/reward-bread-long.png", tint: "pastry", cost: { sesame: 10 }, approval: false },
+  { name: "Набор выпечки", type: "bundle", category: "bundle", subtitle: "Пакет вкусностей", icon: "🧺", img: "./assets/rewards/reward-bakery-bag.png", tint: "bundle", cost: { almond: 1 }, approval: true },
+  { name: "Полный заказ", type: "order", category: "special", subtitle: "Большой приз", icon: "🥜", img: "./assets/rewards/reward-full-order.png", tint: "special", cost: { walnut: 1 }, approval: true }
 ];
 
 const storeCategories = [
@@ -193,7 +240,7 @@ let state = {
   busy: false,
   message: "",
   error: "",
-  resultSymbols: ["🍞", "🌾", "🥛"],
+  resultSymbols: ["bread", "wheat", "milk"],
   resultMessage: "Хомяк ждёт вашего первого вращения 🎰",
   spinning: false,
   toasts: []
@@ -214,6 +261,7 @@ init();
 async function init() {
   try {
     await loadCurrentUser();
+    await ensureDailyLoginBonus();
   } catch (error) {
     console.error(error);
     state.error = "Не удалось подключиться. Попробуйте позже.";
@@ -238,7 +286,7 @@ function render() {
 function renderLoading() {
   return `
     <div class="hg-loading">
-      <img class="hg-loading-mascot" src="./assets/characters/hamster-chef-bust.svg" alt="">
+      ${renderAssetImage("./assets/characters/hamster-chef-bust.png", "Хомяк-повар", "hg-mascot-img hg-loading-mascot", "🐹", "eager")}
       <p>Хомяк загружает игру...</p>
     </div>
   `;
@@ -250,6 +298,52 @@ function renderShell() {
     ${state.error ? `<div class="hg-card hg-error">${state.error}</div>` : ""}
     ${renderActiveScreen()}
     ${renderBottomNav()}
+  `;
+}
+
+function renderAssetImage(src, alt, className = "", fallback = "", loading = "lazy") {
+  const safeAlt = escapeHtml(alt || "");
+  const fallbackMarkup = fallback
+    ? `<span class="hg-img-fallback" ${src ? "hidden" : ""}>${escapeHtml(fallback)}</span>`
+    : "";
+  if (!src) return `<span class="hg-img-shell">${fallbackMarkup}</span>`;
+  const failHandler = fallback ? ` onerror="this.hidden=true;this.nextElementSibling.hidden=false"` : ` onerror="this.hidden=true"`;
+  return `
+    <span class="hg-img-shell">
+      <img class="hg-img ${className}" src="${src}" alt="${safeAlt}" loading="${loading}"${failHandler}>
+      ${fallbackMarkup}
+    </span>
+  `;
+}
+
+function renderSeedImage(key, modifier = "") {
+  const meta = seedMeta[key] || seedMeta.poppy;
+  return renderAssetImage(meta.img, meta.name, `hg-seed-img ${modifier}`, meta.fallback);
+}
+
+function renderSlotSymbol(symbolKey) {
+  const symbol = slotSymbolByKey[symbolKey] || slotSymbolByKey.bread;
+  return `
+    <span class="hg-symbol-frame" data-symbol="${symbol.key}" aria-label="${escapeHtml(symbol.label)}">
+      ${renderAssetImage(symbol.img, symbol.label, "hg-symbol-img", symbol.fallback, "eager")}
+    </span>
+  `;
+}
+
+function renderStoreArt(item) {
+  if (item.badge) {
+    return `<span class="hg-reward-badge" aria-label="${escapeHtml(item.name)}">${escapeHtml(item.badge)}</span>`;
+  }
+  return renderAssetImage(item.img || null, item.name, "hg-reward-img", item.icon || "🎁");
+}
+
+function renderStoreVariants(item) {
+  const variants = [...(item.variants || []), ...(item.symbolVariants || [])];
+  if (!variants.length) return "";
+  return `
+    <div class="hg-reward-variants" aria-label="Варианты награды">
+      ${variants.map((variant) => renderAssetImage(variant.img, variant.label, "hg-reward-mini-img", variant.fallback || "🍞")).join("")}
+    </div>
   `;
 }
 
@@ -275,10 +369,14 @@ function renderTopbar() {
     `;
   const userAvatar = state.user
     ? `<img class="hg-user-avatar" src="${renderAvatarDataUrl(state.user.avatar)}" alt="Аватар игрока">`
-    : `<span class="hg-user-avatar hg-user-avatar--guest" aria-hidden="true">👤</span>`;
+    : `<span class="hg-user-avatar hg-user-avatar--guest" aria-hidden="true">${renderAssetImage("./assets/characters/hamster-chef-bust.png", "Гость", "hg-mascot-img hg-avatar-img", "🐹")}</span>`;
   return `
     <header class="hg-topbar">
       <div class="hg-hero-panel">
+        ${renderAssetImage("./assets/decor/leaf-corner-left.png", "Листья", "hg-hero-leaf hg-hero-leaf--left", "🌿")}
+        ${renderAssetImage("./assets/decor/leaf-corner-right.png", "Листья", "hg-hero-leaf hg-hero-leaf--right", "🌿")}
+        ${renderAssetImage("./assets/decor/wheat-bundle.png", "Пшеничный букет", "hg-hero-wheat hg-hero-wheat--left", "🌾")}
+        ${renderAssetImage("./assets/decor/wheat-bundle.png", "Пшеничный букет", "hg-hero-wheat hg-hero-wheat--right", "🌾")}
         <div class="hg-hero-badges">
           <div class="hg-header-menu-wrap" data-header-menu>
             <button
@@ -293,20 +391,20 @@ function renderTopbar() {
         </div>
         <div class="hg-hero-grid">
           <div class="hg-hero-mascot">
-            <img class="hg-hero-hamster" src="./assets/characters/hamster-chef-main.webp" alt="Хомяк-повар">
+            ${renderAssetImage("./assets/characters/hamster-chef-full.png", "Хомяк-повар", "hg-mascot-img hg-hero-hamster", "🐹", "eager")}
           </div>
           <div class="hg-hero-copy">
-            <p class="hg-brand-kicker"><span class="hg-brand-leaf" aria-hidden="true"></span><span>Kyrgyz<br>Organics</span></p>
-            <h1 class="hg-title"><span class="hg-title-top">Счастливый</span><span class="hg-title-bottom">Хомяк</span></h1>
+            <p class="hg-brand-kicker"><span class="hg-brand-leaf" aria-hidden="true"></span><span>KYRGYZ<br>ORGANICS</span></p>
+            <h1 class="hg-title"><span class="hg-title-top">Счастливый</span><span class="hg-title-bottom">хомяк</span></h1>
             <div class="hg-hero-meta">
               <span class="hg-version">v${APP_VERSION}</span>
               <span class="hg-pill hg-pill-spins" aria-label="Доступные вращения">${pillLabel}</span>
             </div>
           </div>
           <div class="hg-hero-sign">
-            <div class="hg-hero-sign-inner">
-              <strong>Добро пожаловать</strong>
-              <span>в пекарню удачи!</span>
+            <div class="hg-hero-sign-inner" aria-label="Добро пожаловать!">
+              ${renderAssetImage("./assets/ui/hanging-wood-sign.png", "Добро пожаловать!", "hg-hero-sign-img", "🪵")}
+              <strong>Добро пожаловать!</strong>
             </div>
           </div>
         </div>
@@ -352,25 +450,38 @@ function renderGame() {
           </div>
           <button class="hg-button hg-button-secondary" data-action="daily" ${dailyAvailable || state.busy ? "" : "disabled"} type="button">Получить</button>
         </div>
+        ${renderLoginBonusCard()}
       ` : renderGuestNotice()}
       <div class="hg-slot-wrap ${state.spinning ? "hg-is-spinning" : ""}">
         <div id="hgConfetti"></div>
         <div class="hg-slot-glow" aria-hidden="true"></div>
+        ${renderAssetImage("./assets/decor/leaf-corner-left.png", "Листья", "hg-slot-leaf hg-slot-leaf--left", "🌿")}
+        ${renderAssetImage("./assets/decor/leaf-corner-right.png", "Листья", "hg-slot-leaf hg-slot-leaf--right", "🌿")}
+        ${renderAssetImage("./assets/decor/wheat-bundle.png", "Пшеница", "hg-slot-wheat", "🌾")}
+        ${renderAssetImage("./assets/machine/lever-left.png", "Левый рычаг", "hg-lever-img hg-lever-img--left", "")}
+        ${renderAssetImage("./assets/machine/lever-right.png", "Рычаг автомата", "hg-lever-img hg-lever-img--right", "")}
         <img class="hg-slot-frame-art" src="./assets/machine/slot-machine-frame.svg" alt="">
         <div class="hg-slot-head">
           <div class="hg-slot-mascot">
-            <img class="hg-hamster" src="./assets/characters/hamster-chef-bust.svg" alt="Хомяк-повар">
+            ${renderAssetImage("./assets/characters/hamster-chef-bust.png", "Хомяк-повар", "hg-mascot-img hg-hamster", "🐹")}
           </div>
           <div class="hg-slot-logo">
-            <div class="hg-kicker">Пекарня удачи</div>
+            <div class="hg-slot-plaque">
+              ${renderAssetImage("./assets/ui/wood-title-plaque.png", "Пекарня удачи", "hg-plaque-img", "")}
+              <div class="hg-slot-plaque-text">Пекарня удачи</div>
+            </div>
             <div class="hg-slot-logo-title">${state.spinning ? "Хомяк крутит барабаны..." : "Собирайте семена"}</div>
-            <div class="hg-slot-logo-sub">и ловите орехи</div>
+            <div class="hg-slot-logo-sub">Собирайте семена и ловите орехи</div>
+            <div class="hg-plaque-symbols" aria-hidden="true">
+              ${renderAssetImage("./assets/symbols/symbol-bread-loaf.png", "Буханка", "hg-plaque-symbol-img", "🍞")}
+              ${renderAssetImage("./assets/symbols/symbol-bread-round.png", "Круглый хлеб", "hg-plaque-symbol-img", "🥖")}
+            </div>
           </div>
-          <img class="hg-wheel" src="./assets/characters/hamster-wheel.svg" alt="Колесо хомяка">
+          ${renderAssetImage("./assets/characters/hamster-wheel.png", "Колесо хомяка", "hg-wheel-img hg-wheel", "⚙️")}
         </div>
         <div class="hg-reels-shell">
           <div class="hg-reels" aria-label="Игровые барабаны">
-            ${state.resultSymbols.map((symbol) => `<div class="hg-reel ${state.spinning ? "hg-spinning" : ""}"><span class="hg-reel-symbol">${symbol}</span></div>`).join("")}
+            ${state.resultSymbols.map((symbol) => `<div class="hg-reel ${state.spinning ? "hg-spinning" : ""}"><span class="hg-reel-symbol">${renderSlotSymbol(symbol)}</span></div>`).join("")}
           </div>
         </div>
         <button class="hg-button hg-spin-button" data-action="spin" ${state.busy || !spins ? "disabled" : ""} type="button">
@@ -413,12 +524,12 @@ function renderBalanceSummary() {
           <div class="hg-kicker hg-kicker-wallet">Ваш кошелёк семян</div>
           <h2 class="hg-section-title">Ваш кошелёк семян</h2>
         </div>
-        <div class="hg-balance-badge"><span class="hg-balance-badge-icon ${seedMeta.sesame.art}" aria-hidden="true"></span>${total} сомов</div>
+        <div class="hg-balance-badge">${renderSeedImage("sesame", "hg-seed-img--badge")}${total} сомов</div>
       </div>
       <div class="hg-balance-grid">
         ${Object.entries(seedMeta).map(([key, meta]) => `
           <div class="hg-seed-chip" data-seed="${key}">
-            <span class="hg-seed-icon ${meta.art}" aria-hidden="true"></span>
+            <span class="hg-seed-image-plate">${renderSeedImage(key, "hg-seed-img--chip")}</span>
             <span class="hg-seed-amount">${seeds[key] || 0}</span>
             <span class="hg-seed-label">${meta.short}</span>
             <span class="hg-seed-value">${meta.value} сом</span>
@@ -463,6 +574,56 @@ function renderGuestFinishedCard() {
   `;
 }
 
+function renderLoginBonusCard() {
+  const bonusState = state.user?.loginBonus || defaultLoginBonus();
+  const todayClaimed = bonusState.lastClaimDate === todayKey();
+  const currentDay = todayClaimed ? Math.max(1, bonusState.day || 1) : nextLoginBonusDay(bonusState);
+  const claimedCount = !todayClaimed && currentDay === 1 ? 0 : bonusState.day;
+  const currentReward = loginBonusSchedule[currentDay - 1];
+  const notificationPermission = getNotificationPermission();
+  const notificationCopy = notificationPermission === "granted"
+    ? "Уведомления включены. Телефон подскажет, когда бонус снова готов."
+    : notificationPermission === "denied"
+      ? "Уведомления отключены в браузере. Их можно вернуть в настройках телефона или браузера."
+      : notificationPermission === "unsupported"
+        ? "На этом устройстве браузерные уведомления недоступны."
+        : "Включите уведомления, чтобы не пропускать новый бонус входа.";
+  return `
+    <div class="hg-card hg-card-ribbon hg-login-bonus">
+      <div class="hg-row">
+        <div>
+          <strong>Бонус входа 14 дней</strong>
+        <div class="hg-muted">${todayClaimed ? "Сегодняшний подарок уже у вас." : "Новый подарок ждёт вас прямо сейчас."}</div>
+      </div>
+        <span class="hg-status">День ${currentDay} / 14</span>
+      </div>
+      <div class="hg-login-bonus-track">
+        ${loginBonusSchedule.map((entry) => {
+          const claimed = claimedCount >= entry.day;
+          const active = currentDay === entry.day;
+          return `<div class="hg-login-bonus-day ${claimed ? "hg-claimed" : ""} ${active ? "hg-active" : ""} ${entry.day === 14 ? "hg-grand" : ""}"><span>${entry.day}</span></div>`;
+        }).join("")}
+      </div>
+      <div class="hg-login-bonus-reward">
+        <div>
+          <div class="hg-kicker">Сегодняшний подарок</div>
+          <div class="hg-login-bonus-title">${currentReward.title}</div>
+        </div>
+        ${currentReward.day === 14 ? '<span class="hg-status">Большой бонус</span>' : ""}
+      </div>
+      <div class="hg-login-bonus-notify">
+        <div class="hg-muted">${notificationCopy}</div>
+        ${notificationPermission === "default"
+          ? `<button class="hg-button hg-button-secondary" data-action="enable-notifications" type="button">Включить уведомления</button>`
+          : notificationPermission === "granted"
+            ? `<button class="hg-button hg-button-secondary" data-action="test-notification" type="button">Проверить уведомление</button>`
+            : ""
+        }
+      </div>
+    </div>
+  `;
+}
+
 function renderWallet() {
   const seeds = getActiveSeeds();
   const total = walletTotal(seeds);
@@ -480,11 +641,12 @@ function renderWallet() {
         ${Object.entries(seedMeta).map(([key, meta]) => {
           const amount = seeds[key] || 0;
           return `
-            <article class="hg-wallet-card">
-              <div class="hg-row">
-                <h2 class="hg-item-name"><span class="hg-seed-inline ${meta.art}" aria-hidden="true"></span>${meta.name}</h2>
-                <strong>${amount}</strong>
+            <article class="hg-wallet-card hg-seed-card" data-seed="${key}">
+              <div class="hg-seed-card-art">
+                ${renderSeedImage(key, "hg-seed-img--wallet")}
+                <span class="hg-seed-amount">${amount}</span>
               </div>
+              <h2 class="hg-item-name">${meta.name}</h2>
               <div class="hg-muted">Ценность: ${meta.value} сом за 1 шт.</div>
               <div class="hg-cost">Итого: ${amount * meta.value} сом</div>
             </article>
@@ -531,13 +693,14 @@ function renderStore() {
             <div class="hg-store-grid">
               ${visibleItems.map((item) => `
                 <article class="hg-store-item hg-store-item--${item.tint}">
-                  <div class="hg-store-art" aria-hidden="true">${item.icon}</div>
+                  <div class="hg-store-art">${renderStoreArt(item)}</div>
+                  ${renderStoreVariants(item)}
                   <div class="hg-store-copy">
                     <h3 class="hg-item-name">${item.name}</h3>
                     <div class="hg-store-subtitle">${item.subtitle}</div>
                   </div>
                   <div class="hg-store-price">${formatCost(item.cost)}</div>
-                  <div class="hg-store-note">${item.approval ? "Проверка перед выдачей" : "Готово сразу после обмена"}</div>
+                  <div class="hg-store-note">${item.approval ? "Требует подтверждения" : "Готово сразу после обмена"}</div>
                   <button class="hg-button hg-store-button" data-action="redeem" data-index="${item.index}" ${state.busy ? "disabled" : ""} type="button">Обменять</button>
                 </article>
               `).join("")}
@@ -558,8 +721,11 @@ function renderStore() {
 
 function renderReward(reward) {
   const statusText = reward.status === "pending_approval" ? "На проверке" : reward.status === "used" ? "Использована" : "Активна";
+  const storeItem = storeItems.find((item) => item.name === reward.rewardName)
+    || storeItems.find((item) => item.type === reward.rewardType);
   return `
     <article class="hg-reward-item">
+      ${storeItem ? `<div class="hg-reward-item-art">${renderStoreArt(storeItem)}</div>` : ""}
       <div class="hg-row">
         <strong>${escapeHtml(reward.rewardName)}</strong>
         <span class="hg-status">${statusText}</span>
@@ -865,6 +1031,8 @@ async function handleAction(button) {
   if (action === "toggle-header-menu") return toggleHeaderMenu();
   if (action === "spin") return spin();
   if (action === "daily") return claimDailySpin();
+  if (action === "enable-notifications") return enableNotifications();
+  if (action === "test-notification") return sendTestNotification();
   if (action === "logout") return logout();
   if (action === "redeem") return redeemReward(Number(button.dataset.index));
   if (action === "store-category") return setStoreCategory(button.dataset.category);
@@ -920,6 +1088,7 @@ async function registerUser(username, pin, confirmPin) {
         biggestWin: guestStats.biggestWin || "",
         lastSpinAt: null
       },
+      loginBonus: defaultLoginBonus(),
       avatar: defaultAvatar(),
       rewards: [],
       tasks: defaultTasks()
@@ -928,6 +1097,7 @@ async function registerUser(username, pin, confirmPin) {
     clearGuestTrial();
     state.userId = userRef.id;
     await loadCurrentUser();
+    await ensureDailyLoginBonus();
     state.tab = "game";
     showToast("Добро пожаловать! Хомяк сохранил ваши семена и дарит 5 вращений 🎰");
   });
@@ -944,6 +1114,7 @@ async function loginUser(username, pin) {
     localStorage.setItem(SESSION_KEY, found.id);
     state.userId = found.id;
     state.user = found.data;
+    await ensureDailyLoginBonus();
     state.tab = "game";
     showToast("С возвращением! Хомяк уже у барабанов 🎰");
   });
@@ -966,6 +1137,7 @@ async function loadCurrentUser() {
   }
   state.user = normalizeUser(snapshot.data());
   state.avatarDraft = { ...state.user.avatar };
+  maybeNotifyBonusReady();
 }
 
 async function saveUserData(partial) {
@@ -991,6 +1163,31 @@ async function claimDailySpin() {
   });
 }
 
+async function ensureDailyLoginBonus() {
+  if (!state.user) return;
+  const bonusState = normalizeLoginBonus(state.user.loginBonus);
+  const today = todayKey();
+  if (bonusState.lastClaimDate === today) {
+    maybeNotifyBonusReady();
+    return;
+  }
+  const day = nextLoginBonusDay(bonusState);
+  const reward = loginBonusSchedule[day - 1];
+  const loginBonus = {
+    day,
+    lastClaimDate: today,
+    longestStreak: Math.max(day, bonusState.longestStreak || 0)
+  };
+  const seeds = addSeeds(state.user.seeds, reward.seeds || {});
+  const spins = {
+    ...state.user.spins,
+    available: (state.user.spins?.available || 0) + (reward.spins || 0)
+  };
+  await saveUserData({ seeds, spins, loginBonus });
+  state.message = `Бонус входа: день ${day}. Хомяк принёс ${reward.title}.`;
+  showToast(`Бонус входа получен: ${reward.title}`);
+}
+
 async function spin() {
   const spins = getActiveSpins();
   if (spins < 1) {
@@ -1009,7 +1206,7 @@ async function spin() {
   const ticker = window.setInterval(() => {
     state.resultSymbols = randomSymbols();
     app.querySelectorAll(".hg-reel-symbol").forEach((node, index) => {
-      node.textContent = state.resultSymbols[index];
+      node.innerHTML = renderSlotSymbol(state.resultSymbols[index]);
     });
   }, 120);
   await wait(1650);
@@ -1184,6 +1381,28 @@ function setStoreCategory(category) {
   render();
 }
 
+async function enableNotifications() {
+  if (!("Notification" in window)) {
+    return showToast("На этом устройстве уведомления браузера недоступны.");
+  }
+  const permission = await Notification.requestPermission();
+  if (permission === "granted") {
+    showToast("Уведомления включены. Хомяк напомнит о новом бонусе.");
+    maybeNotifyBonusReady(true);
+  } else if (permission === "denied") {
+    showToast("Уведомления отклонены. Их можно включить позже в настройках браузера.");
+  }
+  render();
+}
+
+function sendTestNotification() {
+  if (getNotificationPermission() !== "granted") {
+    return showToast("Сначала включите уведомления.");
+  }
+  sendHamsterNotification("Проверка уведомлений", "Хомяк готов напоминать вам о новых бонусах каждый день.");
+  showToast("Тестовое уведомление отправлено.");
+}
+
 async function getUserByUsername(usernameIndex) {
   const q = query(collection(db, CUSTOMER_COLLECTION), where("usernameIndex", "==", usernameIndex));
   const snapshot = await getDocs(q);
@@ -1209,9 +1428,27 @@ function normalizeUser(user) {
       lastSpinAt: null,
       ...(user.stats || {})
     },
+    loginBonus: normalizeLoginBonus(user.loginBonus),
     avatar: normalizeAvatar(user.avatar),
     rewards: user.rewards || [],
     tasks: { ...defaultTasks(), ...(user.tasks || {}) }
+  };
+}
+
+function defaultLoginBonus() {
+  return {
+    day: 0,
+    lastClaimDate: null,
+    longestStreak: 0
+  };
+}
+
+function normalizeLoginBonus(data) {
+  const base = defaultLoginBonus();
+  return {
+    day: Number.isInteger(data?.day) && data.day >= 0 && data.day <= 14 ? data.day : base.day,
+    lastClaimDate: typeof data?.lastClaimDate === "string" ? data.lastClaimDate : base.lastClaimDate,
+    longestStreak: Number.isInteger(data?.longestStreak) && data.longestStreak >= 0 ? data.longestStreak : base.longestStreak
   };
 }
 
@@ -1589,7 +1826,7 @@ function calculateReward(result) {
   const three = Object.entries(counts).find(([, count]) => count === 3)?.[0];
   if (three) {
     const reward = rewardRules[three].three;
-    const jackpot = three === "🥜";
+    const jackpot = three === "walnut";
     return {
       reward,
       message: jackpot ? "ДЖЕКПОТ! Хомяк нашёл грецкий орех 🥜" : "Победа! Хомяк нашёл для вас награду 🎉",
@@ -1650,11 +1887,69 @@ function walletTotal(seeds) {
 }
 
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return formatDateKey(new Date());
 }
 
 function canClaimDailySpin() {
   return Boolean(state.user && state.user.spins?.dailyFreeUsedDate !== todayKey());
+}
+
+function nextLoginBonusDay(loginBonus) {
+  const today = todayKey();
+  const yesterday = offsetDayKey(-1);
+  if (!loginBonus?.lastClaimDate) return 1;
+  if (loginBonus.lastClaimDate === today) return Math.max(1, loginBonus.day || 1);
+  if (loginBonus.lastClaimDate === yesterday) {
+    return (loginBonus.day || 0) >= 14 ? 1 : (loginBonus.day || 0) + 1;
+  }
+  return 1;
+}
+
+function offsetDayKey(days) {
+  const value = new Date();
+  value.setDate(value.getDate() + days);
+  return formatDateKey(value);
+}
+
+function formatDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getNotificationPermission() {
+  return "Notification" in window ? Notification.permission : "unsupported";
+}
+
+function maybeNotifyBonusReady(force = false) {
+  if (!state.user) return;
+  if (getNotificationPermission() !== "granted") return;
+  const today = todayKey();
+  if (!force && localStorage.getItem(NOTIFICATION_LAST_BONUS_KEY) === today) return;
+  if (!canReceiveNextBonusToday(state.user.loginBonus)) return;
+  const nextDay = nextLoginBonusDay(state.user.loginBonus || defaultLoginBonus());
+  const reward = loginBonusSchedule[nextDay - 1];
+  sendHamsterNotification("Новый бонус ждёт", `День ${nextDay} из 14: ${reward.title}. Загляните в игру за подарком.`);
+  localStorage.setItem(NOTIFICATION_LAST_BONUS_KEY, today);
+}
+
+function canReceiveNextBonusToday(loginBonus) {
+  return normalizeLoginBonus(loginBonus).lastClaimDate !== todayKey();
+}
+
+function sendHamsterNotification(title, body) {
+  try {
+    const notification = new Notification(title, {
+      body,
+      icon: "./assets/characters/hamster-chef-bust.png",
+      badge: "./assets/characters/hamster-chef-bust.png",
+      tag: "hg-daily-bonus"
+    });
+    notification.onclick = () => window.focus();
+  } catch (error) {
+    console.warn("Notification failed:", error);
+  }
 }
 
 function hasInfiniteSpins() {
@@ -1736,6 +2031,20 @@ async function copyText(text) {
     showToast("Скопируйте ссылку: " + text);
   }
 }
+
+window.render_game_to_text = () => JSON.stringify({
+  tab: state.tab,
+  spinning: state.spinning,
+  busy: state.busy,
+  spins: formatSpinCount(getActiveSpins()),
+  resultSymbols: state.resultSymbols.map((key) => slotSymbolByKey[key]?.label || key),
+  resultMessage: state.resultMessage,
+  seeds: getActiveSeeds(),
+  storeCategory: state.storeCategory,
+  accountMode: state.user ? "аккаунт" : "гость"
+});
+
+window.advanceTime = () => {};
 
 function wait(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
