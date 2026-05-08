@@ -937,7 +937,6 @@
   border-radius: 999px;
   background:
     radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.38), transparent 28%),
-    url("./assets/machine/spin-button-gold.png") center / 100% 100% no-repeat,
     linear-gradient(180deg, #fff2a7 0%, #ffd765 18%, #ffbf34 52%, #d68916 100%);
   color: var(--hg-wood-900);
   border: 3px solid rgba(101, 54, 14, 0.9);
@@ -3894,7 +3893,6 @@
   border: 4px solid rgba(61, 27, 7, 0.94);
   background:
     radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.48), transparent 30%),
-    url("./assets/machine/spin-button-gold.png") center / 100% 100% no-repeat,
     linear-gradient(180deg, #fff0a4 0%, #ffc43a 52%, #b96d14 100%);
   box-shadow:
     0 6px 0 rgba(45, 18, 4, 0.92),
@@ -4381,4 +4379,96 @@
 .hg-is-spinning .hg-wheel,
 .hg-is-spinning .hg-lever-img--down {
   animation: none;
+}
+
+/* Static spin and corrected hero composition */
+.hg-spin-button,
+.hg-spin-button:disabled,
+.hg-spin-button:not(:disabled) {
+  background:
+    radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.44), transparent 30%),
+    linear-gradient(180deg, #fff0a4 0%, #ffd55c 20%, #ffc43a 52%, #b96d14 100%);
+  animation: none;
+}
+
+.hg-is-spinning .hg-spin-bulb,
+.hg-is-spinning .hg-reels-bulb,
+.hg-is-spinning .hg-slot-glow,
+.hg-reel.hg-spinning .hg-reel-symbol {
+  animation: none;
+  filter: none;
+}
+
+.hg-hero-grid {
+  grid-template-columns: 132px minmax(0, 1fr) 110px;
+}
+
+.hg-hero-mascot {
+  align-self: center;
+  justify-self: center;
+}
+
+.hg-hero-hamster {
+  width: clamp(210px, 55vw, 292px);
+  transform: translate(-6px, 18px);
+  object-position: center;
+}
+
+.hg-hamster {
+  width: 142px;
+  transform: translate(-20px, 16px);
+}
+
+.hg-hero-badges {
+  top: 12px;
+  right: 12px;
+}
+
+.hg-hero-sign {
+  align-self: start;
+  justify-self: end;
+  transform: translate(-2px, 50px) rotate(-5deg);
+}
+
+.hg-hero-sign-inner {
+  width: 104px;
+  min-height: 78px;
+}
+
+.hg-hero-sign-inner strong {
+  max-width: 68px;
+  font-size: 9px;
+  line-height: 1;
+  transform: translateY(8px) rotate(-4deg);
+  transform-origin: center;
+}
+
+@media (max-width: 390px) {
+  .hg-hero-grid {
+    grid-template-columns: 104px minmax(0, 1fr) 88px;
+  }
+
+  .hg-hero-hamster {
+    width: 222px;
+    transform: translate(-17px, 18px);
+  }
+
+  .hg-hamster {
+    width: 118px;
+    transform: translate(-16px, 14px);
+  }
+
+  .hg-hero-sign {
+    transform: translate(-2px, 48px) rotate(-5deg);
+  }
+
+  .hg-hero-sign-inner {
+    width: 88px;
+    min-height: 68px;
+  }
+
+  .hg-hero-sign-inner strong {
+    max-width: 56px;
+    font-size: 7.5px;
+  }
 }

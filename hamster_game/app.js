@@ -15,7 +15,7 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.06";
+const APP_VERSION = "1.07";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
 const NOTIFICATION_LAST_BONUS_KEY = "hg_bonus_notification_date";
@@ -392,7 +392,7 @@ function renderTopbar() {
         </div>
         <div class="hg-hero-grid">
           <div class="hg-hero-mascot">
-            ${renderAssetImage("./assets/characters/hamster-chef-full.png", "Хомяк-повар", "hg-mascot-img hg-hero-hamster", "🐹", "eager")}
+            ${renderAssetImage("./assets/characters/hamster-chef-bust.png", "Хомяк-повар", "hg-mascot-img hg-hero-hamster", "🐹", "eager")}
           </div>
           <div class="hg-hero-copy">
             <p class="hg-brand-kicker"><span class="hg-brand-leaf" aria-hidden="true"></span><span>KYRGYZ<br>ORGANIC</span></p>
@@ -455,7 +455,7 @@ function renderGame() {
         <img class="hg-slot-frame-art" src="./assets/machine/slot-machine-frame.svg" alt="">
         <div class="hg-slot-head">
           <div class="hg-slot-mascot">
-            ${renderAssetImage("./assets/characters/hamster-chef-bust.png", "Хомяк-повар", "hg-mascot-img hg-hamster", "🐹")}
+            ${renderAssetImage("./assets/characters/hamster-chef-full.png", "Хомяк-повар", "hg-mascot-img hg-hamster", "🐹")}
           </div>
           <div class="hg-slot-logo">
             <div class="hg-slot-plaque">
