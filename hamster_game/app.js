@@ -15,7 +15,7 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.04";
+const APP_VERSION = "1.05";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
 const NOTIFICATION_LAST_BONUS_KEY = "hg_bonus_notification_date";
@@ -386,7 +386,7 @@ function renderTopbar() {
               type="button"
               aria-haspopup="menu"
               aria-expanded="${state.headerMenuOpen ? "true" : "false"}"
-            >${userAvatar}<span>${userLabel}</span></button>
+            >${userAvatar}<span class="hg-user-name">${userLabel}</span><span class="hg-user-spins">🎰 ${spins}</span><span class="hg-user-plus" aria-hidden="true">+</span></button>
             ${headerMenu}
           </div>
         </div>
@@ -451,8 +451,7 @@ function renderGame() {
         ${renderAssetImage("./assets/decor/leaf-corner-left.png", "Листья", "hg-slot-leaf hg-slot-leaf--left", "🌿")}
         ${renderAssetImage("./assets/decor/leaf-corner-right.png", "Листья", "hg-slot-leaf hg-slot-leaf--right", "🌿")}
         ${renderAssetImage("./assets/decor/wheat-bundle.png", "Пшеница", "hg-slot-wheat", "🌾")}
-        ${renderAssetImage("./assets/machine/lever-left.png", "Левый рычаг", "hg-lever-img hg-lever-img--left", "")}
-        ${renderAssetImage("./assets/machine/lever-right.png", "Рычаг автомата", "hg-lever-img hg-lever-img--right", "")}
+        ${renderAssetImage(state.spinning ? "./assets/machine/lever-down.png" : "./assets/machine/lever-up.png", "Рычаг автомата", `hg-lever-img ${state.spinning ? "hg-lever-img--down" : "hg-lever-img--up"}`, "")}
         <img class="hg-slot-frame-art" src="./assets/machine/slot-machine-frame.svg" alt="">
         <div class="hg-slot-head">
           <div class="hg-slot-mascot">
