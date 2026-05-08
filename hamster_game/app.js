@@ -15,7 +15,7 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.05";
+const APP_VERSION = "1.06";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
 const NOTIFICATION_LAST_BONUS_KEY = "hg_bonus_notification_date";
@@ -395,7 +395,7 @@ function renderTopbar() {
             ${renderAssetImage("./assets/characters/hamster-chef-full.png", "Хомяк-повар", "hg-mascot-img hg-hero-hamster", "🐹", "eager")}
           </div>
           <div class="hg-hero-copy">
-            <p class="hg-brand-kicker"><span class="hg-brand-leaf" aria-hidden="true"></span><span>KYRGYZ<br>ORGANICS</span></p>
+            <p class="hg-brand-kicker"><span class="hg-brand-leaf" aria-hidden="true"></span><span>KYRGYZ<br>ORGANIC</span></p>
             <h1 class="hg-title"><span class="hg-title-top">Счастливый</span><span class="hg-title-bottom">хомяк</span></h1>
             <div class="hg-hero-meta">
               <span class="hg-version">v${APP_VERSION}</span>
@@ -645,7 +645,7 @@ function renderWallet() {
     <section class="hg-screen">
       <div class="hg-card hg-card-hero">
         <h2 class="hg-section-title">Мои семена</h2>
-        <p class="hg-muted">Собирайте семена в игре и меняйте их на бонусы Kyrgyz Organics.</p>
+        <p class="hg-muted">Собирайте семена в игре и меняйте их на бонусы Kyrgyz Organic.</p>
       </div>
       <div class="hg-card hg-wallet-total">
         <span>Общая ценность:</span>
@@ -667,7 +667,7 @@ function renderWallet() {
           `;
         }).join("")}
       </div>
-      <div class="hg-card hg-muted">Семена можно обменять только на бонусы Kyrgyz Organics. Это игровая ценность, не деньги для вывода.</div>
+      <div class="hg-card hg-muted">Семена можно обменять только на бонусы Kyrgyz Organic. Это игровая ценность, не деньги для вывода.</div>
     </section>
   `;
 }
@@ -685,7 +685,7 @@ function renderStore() {
           <div>
             <div class="hg-kicker">Магазин наград</div>
             <h2 class="hg-section-title">Лавка обмена</h2>
-            <p class="hg-muted">Тратьте семена на вкусные награды и полезные бонусы Kyrgyz Organics.</p>
+            <p class="hg-muted">Тратьте семена на вкусные награды и полезные бонусы Kyrgyz Organic.</p>
           </div>
         </div>
         <div class="hg-store-board">
@@ -719,7 +719,7 @@ function renderStore() {
                 </article>
               `).join("")}
             </div>
-            <div class="hg-store-footnote">Награды выдаются как игровые бонусы Kyrgyz Organics и активируются в вашем аккаунте.</div>
+            <div class="hg-store-footnote">Награды выдаются как игровые бонусы Kyrgyz Organic и активируются в вашем аккаунте.</div>
           </div>
         </div>
       </div>
@@ -1290,7 +1290,7 @@ async function redeemReward(index) {
       seeds: subtractSeeds(state.user.seeds, item.cost),
       rewards: [...(state.user.rewards || []), reward]
     });
-    showToast(item.approval ? "Заявка отправлена! Мы проверим награду и подтвердим её." : "Награда готова! Покажите её сотруднику Kyrgyz Organics.");
+        showToast(item.approval ? "Заявка отправлена! Мы проверим награду и подтвердим её." : "Награда готова! Покажите её сотруднику Kyrgyz Organic.");
   });
 }
 
@@ -1301,7 +1301,7 @@ async function claimTask(taskKey) {
   if (task.action === "instagram") window.open("https://www.instagram.com/", "_blank", "noopener");
   if (task.action === "site") window.open("https://oako.kg", "_blank", "noopener");
   if (task.action === "share") await shareGame();
-  if (task.action === "invite") await copyText(`Поиграйте со мной в Счастливого хомяка Kyrgyz Organics: ${SHARE_URL}`);
+    if (task.action === "invite") await copyText(`Поиграйте со мной в Счастливого хомяка Kyrgyz Organic: ${SHARE_URL}`);
   if (task.action === "placeholder") showToast("QR-сканер появится позже. В V1 хомяк засчитывает задание вручную.");
   if (task.action === "receipt") {
     const input = app.querySelector(`[data-receipt-code="${taskKey}"]`);
@@ -2027,8 +2027,8 @@ function burstConfetti() {
 
 async function shareGame() {
   const payload = {
-    title: "Счастливый хомяк Kyrgyz Organics",
-    text: "Крутите барабаны и собирайте семена Kyrgyz Organics!",
+      title: "Счастливый хомяк Kyrgyz Organic",
+      text: "Крутите барабаны и собирайте семена Kyrgyz Organic!",
     url: SHARE_URL
   };
   if (navigator.share) {

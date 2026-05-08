@@ -4371,3 +4371,14 @@
     animation-iteration-count: 1;
   }
 }
+
+/* Static mascot and lever behavior */
+.hg-hero-hamster,
+.hg-hamster,
+.hg-wheel,
+.hg-lever-img,
+.hg-is-spinning .hg-hamster,
+.hg-is-spinning .hg-wheel,
+.hg-is-spinning .hg-lever-img--down {
+  animation: none;
+}
