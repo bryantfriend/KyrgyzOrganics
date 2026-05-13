@@ -15,7 +15,7 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.08";
+const APP_VERSION = "1.09";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
 const NOTIFICATION_LAST_BONUS_KEY = "hg_bonus_notification_date";
@@ -173,6 +173,13 @@ const rewardRules = {
   walnut: { two: { poppy: 25 }, three: { walnut: 1 } }
 };
 
+const winLadder = [
+  { title: "Малый приз", pattern: "2 одинаковых", symbols: ["bread", "bread"], prize: { poppy: 5 }, tone: "small" },
+  { title: "Семенная выпечка", pattern: "3 хлеба или пшеницы", symbols: ["bread", "bread", "bread"], prize: { poppy: 25 }, tone: "seed" },
+  { title: "Звёздная партия", pattern: "3 звезды", symbols: ["star", "star", "star"], prize: { almond: 2 }, tone: "star" },
+  { title: "Ореховый джекпот", pattern: "3 ореха", symbols: ["walnut", "walnut", "walnut"], prize: { walnut: 1 }, tone: "jackpot" }
+];
+
 const storeItems = [
   {
     name: "Хлеб",
@@ -211,12 +218,12 @@ const storeCategories = [
 ];
 
 const taskMeta = {
-  followInstagram: { title: "Подписаться на Instagram", rewardSpins: 1, action: "instagram" },
-  shareGame: { title: "Поделиться игрой", rewardSpins: 1, action: "share" },
-  visitWebsite: { title: "Посетить сайт OAKO", rewardSpins: 1, action: "site" },
-  inviteFriend: { title: "Пригласить друга", rewardSpins: 2, action: "invite" },
-  scanQr: { title: "Сканировать QR в магазине", rewardSpins: 2, action: "placeholder" },
-  enterReceiptCode: { title: "Ввести код с чека", rewardSpins: 3, action: "receipt" }
+  followInstagram: { title: "Украсьте витрину", subtitle: "Подпишитесь на Instagram пекарни", icon: "🌿", rewardSpins: 1, action: "instagram" },
+  shareGame: { title: "Позовите гостей", subtitle: "Поделитесь игрой с друзьями", icon: "📣", rewardSpins: 1, action: "share" },
+  visitWebsite: { title: "Проверьте лавку", subtitle: "Загляните на сайт Kyrgyz Organic", icon: "🏪", rewardSpins: 1, action: "site" },
+  inviteFriend: { title: "Откройте вторую кассу", subtitle: "Пригласите друга в пекарню", icon: "🎟️", rewardSpins: 2, action: "invite" },
+  scanQr: { title: "Отметьте покупку", subtitle: "Сканируйте QR в магазине", icon: "📷", rewardSpins: 2, action: "placeholder" },
+  enterReceiptCode: { title: "Принесите чек пекарю", subtitle: "Введите код с чека", icon: "🧾", rewardSpins: 3, action: "receipt" }
 };
 
 const recentWins = [
@@ -328,6 +335,38 @@ function renderSlotSymbol(symbolKey) {
     <span class="hg-symbol-frame" data-symbol="${symbol.key}" aria-label="${escapeHtml(symbol.label)}">
       ${renderAssetImage(symbol.img, symbol.label, "hg-symbol-img", symbol.fallback, "eager")}
     </span>
+  `;
+}
+
+function renderWinLadderSymbol(symbolKey) {
+  const symbol = slotSymbolByKey[symbolKey] || slotSymbolByKey.bread;
+  return `
+    <span class="hg-win-ladder-symbol" aria-label="${escapeHtml(symbol.label)}">
+      ${renderAssetImage(symbol.img, symbol.label, "hg-win-ladder-img", symbol.fallback)}
+    </span>
+  `;
+}
+
+function renderWinLadder() {
+  return `
+    <div class="hg-win-ladder" aria-label="Таблица выигрышей">
+      <div class="hg-win-ladder-head">
+        <span>Выигрышная линия</span>
+        <strong>Призы</strong>
+      </div>
+      <div class="hg-win-ladder-list">
+        ${winLadder.map((tier) => `
+          <div class="hg-win-ladder-tier hg-win-ladder-tier--${tier.tone}">
+            <div class="hg-win-ladder-combo">${tier.symbols.map(renderWinLadderSymbol).join("")}</div>
+            <div class="hg-win-ladder-copy">
+              <strong>${escapeHtml(tier.title)}</strong>
+              <span>${escapeHtml(tier.pattern)}</span>
+            </div>
+            <div class="hg-win-ladder-prize">${formatCost(tier.prize)}</div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
   `;
 }
 
@@ -479,6 +518,7 @@ function renderGame() {
             ${state.resultSymbols.map((symbol) => `<div class="hg-reel ${state.spinning ? "hg-spinning" : ""}"><span class="hg-reel-symbol">${renderSlotSymbol(symbol)}</span></div>`).join("")}
           </div>
         </div>
+        ${renderWinLadder()}
         <button class="hg-button hg-spin-button" data-action="spin" ${state.busy || !spins ? "disabled" : ""} type="button">
           <span class="hg-spin-lights" aria-hidden="true">
             ${Array.from({ length: 14 }, (_, index) => `<span class="hg-spin-bulb hg-spin-bulb--${index + 1}"></span>`).join("")}
@@ -752,18 +792,26 @@ function renderReward(reward) {
 function renderTasks() {
   return `
     <section class="hg-screen">
-      <div class="hg-card hg-card-hero">
-        <h2 class="hg-section-title">Задания хомяка</h2>
-        <p class="hg-muted">Выполняйте задания и получайте дополнительные вращения.</p>
+      <div class="hg-card hg-card-hero hg-quest-hero">
+        <div>
+          <div class="hg-kicker">Пекарские поручения</div>
+          <h2 class="hg-section-title">Квесты хомяка</h2>
+          <p class="hg-muted">Выполняйте задания пекарни и получайте дополнительные вращения.</p>
+        </div>
+        ${renderAssetImage("./assets/rewards/reward-bakery-bag.png", "Набор выпечки", "hg-quest-hero-img", "🎁")}
       </div>
       <div class="hg-task-grid">
         ${Object.entries(taskMeta).map(([key, task]) => {
-          const userTask = state.user.tasks?.[key] || { completed: false, rewardSpins: task.rewardSpins };
+          const userTask = state.user?.tasks?.[key] || { completed: false, rewardSpins: task.rewardSpins };
           return `
-            <article class="hg-task-item">
-              <div class="hg-row">
-                <h3 class="hg-item-name">${task.title}</h3>
-                <span class="hg-cost">+${userTask.rewardSpins || task.rewardSpins} 🎰</span>
+            <article class="hg-task-item hg-quest-card ${userTask.completed ? "hg-quest-card--done" : ""}">
+              <div class="hg-quest-icon" aria-hidden="true">${task.icon || "🎰"}</div>
+              <div class="hg-quest-copy">
+                <div class="hg-row">
+                  <h3 class="hg-item-name">${task.title}</h3>
+                  <span class="hg-cost">+${userTask.rewardSpins || task.rewardSpins} 🎰</span>
+                </div>
+                <p>${escapeHtml(task.subtitle || "Выполните задание пекарни")}</p>
               </div>
               ${task.action === "receipt" && !userTask.completed ? `
                 <label class="hg-field">
@@ -771,8 +819,8 @@ function renderTasks() {
                   <input class="hg-input" data-receipt-code="${key}" inputmode="text" placeholder="Например, OAKO123">
                 </label>
               ` : ""}
-              <button class="hg-button" data-action="task" data-task="${key}" ${state.busy || userTask.completed ? "disabled" : ""} type="button">
-                ${userTask.completed ? "Выполнено" : "Получить вращения"}
+              <button class="hg-button hg-quest-button" data-action="task" data-task="${key}" ${state.busy || userTask.completed || !state.user ? "disabled" : ""} type="button">
+                ${userTask.completed ? "Выполнено" : state.user ? "Получить вращения" : "Войдите в аккаунт"}
               </button>
             </article>
           `;
