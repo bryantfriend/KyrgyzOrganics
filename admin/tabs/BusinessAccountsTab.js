@@ -62,27 +62,27 @@ export class BusinessAccountsTab extends BaseTab {
         }).join('');
     }
 
-    async approveBusinessAccount(userId) {
+    async approveBusinessAccount(uid) {
         if (!confirm('Approve this business account for business pricing?')) return;
 
-        await updateDoc(doc(db, 'users', userId), {
+        await updateDoc(doc(db, 'users', uid), {
             businessStatus: 'approved',
             approvedAt: serverTimestamp(),
             approvedBy: auth.currentUser ? auth.currentUser.uid : '',
             updatedAt: serverTimestamp()
         });
 
-        await logAudit('Business Account Approved', userId);
+        await logAudit('Business Account Approved', uid);
     }
 
-    async rejectBusinessAccount(userId) {
+    async rejectBusinessAccount(uid) {
         if (!confirm('Reject this business account application?')) return;
 
-        await updateDoc(doc(db, 'users', userId), {
+        await updateDoc(doc(db, 'users', uid), {
             businessStatus: 'rejected',
             updatedAt: serverTimestamp()
         });
 
-        await logAudit('Business Account Rejected', userId);
+        await logAudit('Business Account Rejected', uid);
     }
 }

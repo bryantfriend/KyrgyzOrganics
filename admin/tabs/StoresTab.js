@@ -2164,7 +2164,7 @@ export class StoresTab extends BaseTab {
       const ref = doc(db, 'users', uid);
       const existing = await getDoc(ref);
       await setDoc(ref, {
-        userId: uid,
+        uid,
         email,
         companyId,
         role,

@@ -182,7 +182,7 @@ class AdminApp {
           const companyId = profile?.companyId || COMPANY_ID;
 
           this.userProfile = {
-            userId: user.uid,
+            uid: user.uid,
             email: user.email || profile?.email || '',
             ...profile,
             role,

@@ -15,13 +15,13 @@ export async function createCompany({ companyId, name, slug, plan = 'free' }) {
     }, { merge: true });
 }
 
-export async function createUserProfile({ userId, email, companyId, role = 'admin' }) {
-    if (!userId || !email || !companyId) {
-        throw new Error('userId, email, and companyId are required.');
+export async function createUserProfile({ uid, email, companyId, role = 'admin' }) {
+    if (!uid || !email || !companyId) {
+        throw new Error('uid, email, and companyId are required.');
     }
 
-    await setDoc(doc(db, 'users', userId), {
-        userId,
+    await setDoc(doc(db, 'users', uid), {
+        uid,
         email,
         companyId,
         role,
@@ -29,7 +29,7 @@ export async function createUserProfile({ userId, email, companyId, role = 'admi
     }, { merge: true });
 }
 
-export async function onboardDailyBreadAdmin({ userId, email }) {
+export async function onboardDailyBreadAdmin({ uid, email }) {
     await createCompany({
         companyId: 'dailybread',
         name: 'Daily Bread',
@@ -38,7 +38,7 @@ export async function onboardDailyBreadAdmin({ userId, email }) {
     });
 
     await createUserProfile({
-        userId,
+        uid,
         email,
         companyId: 'dailybread',
         role: 'admin'
