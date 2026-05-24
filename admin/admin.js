@@ -12,6 +12,7 @@ import { ContentTab } from './tabs/ContentTab.js';
 import { InventoryTab } from './tabs/InventoryTab.js';
 import { SettingsTab } from './tabs/SettingsTab.js';
 import { OrdersTab } from './tabs/OrdersTab.js';
+import { BusinessAccountsTab } from './tabs/BusinessAccountsTab.js';
 import { AuditTab } from './tabs/AuditTab.js';
 import { AnalyticsTab } from './tabs/AnalyticsTab.js';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
@@ -722,6 +723,7 @@ class AdminApp {
     this.tabs['inventory'] = new InventoryTab();
     this.tabs['settings'] = new SettingsTab();
     this.tabs['orders'] = new OrdersTab();
+    this.tabs['businessAccounts'] = new BusinessAccountsTab();
     this.tabs['audit'] = new AuditTab();
     this.tabs['analytics'] = new AnalyticsTab();
     this.tabs['campaigns'] = new CampaignsTab();
@@ -783,6 +785,7 @@ class AdminApp {
       inventory: 'Inventory',
       settings: 'Settings',
       orders: 'Orders',
+      businessAccounts: 'Business Accounts',
       audit: 'Audit Logs',
       analytics: 'Analytics',
       campaigns: 'Campaigns'

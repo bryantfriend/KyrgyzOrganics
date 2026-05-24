@@ -1,4 +1,5 @@
 import { createOrder } from './order-utils.js';
+import { getDisplayPrice, getDisplayPriceType } from './product-utils.js';
 
 export const CART_KEY = 'oa_kyrgyz_organic_cart_v1';
 export const CART_DAY_KEY = 'oa_kyrgyz_organic_cart_day_v1';
@@ -101,7 +102,7 @@ export function formatPrice(value) {
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(parsePrice(value));
 }
 
-export function getCartDetailedItems(cart, products) {
+export function getCartDetailedItems(cart, products, currentUserProfile = null) {
     const productMap = new Map(products.map((product) => [product.id, product]));
 
     return cart
@@ -109,14 +110,18 @@ export function getCartDetailedItems(cart, products) {
             const product = productMap.get(item.productId);
             if (!product) return null;
 
-            const price = parsePrice(product.price);
+            // Business pricing is applied only for approved business accounts.
+            const price = parsePrice(getDisplayPrice(product, currentUserProfile));
+            const priceType = getDisplayPriceType(product, currentUserProfile);
             const quantity = Math.max(1, Number(item.quantity) || 1);
 
             return {
                 productId: item.productId,
                 product,
+                name: product.name_en || product.name_ru || product.name_kg || product.name || '',
                 quantity,
                 unitPrice: price,
+                priceType,
                 lineTotal: price * quantity
             };
         })
@@ -129,18 +134,22 @@ export function calculateDeliveryFee(subtotal, deliveryMethod, settings = DEFAUL
     return parsePrice(settings.deliveryFee);
 }
 
-export function calculateCartTotals(cart, products, deliveryMethod = 'delivery', settings = DEFAULT_CHECKOUT_SETTINGS) {
-    const items = getCartDetailedItems(cart, products);
+export function calculateCartTotals(cart, products, deliveryMethod = 'delivery', settings = DEFAULT_CHECKOUT_SETTINGS, currentUserProfile = null) {
+    const items = getCartDetailedItems(cart, products, currentUserProfile);
     const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
     const deliveryFee = calculateDeliveryFee(subtotal, deliveryMethod, settings);
+    const pricingMode = items.some(function (item) {
+        return item.priceType === 'business';
+    }) ? 'business' : 'retail';
 
     return {
         items,
         itemCount,
         subtotal,
         deliveryFee,
-        total: subtotal + deliveryFee
+        total: subtotal + deliveryFee,
+        pricingMode
     };
 }
 

@@ -1,8 +1,9 @@
-import { db, storage, functions, httpsCallable } from './firebase-config.js';
-import { collection, getDocs, query, where, doc, getDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { db, storage, functions, httpsCallable, auth } from './firebase-config.js';
+import { collection, getDocs, query, where, doc, getDoc, addDoc, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { $, $$, t, loc, setupLanguage, initMobileMenu } from './common.js';
-import { buildProductPageUrl } from './product-utils.js';
+import { buildProductPageUrl, getDisplayPrice, getDisplayPriceType } from './product-utils.js';
 import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
 import { getCheckoutSettingsDocId, getInventoryDocId } from './firestore-paths.js';
 import { loadStoreConfig } from './storefront/store-loader.js';
@@ -42,6 +43,7 @@ let campaignTimeline = [];
 let activeStoreName = 'OA Kyrgyz Organic';
 let activeStoreConfig = null;
 let storefrontSessionId = '';
+let currentUserProfile = null;
 
 function revealStorefront() {
     document.documentElement.classList.remove('storefront-booting');
@@ -198,6 +200,200 @@ const homeCampaignSection = $('homeCampaignSection');
 const homeCampaignTimeline = $('homeCampaignTimeline');
 const productCollectionsSection = $('productCollectionsSection');
 const productCollectionsGrid = $('productCollectionsGrid');
+const accountButton = $('accountButton');
+const accountModal = $('accountModal');
+const closeAccountModal = $('closeAccountModal');
+const accountStatus = $('accountStatus');
+const signedInAccountPanel = $('signedInAccountPanel');
+const signedOutAccountPanel = $('signedOutAccountPanel');
+const accountProfileSummary = $('accountProfileSummary');
+const accountSignOutBtn = $('accountSignOutBtn');
+const accountLoginForm = $('accountLoginForm');
+const basicAccountForm = $('basicAccountForm');
+const businessAccountForm = $('businessAccountForm');
+
+function getFieldValue(id) {
+    const field = document.getElementById(id);
+    return field ? String(field.value || '').trim() : '';
+}
+
+function setAccountStatus(message, isError) {
+    if (!accountStatus) return;
+    accountStatus.textContent = message || '';
+    accountStatus.style.color = isError ? '#b3261e' : '';
+}
+
+function openAccountModal() {
+    if (!accountModal) return;
+    accountModal.style.display = 'flex';
+    syncBodyScroll();
+}
+
+function closeAccountModalFn() {
+    if (!accountModal) return;
+    accountModal.style.display = 'none';
+    syncBodyScroll();
+}
+
+function setAccountMode(mode) {
+    document.querySelectorAll('[data-account-mode]').forEach(function (button) {
+        button.classList.toggle('active', button.dataset.accountMode === mode);
+    });
+
+    if (accountLoginForm) accountLoginForm.hidden = mode !== 'login';
+    if (basicAccountForm) basicAccountForm.hidden = mode !== 'basic';
+    if (businessAccountForm) businessAccountForm.hidden = mode !== 'business';
+    setAccountStatus('', false);
+}
+
+function getProfileStatusLabel(profile) {
+    if (!profile) return 'Retail pricing';
+    if (profile.accountType === 'business' && profile.businessStatus === 'approved') return 'Approved business pricing';
+    if (profile.accountType === 'business' && profile.businessStatus === 'pending') return 'Business application pending';
+    if (profile.accountType === 'business' && profile.businessStatus === 'rejected') return 'Business application rejected';
+    return 'Retail pricing';
+}
+
+function renderAccountUi() {
+    const user = auth.currentUser;
+    if (accountButton) {
+        accountButton.textContent = user ? getProfileStatusLabel(currentUserProfile) : 'Account';
+    }
+
+    if (signedInAccountPanel) signedInAccountPanel.hidden = !user;
+    if (signedOutAccountPanel) signedOutAccountPanel.hidden = !!user;
+
+    if (accountProfileSummary) {
+        const name = currentUserProfile && currentUserProfile.displayName ? currentUserProfile.displayName : (user ? user.email : '');
+        accountProfileSummary.textContent = user ? `${name} · ${getProfileStatusLabel(currentUserProfile)}` : '';
+    }
+}
+
+async function loadCustomerProfile(user) {
+    if (!user) {
+        currentUserProfile = null;
+        renderAccountUi();
+        renderAll();
+        return;
+    }
+
+    try {
+        const userSnap = await getDoc(doc(db, 'users', user.uid));
+        currentUserProfile = userSnap.exists() ? userSnap.data() : {
+            uid: user.uid,
+            email: user.email || '',
+            role: 'customer',
+            accountType: 'basic',
+            businessStatus: 'none'
+        };
+    } catch (error) {
+        console.warn('Customer profile load failed:', error);
+        currentUserProfile = null;
+    }
+
+    renderAccountUi();
+    renderAll();
+}
+
+async function saveCustomerProfile(user, data) {
+    const profileData = Object.assign({
+        uid: user.uid,
+        email: user.email || '',
+        role: 'customer',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+    }, data);
+
+    await setDoc(doc(db, 'users', user.uid), profileData, { merge: true });
+    currentUserProfile = profileData;
+    renderAccountUi();
+    renderAll();
+}
+
+function setupCustomerAccount() {
+    if (accountButton) accountButton.addEventListener('click', openAccountModal);
+    if (closeAccountModal) closeAccountModal.addEventListener('click', closeAccountModalFn);
+    if (accountModal) {
+        accountModal.addEventListener('click', function (event) {
+            if (event.target === accountModal) closeAccountModalFn();
+        });
+    }
+
+    document.querySelectorAll('[data-account-mode]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            setAccountMode(button.dataset.accountMode);
+        });
+    });
+
+    if (accountSignOutBtn) {
+        accountSignOutBtn.addEventListener('click', async function () {
+            await signOut(auth);
+            setAccountStatus('Signed out.', false);
+        });
+    }
+
+    if (accountLoginForm) {
+        accountLoginForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            try {
+                setAccountStatus('Signing in...', false);
+                await signInWithEmailAndPassword(auth, getFieldValue('accountLoginEmail'), getFieldValue('accountLoginPassword'));
+                setAccountStatus('Signed in.', false);
+            } catch (error) {
+                setAccountStatus(error.message || 'Sign in failed.', true);
+            }
+        });
+    }
+
+    if (basicAccountForm) {
+        basicAccountForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            try {
+                setAccountStatus('Creating account...', false);
+                const credential = await createUserWithEmailAndPassword(auth, getFieldValue('basicEmail'), getFieldValue('basicPassword'));
+                await saveCustomerProfile(credential.user, {
+                    displayName: getFieldValue('basicName'),
+                    phone: getFieldValue('basicPhone'),
+                    accountType: 'basic',
+                    businessStatus: 'none'
+                });
+                basicAccountForm.reset();
+                setAccountStatus('Normal account created.', false);
+            } catch (error) {
+                setAccountStatus(error.message || 'Account creation failed.', true);
+            }
+        });
+    }
+
+    if (businessAccountForm) {
+        businessAccountForm.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            try {
+                setAccountStatus('Submitting business application...', false);
+                const credential = await createUserWithEmailAndPassword(auth, getFieldValue('businessEmail'), getFieldValue('businessPassword'));
+                await saveCustomerProfile(credential.user, {
+                    displayName: getFieldValue('businessContactName'),
+                    phone: getFieldValue('businessPhone'),
+                    accountType: 'business',
+                    businessStatus: 'pending',
+                    businessName: getFieldValue('businessName'),
+                    businessPhone: getFieldValue('businessPhone'),
+                    businessAddress: getFieldValue('businessAddress'),
+                    businessType: getFieldValue('businessType'),
+                    businessNotes: getFieldValue('businessNotes')
+                });
+                businessAccountForm.reset();
+                setAccountStatus('Business application submitted. Retail prices apply until approval.', false);
+            } catch (error) {
+                setAccountStatus(error.message || 'Business application failed.', true);
+            }
+        });
+    }
+
+    onAuthStateChanged(auth, function (user) {
+        loadCustomerProfile(user);
+    });
+}
 
 // --- INIT ---
 async function init() {
@@ -223,6 +419,7 @@ async function init() {
         setupLanguage();
         initMobileMenu();
         applyStoreLinks();
+        setupCustomerAccount();
 
         // Special handling for Mobile Categories Toggle on Home
         const mobCatBtn = document.getElementById('mobCategories');
@@ -878,6 +1075,7 @@ function createCard(product, tag = '') {
     const display = getProductDisplayConfig();
     const categoryName = categoriesMap[product.categoryId] ? loc(categoriesMap[product.categoryId], 'name') : (product.category || 'Other');
     const productPageUrl = buildProductPageUrl(product);
+    const displayPrice = getDisplayPrice(product, currentUserProfile);
 
     // Inventory Badge Logic
     const inv = dailyInventory[product.id];
@@ -909,7 +1107,7 @@ function createCard(product, tag = '') {
             <h3 class="product-title">${loc(product, 'name')}</h3>
             <div class="product-meta">
                 <span class="product-weight">${product.weight}</span>
-                ${display.showPrice !== false ? `<span class="product-price">${product.price} ${t('price_currency')}</span>` : ''}
+                ${display.showPrice !== false ? `<span class="product-price">${formatPrice(displayPrice)} ${t('price_currency')}</span>` : ''}
             </div>
             ${product.availability?.note ? `<p class="product-availability-note">${product.availability.note}</p>` : ''}
             <div class="product-card-actions">
@@ -1165,7 +1363,7 @@ function renderCart() {
     if (!cartItems) return;
 
     const deliveryMethod = getSelectedDeliveryMethod();
-    const totals = calculateCartTotals(cart, products, deliveryMethod, checkoutSettings);
+    const totals = calculateCartTotals(cart, products, deliveryMethod, checkoutSettings, currentUserProfile);
     const itemCount = getCartItemCount(cart);
 
     if (checkoutAddressRow) {
@@ -1232,6 +1430,8 @@ function renderCart() {
 function openModal(product) {
     const categoryName = categoriesMap[product.categoryId] ? loc(categoriesMap[product.categoryId], 'name') : (product.category || 'Other');
     const productPageUrl = buildProductPageUrl(product);
+    const displayPrice = getDisplayPrice(product, currentUserProfile);
+    const priceType = getDisplayPriceType(product, currentUserProfile);
 
     // Default Images
     const imgPack = product.imageUrl || 'https://placehold.co/400x300?text=Packaging';
@@ -1286,9 +1486,10 @@ function openModal(product) {
                 <h2 class="modal-title">${loc(product, 'name')}</h2>
                 
                 <div class="modal-price-block">
-                    <span class="modal-price">${product.price} ${t('price_currency')}</span>
+                    <span class="modal-price">${formatPrice(displayPrice)} ${t('price_currency')}</span>
                     <span class="modal-weight">/ ${product.weight}</span>
                 </div>
+                ${priceType === 'business' ? '<div class="business-price-note">Business price applied</div>' : ''}
                 
                 <!-- Stock Status -->
                 <div style="margin-bottom:1rem; font-weight:600; color: ${avail > 0 ? '#2e7d32' : '#d32f2f'};">
@@ -1411,7 +1612,7 @@ async function handleCheckoutSubmit(event) {
 
     reconcileCartWithInventory({ shouldNotify: true });
     const deliveryMethod = getSelectedDeliveryMethod();
-    const totals = calculateCartTotals(cart, products, deliveryMethod, checkoutSettings);
+    const totals = calculateCartTotals(cart, products, deliveryMethod, checkoutSettings, currentUserProfile);
     const name = document.getElementById('checkoutName')?.value.trim() || '';
     const phone = document.getElementById('checkoutPhone')?.value.trim() || '';
     const address = document.getElementById('checkoutAddress')?.value.trim() || '';
@@ -1435,8 +1636,12 @@ async function handleCheckoutSubmit(event) {
             dateStr: todayStr,
             items: totals.items.map((item) => ({
                 productId: item.productId,
-                quantity: item.quantity
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                priceType: item.priceType,
+                lineTotal: item.lineTotal
             })),
+            pricingMode: totals.pricingMode,
             customer: {
                 name,
                 phone,

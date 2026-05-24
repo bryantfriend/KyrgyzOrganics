@@ -90,6 +90,7 @@
         <span>🛒</span>
         <span id="cartCount" class="cart-count">0</span>
       </button>
+      <button id="accountButton" class="account-button" type="button">Account</button>
     </div>
   </header>
 
@@ -285,6 +286,95 @@
             <button type="submit" id="cartCheckoutBtn" class="cta-btn" style="width:100%;">Create Order</button>
           </form>
         </section>
+      </div>
+    </div>
+  </div>
+
+  <div id="accountModal" class="account-modal" style="display:none;">
+    <div class="account-dialog">
+      <button id="closeAccountModal" class="shop-close-btn" type="button">&times;</button>
+      <h3 class="shop-section-title">Customer Account</h3>
+      <p id="accountStatus" class="account-status"></p>
+
+      <div id="signedInAccountPanel" class="account-panel" hidden>
+        <p id="accountProfileSummary"></p>
+        <button id="accountSignOutBtn" class="secondary-pill" type="button">Sign Out</button>
+      </div>
+
+      <div id="signedOutAccountPanel" class="account-panel">
+        <div class="account-mode-tabs" role="tablist" aria-label="Account options">
+          <button type="button" class="account-mode-btn active" data-account-mode="login">Sign In</button>
+          <button type="button" class="account-mode-btn" data-account-mode="basic">Create normal account</button>
+          <button type="button" class="account-mode-btn" data-account-mode="business">Apply for business account</button>
+        </div>
+
+        <form id="accountLoginForm" class="checkout-form account-form">
+          <div class="checkout-field-group">
+            <label for="accountLoginEmail">Email</label>
+            <input type="email" id="accountLoginEmail" required>
+          </div>
+          <div class="checkout-field-group">
+            <label for="accountLoginPassword">Password</label>
+            <input type="password" id="accountLoginPassword" required>
+          </div>
+          <button type="submit" class="cta-btn">Sign In</button>
+        </form>
+
+        <form id="basicAccountForm" class="checkout-form account-form" hidden>
+          <div class="checkout-field-group">
+            <label for="basicName">Name</label>
+            <input type="text" id="basicName" required>
+          </div>
+          <div class="checkout-field-group">
+            <label for="basicPhone">Phone</label>
+            <input type="tel" id="basicPhone">
+          </div>
+          <div class="checkout-field-group">
+            <label for="basicEmail">Email</label>
+            <input type="email" id="basicEmail" required>
+          </div>
+          <div class="checkout-field-group">
+            <label for="basicPassword">Password</label>
+            <input type="password" id="basicPassword" minlength="6" required>
+          </div>
+          <button type="submit" class="cta-btn">Create normal account</button>
+        </form>
+
+        <form id="businessAccountForm" class="checkout-form account-form" hidden>
+          <div class="checkout-field-group">
+            <label for="businessContactName">Contact Name</label>
+            <input type="text" id="businessContactName" required>
+          </div>
+          <div class="checkout-field-group">
+            <label for="businessEmail">Email</label>
+            <input type="email" id="businessEmail" required>
+          </div>
+          <div class="checkout-field-group">
+            <label for="businessPassword">Password</label>
+            <input type="password" id="businessPassword" minlength="6" required>
+          </div>
+          <div class="checkout-field-group">
+            <label for="businessName">Business Name</label>
+            <input type="text" id="businessName" required>
+          </div>
+          <div class="checkout-field-group">
+            <label for="businessPhone">Business Phone</label>
+            <input type="tel" id="businessPhone" required>
+          </div>
+          <div class="checkout-field-group">
+            <label for="businessAddress">Business Address</label>
+            <textarea id="businessAddress" rows="2" required></textarea>
+          </div>
+          <div class="checkout-field-group">
+            <label for="businessType">Business Type</label>
+            <input type="text" id="businessType" placeholder="Cafe, shop, reseller" required>
+          </div>
+          <div class="checkout-field-group">
+            <label for="businessNotes">Notes</label>
+            <textarea id="businessNotes" rows="2"></textarea>
+          </div>
+          <button type="submit" class="cta-btn">Apply for business account</button>
+        </form>
       </div>
     </div>
   </div>

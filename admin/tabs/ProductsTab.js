@@ -1,10 +1,10 @@
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { uploadImage, logAudit } from '../utils.js';
-import { buildProductPageUrl, getPreferredProductName, slugifyProductName } from '../../product-utils.js';
+import { buildProductPageUrl, getBusinessPrice, getPreferredProductName, getRetailPrice, slugifyProductName } from '../../product-utils.js';
 import { getSelectedCompanyId, matchesSelectedCompany } from '../../store-context.js';
 import {
-    collection, addDoc, updateDoc, deleteDoc, doc, query, onSnapshot, getDoc, serverTimestamp, where, orderBy
+    collection, addDoc, updateDoc, deleteDoc, doc, query, onSnapshot, getDoc, getDocs, serverTimestamp, where, orderBy
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 export class ProductsTab extends BaseTab {
@@ -18,6 +18,10 @@ export class ProductsTab extends BaseTab {
         this.formTitle = document.getElementById('prodFormTitle');
         this.pId = document.getElementById('pId');
         this.pSlug = document.getElementById('pSlug');
+        this.pPrice = document.getElementById('pPrice');
+        this.pPriceRetail = document.getElementById('pPriceRetail');
+        this.pPriceBusiness = document.getElementById('pPriceBusiness');
+        this.migrateProductPricesBtn = document.getElementById('migrateProductPricesBtn');
 
         // Image UI
         this.pPreviewPack = document.getElementById('pPreviewPack');
@@ -76,6 +80,9 @@ export class ProductsTab extends BaseTab {
     bindEvents() {
         if (this.form) this.form.addEventListener('submit', (e) => this.handleSubmit(e));
         if (this.cancelBtn) this.cancelBtn.addEventListener('click', () => this.resetForm());
+        if (this.pPriceRetail) this.pPriceRetail.addEventListener('input', this.syncLegacyPriceField.bind(this));
+        if (this.pPriceBusiness) this.pPriceBusiness.addEventListener('blur', this.defaultBusinessPrice.bind(this));
+        if (this.migrateProductPricesBtn) this.migrateProductPricesBtn.addEventListener('click', this.migrateLegacyPrices.bind(this));
         if (this.collectionForm) this.collectionForm.addEventListener('submit', (e) => this.saveCollection(e));
         if (this.collectionCancelBtn) this.collectionCancelBtn.addEventListener('click', () => this.resetCollectionForm());
         if (this.collectionName && this.collectionSlug) {
@@ -274,7 +281,7 @@ export class ProductsTab extends BaseTab {
                 <img src="${p.imageUrl}" class="preview-img">
                 <div style="flex:1; margin-left:1rem;">
                     <strong>${p.name_ru || 'No Name'}</strong><br>
-                    ${p.price} som | ${p.weight}<br>
+                    Retail: ${getRetailPrice(p)} som | Business: ${getBusinessPrice(p)} som | ${p.weight}<br>
                     <a href="${pageUrl}" target="_blank" rel="noopener" style="font-size:0.85rem; color:#2e7d32;">${pageUrl}</a>
                 </div>
                 <div style="display:flex; gap:0.5rem;">
@@ -285,6 +292,29 @@ export class ProductsTab extends BaseTab {
             this.list.appendChild(el);
         });
         this.renderCollectionProductPicker();
+    }
+
+    syncLegacyPriceField() {
+        if (!this.pPrice || !this.pPriceRetail) return;
+        this.pPrice.value = this.pPriceRetail.value || '';
+    }
+
+    defaultBusinessPrice() {
+        if (!this.pPriceBusiness || !this.pPriceRetail) return;
+        if (!String(this.pPriceBusiness.value || '').trim()) {
+            this.pPriceBusiness.value = this.pPriceRetail.value || '';
+        }
+    }
+
+    readProductPricesFromForm() {
+        const retailPrice = Number(this.pPriceRetail ? this.pPriceRetail.value || 0 : 0);
+        const businessInput = String(this.pPriceBusiness ? this.pPriceBusiness.value || '' : '').trim();
+        const businessPrice = businessInput ? Number(businessInput) : retailPrice;
+
+        return {
+            retailPrice: Number.isFinite(retailPrice) ? retailPrice : 0,
+            businessPrice: Number.isFinite(businessPrice) ? businessPrice : retailPrice
+        };
     }
 
     renderCollectionProductPicker(selectedIds = null) {
@@ -434,12 +464,16 @@ export class ProductsTab extends BaseTab {
             if (!imageUrl && this.mediaImageUrl?.value) imageUrl = this.mediaImageUrl.value;
             if (!imageNoPackagingUrl && this.mediaImageNoPackagingUrl?.value) imageNoPackagingUrl = this.mediaImageNoPackagingUrl.value;
 
+            const prices = this.readProductPricesFromForm();
             const data = {
                 companyId: getSelectedCompanyId(),
                 name_ru: document.getElementById('pNameRU').value,
                 name_en: document.getElementById('pNameEN').value,
                 name_kg: document.getElementById('pNameKG').value,
-                price: Number(document.getElementById('pPrice').value),
+                // Legacy price is kept for backward compatibility with older pages and data.
+                price: prices.retailPrice,
+                priceRetail: prices.retailPrice,
+                priceBusiness: prices.businessPrice,
                 weight: document.getElementById('pWeight').value,
                 categoryId: document.getElementById('pCategory').value,
                 description_ru: document.getElementById('pDescRU').value,
@@ -461,6 +495,7 @@ export class ProductsTab extends BaseTab {
                     }),
                     this.pId.value
                 ),
+                updatedAt: serverTimestamp()
             };
 
             if (imageUrl) data.imageUrl = imageUrl;
@@ -502,6 +537,9 @@ export class ProductsTab extends BaseTab {
         if (this.mediaImageUrl) this.mediaImageUrl.value = '';
         if (this.mediaImageNoPackagingUrl) this.mediaImageNoPackagingUrl.value = '';
         if (this.pSlug) this.pSlug.value = '';
+        if (this.pPrice) this.pPrice.value = '';
+        if (this.pPriceRetail) this.pPriceRetail.value = '';
+        if (this.pPriceBusiness) this.pPriceBusiness.value = '';
         if (this.autoCompress) this.autoCompress.checked = true;
         this.availabilityDayInputs.forEach(input => {
             input.checked = false;
@@ -519,7 +557,9 @@ export class ProductsTab extends BaseTab {
         document.getElementById('pNameRU').value = p.name_ru || '';
         document.getElementById('pNameEN').value = p.name_en || '';
         document.getElementById('pNameKG').value = p.name_kg || '';
-        document.getElementById('pPrice').value = p.price || '';
+        if (this.pPriceRetail) this.pPriceRetail.value = getRetailPrice(p) || '';
+        if (this.pPriceBusiness) this.pPriceBusiness.value = getBusinessPrice(p) || '';
+        if (this.pPrice) this.pPrice.value = getRetailPrice(p) || '';
         document.getElementById('pWeight').value = p.weight || '';
         document.getElementById('pCategory').value = p.categoryId || '';
         document.getElementById('pDescRU').value = p.description_ru || '';
@@ -564,5 +604,36 @@ export class ProductsTab extends BaseTab {
             await deleteDoc(doc(db, 'products', id));
             await logAudit('Product Deleted', `ID: ${id}`);
         }
+    }
+
+    async migrateLegacyPrices() {
+        if (!confirm('Copy legacy price into Retail Price and Business Price where those fields are missing? The legacy price field will be kept.')) return;
+
+        let updatedCount = 0;
+        const selectedCompanyId = getSelectedCompanyId();
+        const q = query(collection(db, 'products'), where('companyId', '==', selectedCompanyId));
+        const snapshot = await getDocs(q);
+
+        for (const docSnap of snapshot.docs) {
+            const product = { id: docSnap.id, ...docSnap.data() };
+            if (!matchesSelectedCompany(product, `products/${product.id}`)) continue;
+
+            const updates = {};
+            if (product.priceRetail === undefined || product.priceRetail === null || product.priceRetail === '') {
+                updates.priceRetail = getRetailPrice(product);
+            }
+            if (product.priceBusiness === undefined || product.priceBusiness === null || product.priceBusiness === '') {
+                updates.priceBusiness = getBusinessPrice(product);
+            }
+
+            if (Object.keys(updates).length) {
+                updates.updatedAt = serverTimestamp();
+                await updateDoc(doc(db, 'products', docSnap.id), updates);
+                updatedCount += 1;
+            }
+        }
+
+        await logAudit('Product Price Migration', `Updated ${updatedCount} products`);
+        alert(`Price migration complete. Updated ${updatedCount} products.`);
     }
 }

@@ -1,6 +1,7 @@
 import { db } from './firebase-config.js';
 import { collection, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { COMPANY_ID, matchesCompanyId } from './company-config.js';
+import { getDisplayPrice } from './product-utils.js';
 
 // --- STATE ---
 let currentLang = localStorage.getItem('site_lang') || 'ru'; // Default RU
@@ -175,6 +176,7 @@ function renderProducts(data) {
 
 function createCard(product, tag = '') {
     const categoryName = categoriesMap[product.categoryId] ? loc(categoriesMap[product.categoryId], 'name') : (product.category || 'Other');
+    const displayPrice = getDisplayPrice(product, null);
 
     const card = document.createElement('div');
     card.className = 'product-card';
@@ -188,7 +190,7 @@ function createCard(product, tag = '') {
             <h3 class="product-title">${loc(product, 'name')}</h3>
             <div class="product-meta">
                 <span class="product-weight">${product.weight}</span>
-                <span class="product-price">${product.price} ${t('price_currency')}</span>
+                <span class="product-price">${displayPrice} ${t('price_currency')}</span>
             </div>
         </div>
     `;
@@ -236,6 +238,7 @@ function closeModalFn() {
 function openModal(product) {
     const isMobile = window.innerWidth < 768;
     const categoryName = categoriesMap[product.categoryId] ? loc(categoriesMap[product.categoryId], 'name') : (product.category || 'Other');
+    const displayPrice = getDisplayPrice(product, null);
 
     modalContent.innerHTML = `
         <div style="display: flex; flex-direction: ${isMobile ? 'column' : 'row'}; gap: 2rem;">
@@ -245,7 +248,7 @@ function openModal(product) {
             <div style="flex: 1;">
                 <div style="color: var(--color-primary); font-size: 0.9rem; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: 600;">${categoryName}</div>
                 <h2 style="margin-bottom: 1rem; line-height: 1.2;">${loc(product, 'name')}</h2>
-                <div style="font-size: 1.5rem; font-weight: 700; color: var(--color-accent); margin-bottom: 1.5rem;">${product.price} ${t('price_currency')} <span style="font-size: 1rem; color: #777; font-weight: 400;">/ ${product.weight}</span></div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--color-accent); margin-bottom: 1.5rem;">${displayPrice} ${t('price_currency')} <span style="font-size: 1rem; color: #777; font-weight: 400;">/ ${product.weight}</span></div>
 
                 <p style="color: #555; margin-bottom: 1.5rem; line-height: 1.6;">${loc(product, 'description')}</p>
                 

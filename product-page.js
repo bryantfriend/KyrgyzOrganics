@@ -1,8 +1,9 @@
-import { db } from './firebase-config.js';
+import { auth, db } from './firebase-config.js';
 import { collection, doc, getDoc, getDocs, limit, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
-import { buildProductPageUrl } from './product-utils.js';
-import { addCartItem, loadCart, saveCart, saveCartDay } from './shop-utils.js';
+import { buildProductPageUrl, getDisplayPrice, getDisplayPriceType } from './product-utils.js';
+import { addCartItem, formatPrice, loadCart, saveCart, saveCartDay } from './shop-utils.js';
 import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
 import { getInventoryDocId } from './firestore-paths.js';
 import { loadStoreConfig } from './storefront/store-loader.js';
@@ -13,6 +14,7 @@ const root = document.getElementById('productPageRoot');
 let categoriesMap = {};
 let dailyInventory = {};
 let activeStoreName = 'OA Kyrgyz Organic';
+let currentUserProfile = null;
 
 async function init() {
     const companyConfig = initCompanyFromLocation();
@@ -22,6 +24,7 @@ async function init() {
     updateStoreBranding();
     setupLanguage();
     initMobileMenu();
+    currentUserProfile = await loadCurrentUserProfile();
 
     await Promise.all([loadCategories(), loadInventory()]);
     const product = await loadProductFromUrl();
@@ -102,6 +105,25 @@ async function loadProductFromUrl() {
     return null;
 }
 
+function loadCurrentUserProfile() {
+    return new Promise(function (resolve) {
+        onAuthStateChanged(auth, async function (user) {
+            if (!user) {
+                resolve(null);
+                return;
+            }
+
+            try {
+                const userSnap = await getDoc(doc(db, 'users', user.uid));
+                resolve(userSnap.exists() ? userSnap.data() : null);
+            } catch (error) {
+                console.warn('Customer profile load failed:', error);
+                resolve(null);
+            }
+        });
+    });
+}
+
 function updateStoreBranding() {
     const homeUrl = getStoreHomeUrl();
 
@@ -150,6 +172,8 @@ function renderProductPage(product) {
     const shareUrl = new URL(buildProductPageUrl(product), window.location.origin + window.location.pathname.replace(/[^/]+$/, '')).toString();
     const imagePack = product.imageUrl || 'https://placehold.co/800x600?text=Packaging';
     const imageContent = product.imageNoPackagingUrl || imagePack;
+    const displayPrice = getDisplayPrice(product, currentUserProfile);
+    const priceType = getDisplayPriceType(product, currentUserProfile);
 
     root.innerHTML = `
         <nav class="product-breadcrumbs">
@@ -178,9 +202,10 @@ function renderProductPage(product) {
                 <div class="modal-category" style="margin-top:1rem;">${categoryName}</div>
                 <h1 class="product-page-title">${loc(product, 'name')}</h1>
                 <div class="product-page-price-row">
-                    <span class="modal-price">${product.price} ${t('price_currency')}</span>
+                    <span class="modal-price">${formatPrice(displayPrice)} ${t('price_currency')}</span>
                     <span class="modal-weight">/ ${product.weight || ''}</span>
                 </div>
+                ${priceType === 'business' ? '<div class="business-price-note">Business price applied</div>' : ''}
                 <div class="product-stock ${isInStock ? 'in-stock' : 'sold-out'}">
                     ${isInStock ? `${t('stock_in')}${stock !== null ? `: ${stock}` : ''}` : t('stock_out')}
                 </div>

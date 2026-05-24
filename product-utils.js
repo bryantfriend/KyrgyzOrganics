@@ -28,3 +28,45 @@ export function buildProductPageUrl(product) {
 
     return `/product.html?id=${encodeURIComponent(product?.id || '')}${companyParam}`;
 }
+
+function hasOwnValue(source, key) {
+    return source
+        && Object.prototype.hasOwnProperty.call(source, key)
+        && source[key] !== undefined
+        && source[key] !== null
+        && source[key] !== '';
+}
+
+function normalizeMoney(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function isApprovedBusinessUser(currentUserProfile) {
+    return !!currentUserProfile
+        && currentUserProfile.accountType === 'business'
+        && currentUserProfile.businessStatus === 'approved';
+}
+
+export function getRetailPrice(product) {
+    if (!product) return 0;
+    if (hasOwnValue(product, 'priceRetail')) return normalizeMoney(product.priceRetail);
+    return normalizeMoney(product.price);
+}
+
+export function getBusinessPrice(product) {
+    if (!product) return 0;
+    if (hasOwnValue(product, 'priceBusiness')) return normalizeMoney(product.priceBusiness);
+    return getRetailPrice(product);
+}
+
+export function getDisplayPriceType(product, currentUserProfile) {
+    return isApprovedBusinessUser(currentUserProfile) ? 'business' : 'retail';
+}
+
+export function getDisplayPrice(product, currentUserProfile) {
+    if (getDisplayPriceType(product, currentUserProfile) === 'business') {
+        return getBusinessPrice(product);
+    }
+    return getRetailPrice(product);
+}

@@ -57,6 +57,46 @@ function readMoney(value) {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function hasOwnValue(source, key) {
+    return source
+        && Object.prototype.hasOwnProperty.call(source, key)
+        && source[key] !== undefined
+        && source[key] !== null
+        && source[key] !== '';
+}
+
+function getRetailPrice(product) {
+    if (hasOwnValue(product, 'priceRetail')) return readMoney(product.priceRetail);
+    return readMoney(product.price);
+}
+
+function getBusinessPrice(product) {
+    if (hasOwnValue(product, 'priceBusiness')) return readMoney(product.priceBusiness);
+    return getRetailPrice(product);
+}
+
+function isApprovedBusinessProfile(profile) {
+    return !!profile
+        && profile.accountType === 'business'
+        && profile.businessStatus === 'approved';
+}
+
+async function getPricingProfile(context) {
+    if (!context || !context.auth || !context.auth.uid) return null;
+
+    const userSnap = await db.doc(`users/${context.auth.uid}`).get();
+    return userSnap.exists ? userSnap.data() : null;
+}
+
+function getDisplayPrice(product, pricingProfile) {
+    if (isApprovedBusinessProfile(pricingProfile)) return getBusinessPrice(product);
+    return getRetailPrice(product);
+}
+
+function getDisplayPriceType(pricingProfile) {
+    return isApprovedBusinessProfile(pricingProfile) ? 'business' : 'retail';
+}
+
 function validateDateString(dateStr) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr || '')) {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid date string');
@@ -134,6 +174,7 @@ function mapOrderItemsForClient(items) {
         productId: item.productId || '',
         quantity: Math.max(1, Number.parseInt(item.quantity, 10) || 1),
         unitPrice: readMoney(item.unitPrice),
+        priceType: item.priceType === 'business' ? 'business' : 'retail',
         lineTotal: readMoney(item.lineTotal),
         imageUrl: item.imageUrl || '',
         weight: item.weight || '',
@@ -217,7 +258,7 @@ async function releaseInventory(tx, dateStr, items, companyId = COMPANY_ID) {
     tx.update(inventoryRef, inventoryUpdates);
 }
 
-exports.createOrder = functions.https.onCall(async (data) => {
+exports.createOrder = functions.https.onCall(async (data, context) => {
     const companyId = resolveCompanyId(data?.companyId);
     const dateStr = asTrimmedString(data?.dateStr, 20);
     const deliveryMethod = data?.fulfillment?.method === 'pickup' ? 'pickup' : 'delivery';
@@ -226,6 +267,8 @@ exports.createOrder = functions.https.onCall(async (data) => {
     const customerAddress = asTrimmedString(data?.customer?.address, 300);
     const customerNotes = asTrimmedString(data?.customer?.notes, 500);
     const normalizedItems = normalizeItems(data?.items);
+    const pricingProfile = await getPricingProfile(context);
+    const priceType = getDisplayPriceType(pricingProfile);
 
     validateDateString(dateStr);
 
@@ -282,13 +325,16 @@ exports.createOrder = functions.https.onCall(async (data) => {
                 throw new functions.https.HttpsError('failed-precondition', 'Insufficient stock for one of the products');
             }
 
-            const unitPrice = readMoney(product.price || inventoryItem.price);
+            // Pricing is validated server-side. Client-sent unit prices are only snapshots for display.
+            const unitPrice = getDisplayPrice(product, pricingProfile);
             const lineTotal = unitPrice * item.quantity;
 
             orderItems.push({
                 productId: item.productId,
+                name: getOrderDisplayName(product),
                 quantity: item.quantity,
                 unitPrice,
+                priceType,
                 lineTotal,
                 imageUrl: product.imageUrl || '',
                 weight: product.weight || '',
@@ -314,6 +360,7 @@ exports.createOrder = functions.https.onCall(async (data) => {
             date: dateStr,
             itemCount,
             items: orderItems,
+            pricingMode: priceType,
             subtotal,
             deliveryFee,
             total,
@@ -342,7 +389,10 @@ exports.createOrder = functions.https.onCall(async (data) => {
             items: orderItems.map((item) => ({
                 productId: item.productId,
                 quantity: item.quantity,
-                name: getOrderDisplayName(item)
+                name: getOrderDisplayName(item),
+                unitPrice: item.unitPrice,
+                priceType: item.priceType,
+                lineTotal: item.lineTotal
             }))
         };
     });
@@ -494,6 +544,7 @@ exports.getOrderStatus = functions.https.onCall(async (data) => {
         subtotal: readMoney(order.subtotal),
         deliveryFee: readMoney(order.deliveryFee),
         total: readMoney(order.total),
+        pricingMode: order.pricingMode === 'business' ? 'business' : 'retail',
         itemCount: Math.max(0, Number.parseInt(order.itemCount, 10) || 0),
         expiresAtMillis: toMillis(order.expiresAt),
         createdAtMillis: toMillis(order.createdAt),

@@ -76,6 +76,7 @@
         <div class="sidebar-group-label" id="storeWorkspaceLabel">Daily Operations</div>
         <button class="nav-btn active" data-tab="overview" data-role-nav="store"><span class="nav-icon">⌂</span><span class="nav-label">Overview</span></button>
         <button class="nav-btn" data-tab="orders" data-role-nav="store"><span class="nav-icon">◆</span><span class="nav-label">Orders</span></button>
+        <button class="nav-btn" data-tab="businessAccounts" data-role-nav="store"><span class="nav-icon">◇</span><span class="nav-label">Business Accounts</span></button>
         <button class="nav-btn" data-tab="inventory" data-role-nav="store"><span class="nav-icon">▤</span><span class="nav-label">Inventory</span></button>
         <button class="nav-btn" data-tab="products" data-role-nav="store"><span class="nav-icon">◇</span><span class="nav-label">Products</span></button>
         <button class="nav-btn" data-tab="categories" data-role-nav="store"><span class="nav-icon">▦</span><span class="nav-label">Categories</span></button>
@@ -360,6 +361,19 @@
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- BUSINESS ACCOUNTS -->
+    <section id="businessAccounts" class="tab-content">
+      <div class="admin-card">
+        <div class="card-heading-row">
+          <div>
+            <h3>Pending Business Applications</h3>
+            <p>Approve business pricing only after verifying the applicant. Pending and rejected applicants continue to receive retail pricing.</p>
+          </div>
+        </div>
+        <div id="businessApplicationsList" class="item-list"></div>
       </div>
     </section>
 
@@ -952,9 +966,23 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label for="pPrice">Price</label>
-              <input type="number" id="pPrice" required>
+              <label for="pPriceRetail">Retail Price</label>
+              <input type="number" id="pPriceRetail" required>
+              <small style="display:block; color:#777; margin-top:0.35rem;">Public customer price. Old products are filled from legacy price.</small>
             </div>
+            <div class="form-group">
+              <label for="pPriceBusiness">Business Price</label>
+              <input type="number" id="pPriceBusiness" placeholder="Defaults to retail price">
+              <small style="display:block; color:#777; margin-top:0.35rem;">Visible only to approved business accounts.</small>
+            </div>
+            <div class="form-group">
+              <label for="pPrice">Legacy Price</label>
+              <input type="number" id="pPrice" readonly>
+              <small style="display:block; color:#777; margin-top:0.35rem;">Kept for backward compatibility.</small>
+            </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="pWeight">Weight</label>
               <input type="text" id="pWeight" placeholder="e.g. 500g">
@@ -1068,9 +1096,12 @@
       <div class="admin-card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
           <h3>All Products</h3>
-          <select id="filterCategory" style="padding:0.5rem; border-radius:4px; border:1px solid #ccc;">
-            <option value="all">All Categories</option>
-          </select>
+          <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+            <button type="button" id="migrateProductPricesBtn" class="btn-secondary">Migrate Legacy Prices</button>
+            <select id="filterCategory" style="padding:0.5rem; border-radius:4px; border:1px solid #ccc;">
+              <option value="all">All Categories</option>
+            </select>
+          </div>
         </div>
         <div id="productList" class="item-list"></div>
       </div>

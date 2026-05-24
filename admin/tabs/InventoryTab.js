@@ -3,6 +3,7 @@ import { db } from '../../firebase-config.js';
 import { logAudit } from '../utils.js';
 import { COMPANY_ID, getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
 import { getInventoryDocId } from '../../firestore-paths.js';
+import { getRetailPrice } from '../../product-utils.js';
 import {
     collection, getDocs, getDoc, doc, setDoc, addDoc, query, orderBy, serverTimestamp, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -271,7 +272,7 @@ export class InventoryTab extends BaseTab {
                     updateData[pid] = {
                         available: qty,
                         sold: existing.sold || 0,
-                        price: this.productsCache.find(x => x.id === pid)?.price || 0
+                        price: getRetailPrice(this.productsCache.find(x => x.id === pid))
                     };
                 }
             });
