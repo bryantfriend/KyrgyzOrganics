@@ -18,7 +18,7 @@ import { AnalyticsTab } from './tabs/AnalyticsTab.js';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js';
 
-const ADMIN_VERSION = '3.3';
+const ADMIN_VERSION = '3.4';
 const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
 const PLATFORM_TABS = new Set(['stores', 'analytics', 'audit']);
 
