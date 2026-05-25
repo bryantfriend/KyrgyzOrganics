@@ -3219,11 +3219,145 @@ button[type="submit"]:hover {
 }
 
 .games-payout-panel {
-  width: min(560px, calc(100vw - 2rem));
+  width: min(920px, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
   overflow: auto;
   display: grid;
   gap: 1rem;
+}
+
+.games-payout-toolbar,
+.games-payout-footer,
+.games-payout-form-actions,
+.games-payout-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.games-payout-toolbar,
+.games-payout-footer {
+  justify-content: space-between;
+}
+
+.games-payout-form {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.games-payout-form.hidden {
+  display: none;
+}
+
+.games-payout-form h4 {
+  margin: 0;
+  color: var(--admin-text);
+}
+
+.games-payout-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+}
+
+.games-payout-form-grid label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--admin-muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.games-payout-form-grid input,
+.games-payout-form-grid select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.65rem 0.7rem;
+  color: var(--admin-text);
+  background: #ffffff;
+}
+
+.games-payout-checkbox {
+  align-content: end;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+.games-payout-checkbox input {
+  width: auto;
+}
+
+.games-payout-table {
+  display: grid;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.games-payout-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.1fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) minmax(90px, 0.55fr) minmax(220px, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.82rem;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+}
+
+.games-payout-row:first-child {
+  border-top: 0;
+}
+
+.games-payout-row-head {
+  color: var(--admin-muted);
+  background: #f8fafc;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.games-payout-row span {
+  min-width: 0;
+}
+
+.games-payout-row strong,
+.games-payout-row small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.games-payout-row small {
+  margin-top: 0.2rem;
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+}
+
+.games-payout-empty {
+  padding: 1rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: var(--admin-muted);
+  background: #f8fafc;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  .games-payout-row,
+  .games-payout-row-head {
+    grid-template-columns: 1fr;
+  }
+
+  .games-payout-row-head {
+    display: none;
+  }
 }
 
 .homepage-builder-preview {

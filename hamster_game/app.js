@@ -14,12 +14,13 @@ import { COMPANY_ID } from "../company-config.js";
 import pipeline from "../ICF/engine/pipeline.js";
 import gamesIntent from "../ICF/Intents/GamesIntent.js";
 import { HAMSTER_DEFAULT_SPIN_IMAGES, HAMSTER_SPIN_MIN_IMAGES } from "./spin-image-defaults.js";
+import { HAMSTER_DEFAULT_PAYOUT_RULES } from "./payout-defaults.js";
 
 const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.10";
+const APP_VERSION = "1.11";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
 const NOTIFICATION_LAST_BONUS_KEY = "hg_bonus_notification_date";
@@ -248,12 +249,62 @@ const rewardRules = {
   chocolateCookie: { two: { sesame: 1 }, three: { almond: 2 } }
 };
 
-const winLadder = [
-  { title: "Малый приз", pattern: "2 одинаковых", symbols: ["bread", "bread"], prize: { poppy: 5 }, tone: "small" },
-  { title: "Буханки", pattern: "3 хлебные буханки", symbols: ["loaf", "loaf", "loaf"], prize: { sesame: 5 }, tone: "seed" },
-  { title: "Печенье", pattern: "3 звёздных печенья", symbols: ["cookie", "cookie", "cookie"], prize: { almond: 1 }, tone: "star" },
-  { title: "Шоколадный джекпот", pattern: "3 шоколадных печенья", symbols: ["chocolateCookie", "chocolateCookie", "chocolateCookie"], prize: { almond: 2 }, tone: "jackpot" }
-];
+let PAYOUT_RULES = normalizePayoutRules(HAMSTER_DEFAULT_PAYOUT_RULES, "fallback");
+
+function normalizePayoutRules(records, source) {
+  var rules = [];
+  var index = 0;
+
+  while (index < records.length) {
+    var record = records[index] || {};
+
+    if (record.active !== false) {
+      rules.push({
+        id: record.id || "payout_" + index,
+        rewardName: record.rewardName || "Reward",
+        rewardType: record.rewardType || "poppy",
+        matchType: record.matchType || "matches",
+        requiredMatches: typeof record.requiredMatches === "number" ? record.requiredMatches : 1,
+        payoutAmount: typeof record.payoutAmount === "number" ? record.payoutAmount : 0,
+        payoutLabel: record.payoutLabel || "",
+        active: true,
+        sortOrder: typeof record.sortOrder === "number" ? record.sortOrder : index + 1,
+        source: record.source || source || "fallback"
+      });
+    }
+
+    index = index + 1;
+  }
+
+  return rules.sort(comparePayoutRules);
+}
+
+function comparePayoutRules(a, b) {
+  var left = typeof a.sortOrder === "number" ? a.sortOrder : 0;
+  var right = typeof b.sortOrder === "number" ? b.sortOrder : 0;
+
+  if (left < right) {
+    return -1;
+  }
+
+  if (left > right) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function applyPayoutRules(records, source) {
+  var nextRules = normalizePayoutRules(records, source);
+
+  if (!nextRules.length) {
+    nextRules = normalizePayoutRules(HAMSTER_DEFAULT_PAYOUT_RULES, "fallback");
+    source = "fallback";
+  }
+
+  PAYOUT_RULES = nextRules;
+  state.payoutRulesSource = source || "fallback";
+}
 
 const storeItems = [
   {
@@ -327,6 +378,7 @@ let state = {
   resultMessage: "Хомяк ждёт вашего первого вращения 🎰",
   spinning: false,
   spinImagesSource: "fallback",
+  payoutRulesSource: "fallback",
   winLadderOpen: false,
   dailyCalendarOpen: false,
   dailyCalendarDay: null,
@@ -350,6 +402,7 @@ init();
 async function init() {
   try {
     await loadManagedSpinImages();
+    await loadManagedPayoutRules();
     await loadCurrentUser();
     await ensureDailyLoginBonus();
   } catch (error) {
@@ -393,6 +446,40 @@ async function loadManagedSpinImages() {
   } catch (error) {
     console.warn("Hamster spin image load failed; using legacy fallback images.", error);
     applySpinImages(HAMSTER_DEFAULT_SPIN_IMAGES, "fallback");
+  }
+}
+
+async function loadManagedPayoutRules() {
+  try {
+    var actor = {
+      id: "hamster-game",
+      role: "system"
+    };
+    var intent = gamesIntent.createLoadPayoutRulesIntent(
+      actor,
+      {
+        storeId: COMPANY_ID,
+        gameId: "hamster-spin",
+        includeInactive: false
+      },
+      {
+        db: db,
+        storeId: COMPANY_ID,
+        gameId: "hamster-spin",
+        fallbackPayoutRules: HAMSTER_DEFAULT_PAYOUT_RULES,
+        source: "game"
+      }
+    );
+    var result = await pipeline.run(intent);
+
+    if (!result.ok) {
+      throw new Error(getResultErrorMessage(result));
+    }
+
+    applyPayoutRules(result.data.payoutRules || [], result.data.source);
+  } catch (error) {
+    console.warn("Hamster payout rule load failed; using legacy fallback payouts.", error);
+    applyPayoutRules(HAMSTER_DEFAULT_PAYOUT_RULES, "fallback");
   }
 }
 
@@ -502,28 +589,18 @@ function getPayoutRows() {
   var rows = [];
   var index = 0;
 
-  while (index < SLOT_SYMBOLS.length) {
-    var symbol = SLOT_SYMBOLS[index];
-    var rule = getRewardRule(symbol.key);
+  while (index < PAYOUT_RULES.length) {
+    var rule = PAYOUT_RULES[index];
+    var prize = payoutRuleToReward(rule);
 
     rows.push({
-      symbolKey: symbol.key,
-      count: 2,
-      title: "Две одинаковые картинки",
-      pattern: symbol.label,
-      prize: rule.two,
-      tone: "small"
+      symbolKey: SLOT_SYMBOLS[0] ? SLOT_SYMBOLS[0].key : "bread",
+      count: rule.requiredMatches || 1,
+      title: rule.rewardName,
+      pattern: rule.matchType === "jackpot" ? "Джекпот" : String(rule.requiredMatches || 1) + " одинаковые картинки",
+      prize: prize,
+      tone: rule.matchType === "jackpot" || rewardValue(prize) >= 100 ? "jackpot" : rewardValue(prize) >= 20 ? "star" : "seed"
     });
-
-    rows.push({
-      symbolKey: symbol.key,
-      count: 3,
-      title: "Три одинаковые картинки",
-      pattern: symbol.label,
-      prize: rule.three,
-      tone: rewardValue(rule.three) >= 50 ? "star" : "seed"
-    });
-
     index = index + 1;
   }
 
@@ -2179,8 +2256,9 @@ function calculateReward(result) {
 
   var three = findSymbolWithCount(counts, 3);
   if (three) {
-    const reward = getRewardRule(three).three;
-    const jackpot = rewardValue(reward) >= 1000;
+    const rule = getPayoutRuleForMatch(3, three);
+    const reward = payoutRuleToReward(rule);
+    const jackpot = rule && rule.matchType === "jackpot";
     return {
       reward,
       message: jackpot ? "ДЖЕКПОТ! Хомяк нашёл грецкий орех 🥜" : "Победа! Хомяк нашёл для вас награду 🎉",
@@ -2190,7 +2268,7 @@ function calculateReward(result) {
   }
   const two = findSymbolWithCount(counts, 2);
   if (two) {
-    const reward = getRewardRule(two).two;
+    const reward = payoutRuleToReward(getPayoutRuleForMatch(2, two));
     return { reward, message: "Почти победа! Хомяк дарит вам бонус 🌱", isWin: true, rank: rewardValue(reward) };
   }
   return {
@@ -2222,6 +2300,66 @@ function getRewardRule(symbolKey) {
     two: { poppy: 5 },
     three: { poppy: 25 }
   };
+}
+
+function getPayoutRuleForMatch(matchCount, symbolKey) {
+  var jackpotRule = null;
+  var matchRule = null;
+  var index = 0;
+
+  while (index < PAYOUT_RULES.length) {
+    var rule = PAYOUT_RULES[index];
+
+    if (rule.requiredMatches === matchCount && rule.matchType === "jackpot" && isJackpotSymbol(symbolKey)) {
+      jackpotRule = rule;
+    }
+
+    if (rule.requiredMatches === matchCount && rule.matchType !== "jackpot") {
+      matchRule = rule;
+    }
+
+    index = index + 1;
+  }
+
+  return jackpotRule || matchRule || fallbackPayoutRule(matchCount);
+}
+
+function isJackpotSymbol(symbolKey) {
+  return symbolKey === "jackpot" || symbolKey === "walnut";
+}
+
+function fallbackPayoutRule(matchCount) {
+  var index = 0;
+
+  while (index < HAMSTER_DEFAULT_PAYOUT_RULES.length) {
+    if (HAMSTER_DEFAULT_PAYOUT_RULES[index].requiredMatches === matchCount && HAMSTER_DEFAULT_PAYOUT_RULES[index].matchType !== "jackpot") {
+      return HAMSTER_DEFAULT_PAYOUT_RULES[index];
+    }
+    index = index + 1;
+  }
+
+  return {
+    rewardType: "poppy",
+    payoutAmount: 1
+  };
+}
+
+function payoutRuleToReward(rule) {
+  var reward = {};
+  var rewardType = rule && rule.rewardType ? rule.rewardType : "poppy";
+  var seedKey = normalizeRewardTypeToSeedKey(rewardType);
+  var amount = rule && typeof rule.payoutAmount === "number" ? rule.payoutAmount : 0;
+
+  reward[seedKey] = amount;
+  return reward;
+}
+
+function normalizeRewardTypeToSeedKey(rewardType) {
+  if (rewardType === "sesame" || rewardType === "almond" || rewardType === "walnut" || rewardType === "poppy") {
+    return rewardType;
+  }
+
+  return "poppy";
 }
 
 function addSeeds(current, reward) {

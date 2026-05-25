@@ -22,7 +22,12 @@ function registerProjectIntents() {
     AddSpinImageIntent: gamesIntentModule.createAddSpinImageIntent,
     RemoveSpinImageIntent: gamesIntentModule.createRemoveSpinImageIntent,
     OpenPayoutModalIntent: gamesIntentModule.createOpenPayoutModalIntent,
-    ClosePayoutModalIntent: gamesIntentModule.createClosePayoutModalIntent
+    ClosePayoutModalIntent: gamesIntentModule.createClosePayoutModalIntent,
+    LoadPayoutRulesIntent: gamesIntentModule.createLoadPayoutRulesIntent,
+    AddPayoutRuleIntent: gamesIntentModule.createAddPayoutRuleIntent,
+    UpdatePayoutRuleIntent: gamesIntentModule.createUpdatePayoutRuleIntent,
+    RemovePayoutRuleIntent: gamesIntentModule.createRemovePayoutRuleIntent,
+    TogglePayoutRuleIntent: gamesIntentModule.createTogglePayoutRuleIntent
   });
 }
 

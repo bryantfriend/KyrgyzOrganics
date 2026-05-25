@@ -2,6 +2,7 @@ import { db } from '../../firebase-config.js';
 import pipeline from '../../ICF/engine/pipeline.js';
 import gamesIntent from '../../ICF/Intents/GamesIntent.js';
 import { HAMSTER_DEFAULT_SPIN_IMAGES, HAMSTER_SPIN_MIN_IMAGES } from '../../hamster_game/spin-image-defaults.js';
+import { HAMSTER_DEFAULT_PAYOUT_RULES } from '../../hamster_game/payout-defaults.js';
 import { uploadImage } from '../utils.js';
 import { BaseTab } from './BaseTab.js';
 
@@ -21,6 +22,12 @@ export class GamesTab extends BaseTab {
     this.images = [];
     this.lastLoadData = null;
     this.payoutModalOpen = false;
+    this.payoutRules = [];
+    this.payoutSource = 'fallback';
+    this.payoutEditingId = '';
+    this.payoutFormOpen = false;
+    this.payoutStatusMessage = '';
+    this.payoutStatusType = 'warning';
     this.form = null;
     this.status = null;
     this.meta = null;
@@ -231,18 +238,124 @@ export class GamesTab extends BaseTab {
       + '<div class="modal-header">'
       + '<div>'
       + '<div class="eyebrow">Hamster Spin</div>'
-      + '<h3 id="gamesPayoutTitle">Payouts / Rewards</h3>'
+      + '<h3 id="gamesPayoutTitle">Hamster Spin Payouts / Rewards</h3>'
       + '</div>'
       + '<button type="button" class="icon-button" data-games-action="close-payout-modal" aria-label="Close payouts">×</button>'
       + '</div>'
-      + '<div class="games-payout-list">'
-      + '<div><strong>2 matching pictures</strong><span>Small seed reward based on the matched picture.</span></div>'
-      + '<div><strong>3 matching pictures</strong><span>Larger seed reward based on the matched picture.</span></div>'
-      + '<div><strong>Premium matches</strong><span>Higher-value rewards are highlighted in the player modal.</span></div>'
+      + '<div class="games-payout-toolbar">'
+      + '<span class="muted-pill">source: ' + escapeHtml(this.payoutSource) + '</span>'
+      + '<button type="button" class="btn-primary" data-games-action="add-payout-rule">Add Reward</button>'
       + '</div>'
+      + this.renderPayoutStatus()
+      + this.renderPayoutRuleForm()
+      + this.renderPayoutRulesList()
+      + '<div class="games-payout-footer">'
+      + '<button type="button" class="btn-secondary" data-games-action="load-payout-rules">Refresh</button>'
       + '<button type="button" class="btn-primary" data-games-action="close-payout-modal">Close</button>'
       + '</div>'
+      + '</div>'
       + '</div>';
+  }
+
+  renderPayoutStatus() {
+    if (!this.payoutStatusMessage) {
+      return '<div id="gamesPayoutStatus" class="inline-alert" hidden></div>';
+    }
+
+    return '<div id="gamesPayoutStatus" class="inline-alert ' + escapeHtml(this.payoutStatusType) + '">' + escapeHtml(this.payoutStatusMessage) + '</div>';
+  }
+
+  renderPayoutRuleForm() {
+    var rule = this.getEditingPayoutRule();
+    var hiddenClass = this.payoutFormOpen ? '' : ' hidden';
+    var title = this.payoutEditingId ? 'Edit Reward Rule' : 'Add Reward Rule';
+    var active = rule ? rule.active !== false : true;
+
+    return ''
+      + '<form id="gamesPayoutRuleForm" class="games-payout-form' + hiddenClass + '">'
+      + '<h4>' + title + '</h4>'
+      + '<input type="hidden" id="gamesPayoutRuleId" value="' + escapeHtml(rule ? rule.id : '') + '">'
+      + '<div class="games-payout-form-grid">'
+      + '<label>Reward Name<input type="text" id="gamesPayoutRewardName" value="' + escapeHtml(rule ? rule.rewardName : '') + '" placeholder="Three Matches" required></label>'
+      + '<label>Reward Type<select id="gamesPayoutRewardType">'
+      + this.renderRewardTypeOptions(rule ? rule.rewardType : 'poppy')
+      + '</select></label>'
+      + '<label>Match Type<select id="gamesPayoutMatchType">'
+      + this.renderMatchTypeOptions(rule ? rule.matchType : 'matches')
+      + '</select></label>'
+      + '<label>Required Matches<input type="number" id="gamesPayoutRequiredMatches" min="1" step="1" value="' + escapeHtml(rule ? rule.requiredMatches : 2) + '" required></label>'
+      + '<label>Payout Amount<input type="number" id="gamesPayoutAmount" min="0" step="1" value="' + escapeHtml(rule ? rule.payoutAmount : 1) + '" required></label>'
+      + '<label>Payout Label<input type="text" id="gamesPayoutLabel" value="' + escapeHtml(rule ? rule.payoutLabel : '1 seed') + '" placeholder="1 seed"></label>'
+      + '<label>Sort Order<input type="number" id="gamesPayoutSortOrder" step="1" value="' + escapeHtml(rule ? rule.sortOrder : Date.now()) + '"></label>'
+      + '<label class="games-payout-checkbox"><input type="checkbox" id="gamesPayoutActive" ' + (active ? 'checked' : '') + '> Active</label>'
+      + '</div>'
+      + '<div class="games-payout-form-actions">'
+      + '<button type="submit" class="btn-primary">Save</button>'
+      + '<button type="button" class="btn-secondary" data-games-action="cancel-payout-edit">Cancel</button>'
+      + '</div>'
+      + '</form>';
+  }
+
+  renderRewardTypeOptions(selectedType) {
+    var types = ['poppy', 'sesame', 'almond', 'walnut'];
+    var markup = '';
+    var index = 0;
+
+    while (index < types.length) {
+      markup += '<option value="' + types[index] + '"' + (selectedType === types[index] ? ' selected' : '') + '>' + types[index] + '</option>';
+      index = index + 1;
+    }
+
+    return markup;
+  }
+
+  renderMatchTypeOptions(selectedType) {
+    var types = ['matches', 'jackpot'];
+    var markup = '';
+    var index = 0;
+
+    while (index < types.length) {
+      markup += '<option value="' + types[index] + '"' + (selectedType === types[index] ? ' selected' : '') + '>' + types[index] + '</option>';
+      index = index + 1;
+    }
+
+    return markup;
+  }
+
+  renderPayoutRulesList() {
+    if (!this.payoutRules.length) {
+      return '<div class="games-payout-empty">No payout rules yet. Add a reward rule to begin.</div>';
+    }
+
+    var markup = '<div class="games-payout-table" role="table" aria-label="Hamster spin payout rules">';
+    var index = 0;
+
+    markup += '<div class="games-payout-row games-payout-row-head" role="row"><span>Name</span><span>Match</span><span>Payout</span><span>Status</span><span>Actions</span></div>';
+
+    while (index < this.payoutRules.length) {
+      var rule = this.payoutRules[index];
+      var activeCopy = rule.active === false ? 'Inactive' : 'Active';
+      var toggleCopy = rule.active === false ? 'Activate' : 'Deactivate';
+      var disabled = rule.source === 'fallback' ? ' disabled' : '';
+      var sourceCopy = rule.source === 'fallback' ? 'Fallback' : activeCopy;
+
+      markup += ''
+        + '<div class="games-payout-row" role="row">'
+        + '<span><strong>' + escapeHtml(rule.rewardName) + '</strong><small>' + escapeHtml(rule.rewardType) + '</small></span>'
+        + '<span>' + escapeHtml(rule.matchType) + '<small>' + escapeHtml(rule.requiredMatches) + ' matches</small></span>'
+        + '<span>' + escapeHtml(rule.payoutLabel || rule.payoutAmount) + '<small>sort ' + escapeHtml(rule.sortOrder) + '</small></span>'
+        + '<span><span class="status-badge ' + (rule.active === false ? 'warning' : 'success') + '">' + escapeHtml(sourceCopy) + '</span></span>'
+        + '<span class="games-payout-row-actions">'
+        + '<button type="button" class="btn-secondary" data-games-action="edit-payout-rule" data-id="' + escapeHtml(rule.id) + '"' + disabled + '>Edit</button>'
+        + '<button type="button" class="btn-secondary" data-games-action="toggle-payout-rule" data-id="' + escapeHtml(rule.id) + '"' + disabled + '>' + toggleCopy + '</button>'
+        + '<button type="button" class="btn-secondary" data-games-action="remove-payout-rule" data-id="' + escapeHtml(rule.id) + '"' + disabled + '>Remove</button>'
+        + '</span>'
+        + '</div>';
+      index = index + 1;
+    }
+
+    markup += '</div>';
+    return markup;
   }
 
   async loadSpinImages() {
@@ -342,7 +455,8 @@ export class GamesTab extends BaseTab {
       gameId: HAMSTER_GAME_ID
     });
     this.payoutModalOpen = true;
-    this.updatePayoutModal();
+    await this.loadPayoutRules();
+    this.renderGameDetail(this.getHamsterGameSummary());
   }
 
   async closePayoutModal() {
@@ -351,7 +465,9 @@ export class GamesTab extends BaseTab {
       gameId: HAMSTER_GAME_ID
     });
     this.payoutModalOpen = false;
-    this.updatePayoutModal();
+    this.payoutFormOpen = false;
+    this.payoutEditingId = '';
+    this.renderGameDetail(this.getHamsterGameSummary());
   }
 
   updatePayoutModal() {
@@ -368,6 +484,86 @@ export class GamesTab extends BaseTab {
     }
   }
 
+  async loadPayoutRules() {
+    try {
+      var result = await this.runIntent('LoadPayoutRulesIntent', {
+        storeId: GAME_STORE_ID,
+        gameId: HAMSTER_GAME_ID,
+        includeInactive: true
+      });
+
+      this.payoutRules = result.data.payoutRules || [];
+      this.payoutSource = result.data.source || 'fallback';
+
+      if (this.payoutSource === 'fallback') {
+        this.setPayoutStatus('Firestore payout rules are empty. Showing the safe fallback payout table.', 'warning');
+      } else if (!this.payoutRules.length) {
+        this.setPayoutStatus('No payout rules yet. Add a reward rule to begin.', 'warning');
+      } else {
+        this.clearPayoutStatus();
+      }
+    } catch (error) {
+      this.payoutRules = this.normalizeFallbackPayoutRules();
+      this.payoutSource = 'fallback';
+      this.setPayoutStatus('Could not load managed payout rules. Showing safe fallback rewards.', 'error');
+    }
+  }
+
+  async savePayoutRule(event) {
+    event.preventDefault();
+
+    var payload = this.readPayoutFormPayload();
+    var intentType = payload.id ? 'UpdatePayoutRuleIntent' : 'AddPayoutRuleIntent';
+
+    try {
+      await this.runIntent(intentType, payload);
+      this.payoutFormOpen = false;
+      this.payoutEditingId = '';
+      await this.loadPayoutRules();
+      this.setPayoutStatus('Payout rule saved.', 'success');
+      this.renderGameDetail(this.getHamsterGameSummary());
+    } catch (error) {
+      this.setPayoutStatus(error.message || 'Could not save payout rule.', 'error');
+      this.renderGameDetail(this.getHamsterGameSummary());
+    }
+  }
+
+  async togglePayoutRule(event) {
+    var id = event.currentTarget.getAttribute('data-id') || '';
+
+    try {
+      await this.runIntent('TogglePayoutRuleIntent', {
+        storeId: GAME_STORE_ID,
+        gameId: HAMSTER_GAME_ID,
+        id: id
+      });
+      await this.loadPayoutRules();
+      this.setPayoutStatus('Payout rule status updated.', 'success');
+      this.renderGameDetail(this.getHamsterGameSummary());
+    } catch (error) {
+      this.setPayoutStatus(error.message || 'Could not update payout rule.', 'error');
+      this.renderGameDetail(this.getHamsterGameSummary());
+    }
+  }
+
+  async removePayoutRule(event) {
+    var id = event.currentTarget.getAttribute('data-id') || '';
+
+    try {
+      await this.runIntent('RemovePayoutRuleIntent', {
+        storeId: GAME_STORE_ID,
+        gameId: HAMSTER_GAME_ID,
+        id: id
+      });
+      await this.loadPayoutRules();
+      this.setPayoutStatus('Payout rule removed.', 'success');
+      this.renderGameDetail(this.getHamsterGameSummary());
+    } catch (error) {
+      this.setPayoutStatus(error.message || 'Could not remove payout rule.', 'error');
+      this.renderGameDetail(this.getHamsterGameSummary());
+    }
+  }
+
   async runIntent(type, payload) {
     var factory = this.getIntentFactory(type);
     var intent = factory(
@@ -378,6 +574,7 @@ export class GamesTab extends BaseTab {
         storeId: GAME_STORE_ID,
         gameId: HAMSTER_GAME_ID,
         fallbackImages: HAMSTER_DEFAULT_SPIN_IMAGES,
+        fallbackPayoutRules: HAMSTER_DEFAULT_PAYOUT_RULES,
         minActiveImages: HAMSTER_SPIN_MIN_IMAGES,
         source: 'admin'
       }
@@ -424,6 +621,26 @@ export class GamesTab extends BaseTab {
       return gamesIntent.createClosePayoutModalIntent;
     }
 
+    if (type === 'LoadPayoutRulesIntent') {
+      return gamesIntent.createLoadPayoutRulesIntent;
+    }
+
+    if (type === 'AddPayoutRuleIntent') {
+      return gamesIntent.createAddPayoutRuleIntent;
+    }
+
+    if (type === 'UpdatePayoutRuleIntent') {
+      return gamesIntent.createUpdatePayoutRuleIntent;
+    }
+
+    if (type === 'RemovePayoutRuleIntent') {
+      return gamesIntent.createRemovePayoutRuleIntent;
+    }
+
+    if (type === 'TogglePayoutRuleIntent') {
+      return gamesIntent.createTogglePayoutRuleIntent;
+    }
+
     throw new Error('Unknown games intent.');
   }
 
@@ -454,6 +671,13 @@ export class GamesTab extends BaseTab {
     var sectionButtons = this.root.querySelectorAll('[data-games-section]');
     var openPayoutButton = this.root.querySelector('[data-games-action="open-payout-modal"]');
     var closeButtons = this.root.querySelectorAll('[data-games-action="close-payout-modal"]');
+    var addPayoutButton = this.root.querySelector('[data-games-action="add-payout-rule"]');
+    var payoutForm = document.getElementById('gamesPayoutRuleForm');
+    var cancelPayoutButton = this.root.querySelector('[data-games-action="cancel-payout-edit"]');
+    var refreshPayoutButton = this.root.querySelector('[data-games-action="load-payout-rules"]');
+    var editPayoutButtons = this.root.querySelectorAll('[data-games-action="edit-payout-rule"]');
+    var togglePayoutButtons = this.root.querySelectorAll('[data-games-action="toggle-payout-rule"]');
+    var removePayoutButtons = this.root.querySelectorAll('[data-games-action="remove-payout-rule"]');
     var modal = document.getElementById('gamesPayoutModal');
     var index = 0;
 
@@ -474,9 +698,43 @@ export class GamesTab extends BaseTab {
       openPayoutButton.addEventListener('click', this.openPayoutModal.bind(this));
     }
 
+    if (addPayoutButton) {
+      addPayoutButton.addEventListener('click', this.startAddPayoutRule.bind(this));
+    }
+
+    if (payoutForm) {
+      payoutForm.addEventListener('submit', this.savePayoutRule.bind(this));
+    }
+
+    if (cancelPayoutButton) {
+      cancelPayoutButton.addEventListener('click', this.cancelPayoutEdit.bind(this));
+    }
+
+    if (refreshPayoutButton) {
+      refreshPayoutButton.addEventListener('click', this.handleRefreshPayoutRules.bind(this));
+    }
+
     index = 0;
     while (index < closeButtons.length) {
       closeButtons[index].addEventListener('click', this.closePayoutModal.bind(this));
+      index = index + 1;
+    }
+
+    index = 0;
+    while (index < editPayoutButtons.length) {
+      editPayoutButtons[index].addEventListener('click', this.startEditPayoutRule.bind(this));
+      index = index + 1;
+    }
+
+    index = 0;
+    while (index < togglePayoutButtons.length) {
+      togglePayoutButtons[index].addEventListener('click', this.togglePayoutRule.bind(this));
+      index = index + 1;
+    }
+
+    index = 0;
+    while (index < removePayoutButtons.length) {
+      removePayoutButtons[index].addEventListener('click', this.removePayoutRule.bind(this));
       index = index + 1;
     }
 
@@ -497,16 +755,34 @@ export class GamesTab extends BaseTab {
 
   async handleSectionClick(event) {
     this.activeSection = event.currentTarget.getAttribute('data-games-section') || 'spin';
-    this.renderGameDetail({
-      id: HAMSTER_GAME_ID,
-      title: 'Hamster Spin Game',
-      status: 'Active',
-      description: 'Manage spin images, payouts, rewards, and game settings.'
-    });
+    this.renderGameDetail(this.getHamsterGameSummary());
 
     if (this.activeSection === 'spin') {
       await this.loadSpinImages();
     }
+  }
+
+  startAddPayoutRule() {
+    this.payoutEditingId = '';
+    this.payoutFormOpen = true;
+    this.renderGameDetail(this.getHamsterGameSummary());
+  }
+
+  startEditPayoutRule(event) {
+    this.payoutEditingId = event.currentTarget.getAttribute('data-id') || '';
+    this.payoutFormOpen = true;
+    this.renderGameDetail(this.getHamsterGameSummary());
+  }
+
+  cancelPayoutEdit() {
+    this.payoutEditingId = '';
+    this.payoutFormOpen = false;
+    this.renderGameDetail(this.getHamsterGameSummary());
+  }
+
+  async handleRefreshPayoutRules() {
+    await this.loadPayoutRules();
+    this.renderGameDetail(this.getHamsterGameSummary());
   }
 
   handleModalBackdropClick(event) {
@@ -519,6 +795,102 @@ export class GamesTab extends BaseTab {
     if (event.key === 'Escape' && this.payoutModalOpen) {
       this.closePayoutModal();
     }
+  }
+
+  readPayoutFormPayload() {
+    var idInput = document.getElementById('gamesPayoutRuleId');
+    var rewardNameInput = document.getElementById('gamesPayoutRewardName');
+    var rewardTypeInput = document.getElementById('gamesPayoutRewardType');
+    var matchTypeInput = document.getElementById('gamesPayoutMatchType');
+    var requiredMatchesInput = document.getElementById('gamesPayoutRequiredMatches');
+    var amountInput = document.getElementById('gamesPayoutAmount');
+    var labelInput = document.getElementById('gamesPayoutLabel');
+    var sortInput = document.getElementById('gamesPayoutSortOrder');
+    var activeInput = document.getElementById('gamesPayoutActive');
+    var id = idInput ? idInput.value.trim() : '';
+    var rewardType = rewardTypeInput ? rewardTypeInput.value : 'poppy';
+    var payoutAmount = amountInput ? Number(amountInput.value) : 0;
+
+    return {
+      id: id,
+      storeId: GAME_STORE_ID,
+      gameId: HAMSTER_GAME_ID,
+      rewardName: rewardNameInput ? rewardNameInput.value.trim() : '',
+      rewardType: rewardType,
+      matchType: matchTypeInput ? matchTypeInput.value : 'matches',
+      requiredMatches: requiredMatchesInput ? Number(requiredMatchesInput.value) : 1,
+      payoutAmount: payoutAmount,
+      payoutLabel: labelInput && labelInput.value.trim() ? labelInput.value.trim() : this.buildPayoutLabel(payoutAmount, rewardType),
+      active: activeInput ? activeInput.checked : true,
+      sortOrder: sortInput && sortInput.value ? Number(sortInput.value) : Date.now()
+    };
+  }
+
+  getEditingPayoutRule() {
+    var index = 0;
+
+    while (index < this.payoutRules.length) {
+      if (this.payoutRules[index].id === this.payoutEditingId) {
+        return this.payoutRules[index];
+      }
+      index = index + 1;
+    }
+
+    return null;
+  }
+
+  normalizeFallbackPayoutRules() {
+    var rules = [];
+    var index = 0;
+
+    while (index < HAMSTER_DEFAULT_PAYOUT_RULES.length) {
+      var rule = HAMSTER_DEFAULT_PAYOUT_RULES[index];
+      rules.push({
+        id: rule.id,
+        rewardName: rule.rewardName,
+        rewardType: rule.rewardType,
+        matchType: rule.matchType,
+        requiredMatches: rule.requiredMatches,
+        payoutAmount: rule.payoutAmount,
+        payoutLabel: rule.payoutLabel,
+        active: rule.active !== false,
+        sortOrder: rule.sortOrder,
+        source: 'fallback'
+      });
+      index = index + 1;
+    }
+
+    return rules;
+  }
+
+  setPayoutStatus(message, type) {
+    this.payoutStatusMessage = message || '';
+    this.payoutStatusType = type || 'warning';
+  }
+
+  clearPayoutStatus() {
+    this.payoutStatusMessage = '';
+    this.payoutStatusType = 'warning';
+  }
+
+  getHamsterGameSummary() {
+    return {
+      id: HAMSTER_GAME_ID,
+      title: 'Hamster Spin Game',
+      status: 'Active',
+      description: 'Manage spin images, payouts, rewards, and game settings.'
+    };
+  }
+
+  buildPayoutLabel(amount, rewardType) {
+    var safeAmount = isFinite(Number(amount)) ? Number(amount) : 0;
+    var safeType = rewardType || 'seed';
+
+    if (safeType === 'poppy') {
+      safeType = safeAmount === 1 ? 'seed' : 'seeds';
+    }
+
+    return String(safeAmount) + ' ' + safeType;
   }
 
   captureElements() {

@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -48,6 +49,26 @@ function createClosePayoutModalIntent(actor, payload, options) {
   return createGamesIntent("ClosePayoutModalIntent", actor, payload, options);
 }
 
+function createLoadPayoutRulesIntent(actor, payload, options) {
+  return createGamesIntent("LoadPayoutRulesIntent", actor, payload, options);
+}
+
+function createAddPayoutRuleIntent(actor, payload, options) {
+  return createGamesIntent("AddPayoutRuleIntent", actor, payload, options);
+}
+
+function createUpdatePayoutRuleIntent(actor, payload, options) {
+  return createGamesIntent("UpdatePayoutRuleIntent", actor, payload, options);
+}
+
+function createRemovePayoutRuleIntent(actor, payload, options) {
+  return createGamesIntent("RemovePayoutRuleIntent", actor, payload, options);
+}
+
+function createTogglePayoutRuleIntent(actor, payload, options) {
+  return createGamesIntent("TogglePayoutRuleIntent", actor, payload, options);
+}
+
 function createGamesIntent(type, actor, payload, options) {
   var safeOptions = options || {};
 
@@ -61,6 +82,7 @@ function createGamesIntent(type, actor, payload, options) {
       gameId: safeOptions.gameId || DEFAULT_GAME_ID,
       availableGames: safeOptions.availableGames || getDefaultGames(),
       fallbackImages: safeOptions.fallbackImages || [],
+      fallbackPayoutRules: safeOptions.fallbackPayoutRules || getDefaultPayoutRules(),
       minActiveImages: safeOptions.minActiveImages || MIN_SPIN_IMAGES,
       payouts: safeOptions.payouts || getDefaultPayouts(),
       source: safeOptions.source || "admin"
@@ -118,7 +140,35 @@ function validateGamesPayload(intent) {
     errors.push("Spin image id is required.");
   }
 
-  if ((intent.type === "LoadSpinImagesIntent" || intent.type === "AddSpinImageIntent" || intent.type === "RemoveSpinImageIntent" || intent.type === "LoadGameConfigIntent") && !intent.context.db) {
+  if (isPayoutWriteIntent(intent.type) && !payload.rewardName && intent.type !== "RemovePayoutRuleIntent" && intent.type !== "TogglePayoutRuleIntent") {
+    errors.push("rewardName is required.");
+  }
+
+  if (isPayoutWriteIntent(intent.type) && !isValidRewardType(payload.rewardType) && intent.type !== "RemovePayoutRuleIntent" && intent.type !== "TogglePayoutRuleIntent") {
+    errors.push("rewardType is invalid.");
+  }
+
+  if ((intent.type === "AddPayoutRuleIntent" || intent.type === "UpdatePayoutRuleIntent") && payload.requiredMatches === undefined) {
+    errors.push("requiredMatches is required.");
+  }
+
+  if (isPayoutWriteIntent(intent.type) && payload.requiredMatches !== undefined && (!isFinite(Number(payload.requiredMatches)) || Number(payload.requiredMatches) <= 0)) {
+    errors.push("requiredMatches must be a positive number.");
+  }
+
+  if ((intent.type === "AddPayoutRuleIntent" || intent.type === "UpdatePayoutRuleIntent") && payload.payoutAmount === undefined) {
+    errors.push("payoutAmount is required.");
+  }
+
+  if (isPayoutWriteIntent(intent.type) && payload.payoutAmount !== undefined && (!isFinite(Number(payload.payoutAmount)) || Number(payload.payoutAmount) < 0)) {
+    errors.push("payoutAmount must be a non-negative number.");
+  }
+
+  if ((intent.type === "UpdatePayoutRuleIntent" || intent.type === "RemovePayoutRuleIntent" || intent.type === "TogglePayoutRuleIntent") && !payload.id) {
+    errors.push("Payout rule id is required.");
+  }
+
+  if ((intent.type === "LoadSpinImagesIntent" || intent.type === "AddSpinImageIntent" || intent.type === "RemoveSpinImageIntent" || intent.type === "LoadGameConfigIntent" || intent.type === "LoadPayoutRulesIntent" || isPayoutWriteIntent(intent.type)) && !intent.context.db) {
     errors.push("Firestore database context is required.");
   }
 
@@ -159,6 +209,22 @@ function normalizeGamesPayload(intent) {
     normalized.label = payload.label.trim();
   }
 
+  if (typeof payload.rewardName === "string") {
+    normalized.rewardName = payload.rewardName.trim();
+  }
+
+  if (typeof payload.rewardType === "string") {
+    normalized.rewardType = payload.rewardType.trim();
+  }
+
+  if (typeof payload.matchType === "string") {
+    normalized.matchType = payload.matchType.trim();
+  }
+
+  if (typeof payload.payoutLabel === "string") {
+    normalized.payoutLabel = payload.payoutLabel.trim();
+  }
+
   if (typeof payload.id === "string") {
     normalized.id = payload.id.trim();
   }
@@ -171,6 +237,14 @@ function normalizeGamesPayload(intent) {
 
   if (typeof payload.sortOrder === "number" && isFinite(payload.sortOrder)) {
     normalized.sortOrder = payload.sortOrder;
+  }
+
+  if (payload.requiredMatches !== undefined && isFinite(Number(payload.requiredMatches))) {
+    normalized.requiredMatches = Number(payload.requiredMatches);
+  }
+
+  if (payload.payoutAmount !== undefined && isFinite(Number(payload.payoutAmount))) {
+    normalized.payoutAmount = Number(payload.payoutAmount);
   }
 
   intent.payload = normalized;
@@ -190,6 +264,7 @@ async function addGamesContext(intent) {
   context.game = findGame(context.availableGames, payload.gameId);
   context.settingsRef = doc(context.db, "stores", payload.storeId, "games", payload.gameId, "settings", "main");
   context.spinImagesCollectionRef = collection(context.db, "stores", payload.storeId, "games", payload.gameId, "spinImages");
+  context.payoutRulesCollectionRef = collection(context.db, "stores", payload.storeId, "games", payload.gameId, "payouts");
 
   if (intent.type === "LoadGameConfigIntent") {
     context.settingsSnapshot = await getDoc(context.settingsRef);
@@ -207,6 +282,15 @@ async function addGamesContext(intent) {
     context.targetSpinImage = findSpinImage(context.spinImages, payload.id);
   }
 
+  if (intent.type === "LoadPayoutRulesIntent") {
+    context.payoutRules = await loadPayoutRuleRecords(context.payoutRulesCollectionRef, intent.payload.includeInactive !== true);
+  }
+
+  if (intent.type === "UpdatePayoutRuleIntent" || intent.type === "RemovePayoutRuleIntent" || intent.type === "TogglePayoutRuleIntent") {
+    context.payoutRules = await loadPayoutRuleRecords(context.payoutRulesCollectionRef, false);
+    context.targetPayoutRule = findPayoutRule(context.payoutRules, payload.id);
+  }
+
   return {
     ok: true,
     intent: intent
@@ -217,8 +301,9 @@ function authorizeGamesActor(intent) {
   var role = intent.actor && intent.actor.role ? String(intent.actor.role) : "";
   var source = intent.context && intent.context.source ? intent.context.source : "admin";
   var readOnlyGameLoad = source === "game" && intent.type === "LoadSpinImagesIntent";
+  var readOnlyPayoutLoad = source === "game" && intent.type === "LoadPayoutRulesIntent";
 
-  if (readOnlyGameLoad && (role === "system" || role === "admin" || role === "superadmin")) {
+  if ((readOnlyGameLoad || readOnlyPayoutLoad) && (role === "system" || role === "admin" || role === "superadmin")) {
     return {
       ok: true,
       intent: intent
@@ -270,6 +355,26 @@ async function processGamesIntent(intent) {
 
   if (intent.type === "ClosePayoutModalIntent") {
     return processClosePayoutModal(intent);
+  }
+
+  if (intent.type === "LoadPayoutRulesIntent") {
+    return processLoadPayoutRules(intent);
+  }
+
+  if (intent.type === "AddPayoutRuleIntent") {
+    return processAddPayoutRule(intent);
+  }
+
+  if (intent.type === "UpdatePayoutRuleIntent") {
+    return processUpdatePayoutRule(intent);
+  }
+
+  if (intent.type === "RemovePayoutRuleIntent") {
+    return processRemovePayoutRule(intent);
+  }
+
+  if (intent.type === "TogglePayoutRuleIntent") {
+    return processTogglePayoutRule(intent);
   }
 
   return {
@@ -462,6 +567,131 @@ function processClosePayoutModal(intent) {
   };
 }
 
+function processLoadPayoutRules(intent) {
+  var managedRules = intent.context.payoutRules || [];
+  var activeManagedRules = getActivePayoutRules(managedRules);
+  var source = "firestore";
+  var rules = managedRules;
+
+  if (!activeManagedRules.length) {
+    rules = normalizeFallbackPayoutRules(intent.context.fallbackPayoutRules);
+    source = "fallback";
+  }
+
+  intent.context.resultData = {
+    storeId: intent.payload.storeId,
+    gameId: intent.payload.gameId,
+    payoutRules: intent.payload.includeInactive === true ? rules : getActivePayoutRules(rules),
+    managedPayoutRules: managedRules,
+    source: source,
+    activeCount: activeManagedRules.length
+  };
+
+  return {
+    ok: true,
+    intent: intent
+  };
+}
+
+async function processAddPayoutRule(intent) {
+  var payload = intent.payload;
+  var payoutRef = doc(intent.context.payoutRulesCollectionRef);
+  var rule = buildPayoutRuleData(payload, payoutRef.id, serverTimestamp(), serverTimestamp());
+
+  await setDoc(payoutRef, rule);
+
+  intent.context.resultData = normalizePayoutRuleData(rule);
+
+  return {
+    ok: true,
+    intent: intent
+  };
+}
+
+async function processUpdatePayoutRule(intent) {
+  var payload = intent.payload;
+  var existing = intent.context.targetPayoutRule;
+
+  if (!existing) {
+    return {
+      ok: false,
+      stage: "Process",
+      errors: ["Payout rule not found."]
+    };
+  }
+
+  await updateDoc(doc(intent.context.payoutRulesCollectionRef, payload.id), {
+    rewardName: payload.rewardName,
+    rewardType: payload.rewardType,
+    matchType: payload.matchType || "matches",
+    requiredMatches: payload.requiredMatches || 1,
+    payoutAmount: payload.payoutAmount || 0,
+    payoutLabel: payload.payoutLabel || buildPayoutLabel(payload.payoutAmount, payload.rewardType),
+    active: payload.active !== false,
+    sortOrder: payload.sortOrder || existing.sortOrder || Date.now(),
+    updatedAt: serverTimestamp()
+  });
+
+  intent.context.resultData = {
+    id: payload.id,
+    updated: true
+  };
+
+  return {
+    ok: true,
+    intent: intent
+  };
+}
+
+async function processRemovePayoutRule(intent) {
+  if (!intent.context.targetPayoutRule) {
+    return {
+      ok: false,
+      stage: "Process",
+      errors: ["Payout rule not found."]
+    };
+  }
+
+  await deleteDoc(doc(intent.context.payoutRulesCollectionRef, intent.payload.id));
+
+  intent.context.resultData = {
+    id: intent.payload.id,
+    removed: true
+  };
+
+  return {
+    ok: true,
+    intent: intent
+  };
+}
+
+async function processTogglePayoutRule(intent) {
+  var existing = intent.context.targetPayoutRule;
+
+  if (!existing) {
+    return {
+      ok: false,
+      stage: "Process",
+      errors: ["Payout rule not found."]
+    };
+  }
+
+  await updateDoc(doc(intent.context.payoutRulesCollectionRef, intent.payload.id), {
+    active: existing.active === false,
+    updatedAt: serverTimestamp()
+  });
+
+  intent.context.resultData = {
+    id: intent.payload.id,
+    active: existing.active === false
+  };
+
+  return {
+    ok: true,
+    intent: intent
+  };
+}
+
 function emitGamesResult(intent) {
   var eventType = intent.type.replace("Intent", "");
 
@@ -494,6 +724,20 @@ async function loadSpinImageRecords(collectionRef, activeOnly) {
   return sortSpinImageRecords(records);
 }
 
+async function loadPayoutRuleRecords(collectionRef, activeOnly) {
+  var records = [];
+  var payoutQuery = activeOnly ? query(collectionRef, where("active", "==", true)) : query(collectionRef, orderBy("sortOrder", "asc"));
+  var snap = await getDocs(payoutQuery);
+  var index = 0;
+
+  while (index < snap.docs.length) {
+    records.push(normalizePayoutRuleRecord(snap.docs[index]));
+    index = index + 1;
+  }
+
+  return sortPayoutRuleRecords(records);
+}
+
 function normalizeSpinImageRecord(snapshot) {
   var data = snapshot.data() || {};
 
@@ -508,6 +752,53 @@ function normalizeSpinImageRecord(snapshot) {
     createdAt: data.createdAt || null,
     updatedAt: data.updatedAt || null,
     source: "firestore"
+  };
+}
+
+function normalizePayoutRuleRecord(snapshot) {
+  var data = snapshot.data() || {};
+  var rule = normalizePayoutRuleData(data);
+
+  rule.id = data.id || snapshot.id;
+  rule.source = "firestore";
+
+  return rule;
+}
+
+function normalizePayoutRuleData(data) {
+  return {
+    id: data.id || "",
+    storeId: data.storeId || "",
+    gameId: data.gameId || "",
+    rewardName: data.rewardName || "",
+    rewardType: data.rewardType || "poppy",
+    matchType: data.matchType || "matches",
+    requiredMatches: typeof data.requiredMatches === "number" ? data.requiredMatches : 1,
+    payoutAmount: typeof data.payoutAmount === "number" ? data.payoutAmount : 0,
+    payoutLabel: data.payoutLabel || buildPayoutLabel(data.payoutAmount, data.rewardType),
+    active: data.active !== false,
+    sortOrder: typeof data.sortOrder === "number" ? data.sortOrder : 0,
+    createdAt: data.createdAt || null,
+    updatedAt: data.updatedAt || null,
+    source: data.source || "firestore"
+  };
+}
+
+function buildPayoutRuleData(payload, id, createdAt, updatedAt) {
+  return {
+    id: id,
+    storeId: payload.storeId,
+    gameId: payload.gameId,
+    rewardName: payload.rewardName,
+    rewardType: payload.rewardType,
+    matchType: payload.matchType || "matches",
+    requiredMatches: payload.requiredMatches || 1,
+    payoutAmount: payload.payoutAmount || 0,
+    payoutLabel: payload.payoutLabel || buildPayoutLabel(payload.payoutAmount, payload.rewardType),
+    active: payload.active !== false,
+    sortOrder: payload.sortOrder || Date.now(),
+    createdAt: createdAt,
+    updatedAt: updatedAt
   };
 }
 
@@ -539,6 +830,32 @@ function normalizeFallbackImages(fallbackImages) {
   return images;
 }
 
+function normalizeFallbackPayoutRules(fallbackRules) {
+  var rules = [];
+  var index = 0;
+
+  while (index < fallbackRules.length) {
+    var item = fallbackRules[index] || {};
+    rules.push({
+      id: item.id || "fallback_payout_" + index,
+      storeId: item.storeId || DEFAULT_STORE_ID,
+      gameId: item.gameId || DEFAULT_GAME_ID,
+      rewardName: item.rewardName || "Fallback Reward",
+      rewardType: item.rewardType || "poppy",
+      matchType: item.matchType || "matches",
+      requiredMatches: typeof item.requiredMatches === "number" ? item.requiredMatches : 1,
+      payoutAmount: typeof item.payoutAmount === "number" ? item.payoutAmount : 0,
+      payoutLabel: item.payoutLabel || buildPayoutLabel(item.payoutAmount, item.rewardType),
+      active: item.active !== false,
+      sortOrder: typeof item.sortOrder === "number" ? item.sortOrder : index + 1,
+      source: "fallback"
+    });
+    index = index + 1;
+  }
+
+  return sortPayoutRuleRecords(rules);
+}
+
 function getActiveImages(images) {
   var activeImages = [];
   var index = 0;
@@ -557,12 +874,39 @@ function countActiveImages(images) {
   return getActiveImages(images || []).length;
 }
 
+function getActivePayoutRules(rules) {
+  var activeRules = [];
+  var index = 0;
+
+  while (index < rules.length) {
+    if (rules[index] && rules[index].active !== false) {
+      activeRules.push(rules[index]);
+    }
+    index = index + 1;
+  }
+
+  return activeRules;
+}
+
 function findSpinImage(images, id) {
   var index = 0;
 
   while (index < images.length) {
     if (images[index].id === id) {
       return images[index];
+    }
+    index = index + 1;
+  }
+
+  return null;
+}
+
+function findPayoutRule(rules, id) {
+  var index = 0;
+
+  while (index < rules.length) {
+    if (rules[index].id === id) {
+      return rules[index];
     }
     index = index + 1;
   }
@@ -602,6 +946,52 @@ function compareSpinImageRecords(a, b) {
   return 0;
 }
 
+function sortPayoutRuleRecords(records) {
+  return records.sort(comparePayoutRuleRecords);
+}
+
+function comparePayoutRuleRecords(a, b) {
+  var left = typeof a.sortOrder === "number" ? a.sortOrder : 0;
+  var right = typeof b.sortOrder === "number" ? b.sortOrder : 0;
+
+  if (left < right) {
+    return -1;
+  }
+
+  if (left > right) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function isPayoutWriteIntent(type) {
+  return type === "AddPayoutRuleIntent"
+    || type === "UpdatePayoutRuleIntent"
+    || type === "RemovePayoutRuleIntent"
+    || type === "TogglePayoutRuleIntent";
+}
+
+function isValidRewardType(rewardType) {
+  return rewardType === "poppy"
+    || rewardType === "sesame"
+    || rewardType === "almond"
+    || rewardType === "walnut"
+    || rewardType === "seed"
+    || rewardType === "seeds";
+}
+
+function buildPayoutLabel(amount, rewardType) {
+  var safeAmount = isFinite(Number(amount)) ? Number(amount) : 0;
+  var safeType = rewardType || "seed";
+
+  if (safeType === "poppy" || safeType === "seed" || safeType === "seeds") {
+    safeType = safeAmount === 1 ? "seed" : "seeds";
+  }
+
+  return String(safeAmount) + " " + safeType;
+}
+
 function getDefaultGames() {
   return [
     {
@@ -621,6 +1011,55 @@ function getDefaultPayouts() {
   ];
 }
 
+function getDefaultPayoutRules() {
+  return [
+    {
+      id: "fallback_two_matches",
+      rewardName: "Two Matches",
+      rewardType: "poppy",
+      matchType: "matches",
+      requiredMatches: 2,
+      payoutAmount: 1,
+      payoutLabel: "1 seed",
+      active: true,
+      sortOrder: 10
+    },
+    {
+      id: "fallback_three_matches",
+      rewardName: "Three Matches",
+      rewardType: "poppy",
+      matchType: "matches",
+      requiredMatches: 3,
+      payoutAmount: 5,
+      payoutLabel: "5 seeds",
+      active: true,
+      sortOrder: 20
+    },
+    {
+      id: "fallback_four_matches",
+      rewardName: "Four Matches",
+      rewardType: "poppy",
+      matchType: "matches",
+      requiredMatches: 4,
+      payoutAmount: 20,
+      payoutLabel: "20 seeds",
+      active: true,
+      sortOrder: 30
+    },
+    {
+      id: "fallback_jackpot",
+      rewardName: "Jackpot",
+      rewardType: "poppy",
+      matchType: "jackpot",
+      requiredMatches: 3,
+      payoutAmount: 100,
+      payoutLabel: "100 seeds",
+      active: true,
+      sortOrder: 40
+    }
+  ];
+}
+
 export {
   createOpenGamesDashboardIntent,
   createOpenGameDetailIntent,
@@ -629,7 +1068,12 @@ export {
   createAddSpinImageIntent,
   createRemoveSpinImageIntent,
   createOpenPayoutModalIntent,
-  createClosePayoutModalIntent
+  createClosePayoutModalIntent,
+  createLoadPayoutRulesIntent,
+  createAddPayoutRuleIntent,
+  createUpdatePayoutRuleIntent,
+  createRemovePayoutRuleIntent,
+  createTogglePayoutRuleIntent
 };
 
 export default {
@@ -640,5 +1084,10 @@ export default {
   createAddSpinImageIntent: createAddSpinImageIntent,
   createRemoveSpinImageIntent: createRemoveSpinImageIntent,
   createOpenPayoutModalIntent: createOpenPayoutModalIntent,
-  createClosePayoutModalIntent: createClosePayoutModalIntent
+  createClosePayoutModalIntent: createClosePayoutModalIntent,
+  createLoadPayoutRulesIntent: createLoadPayoutRulesIntent,
+  createAddPayoutRuleIntent: createAddPayoutRuleIntent,
+  createUpdatePayoutRuleIntent: createUpdatePayoutRuleIntent,
+  createRemovePayoutRuleIntent: createRemovePayoutRuleIntent,
+  createTogglePayoutRuleIntent: createTogglePayoutRuleIntent
 };
