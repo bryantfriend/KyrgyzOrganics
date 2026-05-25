@@ -19,7 +19,7 @@ import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js';
 import { GamesTab } from './tabs/GamesTab.js';
 
-const ADMIN_VERSION = '3.6';
+const ADMIN_VERSION = '3.7';
 const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
 const PLATFORM_TABS = new Set(['stores', 'analytics', 'audit']);
 

@@ -5141,6 +5141,13 @@
   font-size: 1.05rem;
 }
 
+.hg-daily-current-img {
+  width: 58px;
+  height: 58px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 10px rgba(23, 8, 1, 0.24));
+}
+
 .hg-daily-current small {
   color: rgba(255, 245, 210, 0.82);
   font-weight: 750;
@@ -5173,6 +5180,13 @@
 .hg-daily-calendar-day strong {
   font-size: 11px;
   line-height: 1.12;
+}
+
+.hg-daily-day-img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  justify-self: center;
 }
 
 .hg-daily-calendar-day.hg-active {

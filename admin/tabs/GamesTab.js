@@ -3,12 +3,14 @@ import pipeline from '../../ICF/engine/pipeline.js';
 import gamesIntent from '../../ICF/Intents/GamesIntent.js';
 import { HAMSTER_DEFAULT_SPIN_IMAGES, HAMSTER_SPIN_MIN_IMAGES } from '../../hamster_game/spin-image-defaults.js';
 import { HAMSTER_DEFAULT_PAYOUT_RULES } from '../../hamster_game/payout-defaults.js';
+import { HAMSTER_DEFAULT_DAILY_BONUSES } from '../../hamster_game/daily-bonus-defaults.js';
 import { uploadImage } from '../utils.js';
 import { BaseTab } from './BaseTab.js';
 
 var GAME_STORE_ID = 'kyrgyz-organics';
 var HAMSTER_GAME_ID = 'hamster-spin';
 var STORAGE_PREFIX = 'stores/kyrgyz-organics/media/games/hamster-spin/spin-images';
+var DAILY_BONUS_STORAGE_PREFIX = 'stores/kyrgyz-organics/media/games/hamster-spin/daily-bonuses';
 var MIN_SPIN_MESSAGE = 'Spinning mode must have at least 4 pictures.';
 
 export class GamesTab extends BaseTab {
@@ -28,6 +30,13 @@ export class GamesTab extends BaseTab {
     this.payoutFormOpen = false;
     this.payoutStatusMessage = '';
     this.payoutStatusType = 'warning';
+    this.dailyLoginBonuses = this.normalizeFallbackDailyBonuses();
+    this.settingsSource = 'fallback';
+    this.settingsStatusMessage = '';
+    this.settingsStatusType = 'warning';
+    this.analytics = null;
+    this.analyticsStatusMessage = '';
+    this.analyticsStatusType = 'warning';
     this.form = null;
     this.status = null;
     this.meta = null;
@@ -71,7 +80,7 @@ export class GamesTab extends BaseTab {
     this.activeView = 'detail';
     this.activeGameId = gameId || HAMSTER_GAME_ID;
     this.renderGameDetail(result.data.game || {});
-    await this.loadSpinImages();
+    await this.loadActiveSectionData();
   }
 
   renderDashboard(games) {
@@ -137,6 +146,7 @@ export class GamesTab extends BaseTab {
       + '<button type="button" class="' + this.getSectionButtonClass('spin') + '" data-games-section="spin">Spin Pictures</button>'
       + '<button type="button" class="' + this.getSectionButtonClass('payouts') + '" data-games-section="payouts">Payouts / Rewards</button>'
       + '<button type="button" class="' + this.getSectionButtonClass('settings') + '" data-games-section="settings">Game Settings</button>'
+      + '<button type="button" class="' + this.getSectionButtonClass('analytics') + '" data-games-section="analytics">Analytics</button>'
       + '</div>'
       + '<div id="gamesDetailPanel">'
       + this.renderActiveSection()
@@ -155,6 +165,10 @@ export class GamesTab extends BaseTab {
 
     if (this.activeSection === 'settings') {
       return this.renderSettingsSection();
+    }
+
+    if (this.activeSection === 'analytics') {
+      return this.renderAnalyticsSection();
     }
 
     return this.renderSpinSection();
@@ -218,16 +232,105 @@ export class GamesTab extends BaseTab {
       + '<div>'
       + '<div class="eyebrow">Configuration</div>'
       + '<h3>Game Settings</h3>'
-      + '<p>General hamster game settings will live at stores/' + GAME_STORE_ID + '/games/' + HAMSTER_GAME_ID + '/settings/main.</p>'
+      + '<p>Customize the daily login bonus schedule. Saved settings live at stores/' + GAME_STORE_ID + '/games/' + HAMSTER_GAME_ID + '/settings/main.</p>'
       + '</div>'
-      + '<span class="muted-pill">Ready</span>'
+      + '<span class="muted-pill">source: ' + escapeHtml(this.settingsSource) + '</span>'
       + '</div>'
-      + '<div class="games-settings-grid">'
-      + '<div><span>Store</span><strong>' + GAME_STORE_ID + '</strong></div>'
-      + '<div><span>Game</span><strong>' + HAMSTER_GAME_ID + '</strong></div>'
-      + '<div><span>Minimum active spin pictures</span><strong>' + HAMSTER_SPIN_MIN_IMAGES + '</strong></div>'
+      + this.renderSettingsStatus()
+      + '<div class="games-settings-actions">'
+      + '<button type="button" class="btn-primary" data-games-action="add-daily-bonus">Add Day</button>'
+      + '<button type="button" class="btn-secondary" data-games-action="reload-game-settings">Reload</button>'
+      + '</div>'
+      + '<form id="gamesDailyBonusForm" class="games-daily-bonus-form">'
+      + '<div id="gamesDailyBonusList" class="games-daily-bonus-list">'
+      + this.renderDailyBonusRows()
+      + '</div>'
+      + '<div class="games-settings-actions">'
+      + '<button type="submit" class="btn-primary">Save Daily Bonuses</button>'
+      + '<button type="button" class="btn-secondary" data-games-action="reset-daily-bonuses">Reset Fallback</button>'
+      + '</div>'
+      + '</form>'
+      + '</div>';
+  }
+
+  renderSettingsStatus() {
+    if (!this.settingsStatusMessage) {
+      return '<div id="gamesSettingsStatus" class="inline-alert" hidden></div>';
+    }
+
+    return '<div id="gamesSettingsStatus" class="inline-alert ' + escapeHtml(this.settingsStatusType) + '">' + escapeHtml(this.settingsStatusMessage) + '</div>';
+  }
+
+  renderDailyBonusRows() {
+    var markup = '';
+    var index = 0;
+
+    if (!this.dailyLoginBonuses.length) {
+      return '<div class="games-empty">No daily bonus days configured.</div>';
+    }
+
+    while (index < this.dailyLoginBonuses.length) {
+      var bonus = this.dailyLoginBonuses[index];
+      markup += ''
+        + '<article class="games-daily-bonus-row" data-index="' + index + '">'
+        + '<div class="games-daily-bonus-thumb">' + (bonus.imageUrl ? '<img src="' + escapeHtml(bonus.imageUrl) + '" alt="Day ' + escapeHtml(bonus.day) + '">' : '<span>Day ' + escapeHtml(bonus.day) + '</span>') + '</div>'
+        + '<label>Day<input type="number" data-field="day" min="1" step="1" value="' + escapeHtml(bonus.day) + '"></label>'
+        + '<label>Title<input type="text" data-field="title" value="' + escapeHtml(bonus.title) + '"></label>'
+        + '<label>Picture URL<input type="text" data-field="imageUrl" value="' + escapeHtml(bonus.imageUrl) + '"></label>'
+        + '<label>Upload Picture<input type="file" data-field="imageFile" accept="image/*"></label>'
+        + '<label>Spins<input type="number" data-field="spins" min="0" step="1" value="' + escapeHtml(bonus.spins) + '"></label>'
+        + '<label>Poppy<input type="number" data-field="poppy" min="0" step="1" value="' + escapeHtml(bonus.seeds.poppy || 0) + '"></label>'
+        + '<label>Sesame<input type="number" data-field="sesame" min="0" step="1" value="' + escapeHtml(bonus.seeds.sesame || 0) + '"></label>'
+        + '<label>Almond<input type="number" data-field="almond" min="0" step="1" value="' + escapeHtml(bonus.seeds.almond || 0) + '"></label>'
+        + '<label>Walnut<input type="number" data-field="walnut" min="0" step="1" value="' + escapeHtml(bonus.seeds.walnut || 0) + '"></label>'
+        + '<label class="games-payout-checkbox"><input type="checkbox" data-field="active" ' + (bonus.active !== false ? 'checked' : '') + '> Active</label>'
+        + '<button type="button" class="btn-secondary" data-games-action="remove-daily-bonus" data-index="' + index + '">Remove</button>'
+        + '</article>';
+      index = index + 1;
+    }
+
+    return markup;
+  }
+
+  renderAnalyticsSection() {
+    var stats = this.analytics || {};
+
+    return ''
+      + '<div class="admin-card games-analytics-card">'
+      + '<div class="card-heading-row">'
+      + '<div>'
+      + '<div class="eyebrow">Hamster Game</div>'
+      + '<h3>Analytics</h3>'
+      + '<p>Operational stats from current hamster customer records and game config.</p>'
+      + '</div>'
+      + '<button type="button" class="btn-secondary" data-games-action="refresh-game-analytics">Refresh</button>'
+      + '</div>'
+      + this.renderAnalyticsStatus()
+      + '<div class="games-analytics-grid">'
+      + this.renderAnalyticsMetric('Players', stats.totalPlayers)
+      + this.renderAnalyticsMetric('Total Spins', stats.totalSpins)
+      + this.renderAnalyticsMetric('Total Wins', stats.totalWins)
+      + this.renderAnalyticsMetric('Rewards', stats.totalRewards)
+      + this.renderAnalyticsMetric('Pending Rewards', stats.pendingRewards)
+      + this.renderAnalyticsMetric('Seed Bank Value', stats.seedBankValue)
+      + this.renderAnalyticsMetric('Longest Streak', stats.longestStreak)
+      + this.renderAnalyticsMetric('Active Spin Pictures', stats.activeSpinPictures)
+      + this.renderAnalyticsMetric('Active Payout Rules', stats.activePayoutRules)
+      + this.renderAnalyticsMetric('Daily Bonus Days', stats.dailyBonusDays)
       + '</div>'
       + '</div>';
+  }
+
+  renderAnalyticsMetric(label, value) {
+    return '<div class="games-analytics-metric"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value === undefined ? '...' : value) + '</strong></div>';
+  }
+
+  renderAnalyticsStatus() {
+    if (!this.analyticsStatusMessage) {
+      return '<div id="gamesAnalyticsStatus" class="inline-alert" hidden></div>';
+    }
+
+    return '<div id="gamesAnalyticsStatus" class="inline-alert ' + escapeHtml(this.analyticsStatusType) + '">' + escapeHtml(this.analyticsStatusMessage) + '</div>';
   }
 
   renderPayoutModal() {
@@ -509,6 +612,80 @@ export class GamesTab extends BaseTab {
     }
   }
 
+  async loadGameSettings() {
+    try {
+      var result = await this.runIntent('LoadGameSettingsIntent', {
+        storeId: GAME_STORE_ID,
+        gameId: HAMSTER_GAME_ID
+      });
+
+      this.dailyLoginBonuses = result.data.dailyLoginBonuses || this.normalizeFallbackDailyBonuses();
+      this.settingsSource = result.data.source || 'fallback';
+
+      if (this.settingsSource === 'fallback') {
+        this.setSettingsStatus('Firestore settings are empty. Showing fallback daily bonuses.', 'warning');
+      } else {
+        this.clearSettingsStatus();
+      }
+    } catch (error) {
+      this.dailyLoginBonuses = this.normalizeFallbackDailyBonuses();
+      this.settingsSource = 'fallback';
+      this.setSettingsStatus('Could not load game settings. Showing fallback daily bonuses.', 'error');
+    }
+  }
+
+  async saveDailyLoginBonuses(event) {
+    event.preventDefault();
+
+    try {
+      var bonuses = await this.readDailyBonusForm();
+      await this.runIntent('SaveDailyLoginBonusesIntent', {
+        storeId: GAME_STORE_ID,
+        gameId: HAMSTER_GAME_ID,
+        dailyLoginBonuses: bonuses
+      });
+      await this.loadGameSettings();
+      this.setSettingsStatus('Daily login bonuses saved.', 'success');
+      this.renderGameDetail(this.getHamsterGameSummary());
+    } catch (error) {
+      this.setSettingsStatus(error.message || 'Could not save daily login bonuses.', 'error');
+      this.renderGameDetail(this.getHamsterGameSummary());
+    }
+  }
+
+  async loadGameAnalytics() {
+    try {
+      var result = await this.runIntent('LoadGameAnalyticsIntent', {
+        storeId: GAME_STORE_ID,
+        gameId: HAMSTER_GAME_ID
+      });
+
+      this.analytics = result.data.analytics || {};
+      this.clearAnalyticsStatus();
+    } catch (error) {
+      this.analytics = {};
+      this.setAnalyticsStatus('Could not load game analytics.', 'error');
+    }
+  }
+
+  async loadActiveSectionData() {
+    if (this.activeSection === 'spin') {
+      await this.loadSpinImages();
+      return;
+    }
+
+    if (this.activeSection === 'settings') {
+      await this.loadGameSettings();
+      this.renderGameDetail(this.getHamsterGameSummary());
+      return;
+    }
+
+    if (this.activeSection === 'analytics') {
+      await this.loadGameAnalytics();
+      this.renderGameDetail(this.getHamsterGameSummary());
+    }
+  }
+
   async savePayoutRule(event) {
     event.preventDefault();
 
@@ -575,6 +752,7 @@ export class GamesTab extends BaseTab {
         gameId: HAMSTER_GAME_ID,
         fallbackImages: HAMSTER_DEFAULT_SPIN_IMAGES,
         fallbackPayoutRules: HAMSTER_DEFAULT_PAYOUT_RULES,
+        fallbackDailyLoginBonuses: HAMSTER_DEFAULT_DAILY_BONUSES,
         minActiveImages: HAMSTER_SPIN_MIN_IMAGES,
         source: 'admin'
       }
@@ -599,6 +777,18 @@ export class GamesTab extends BaseTab {
 
     if (type === 'LoadGameConfigIntent') {
       return gamesIntent.createLoadGameConfigIntent;
+    }
+
+    if (type === 'LoadGameSettingsIntent') {
+      return gamesIntent.createLoadGameSettingsIntent;
+    }
+
+    if (type === 'SaveDailyLoginBonusesIntent') {
+      return gamesIntent.createSaveDailyLoginBonusesIntent;
+    }
+
+    if (type === 'LoadGameAnalyticsIntent') {
+      return gamesIntent.createLoadGameAnalyticsIntent;
     }
 
     if (type === 'LoadSpinImagesIntent') {
@@ -673,8 +863,14 @@ export class GamesTab extends BaseTab {
     var closeButtons = this.root.querySelectorAll('[data-games-action="close-payout-modal"]');
     var addPayoutButton = this.root.querySelector('[data-games-action="add-payout-rule"]');
     var payoutForm = document.getElementById('gamesPayoutRuleForm');
+    var dailyBonusForm = document.getElementById('gamesDailyBonusForm');
     var cancelPayoutButton = this.root.querySelector('[data-games-action="cancel-payout-edit"]');
     var refreshPayoutButton = this.root.querySelector('[data-games-action="load-payout-rules"]');
+    var addDailyBonusButton = this.root.querySelector('[data-games-action="add-daily-bonus"]');
+    var reloadSettingsButton = this.root.querySelector('[data-games-action="reload-game-settings"]');
+    var resetDailyBonusesButton = this.root.querySelector('[data-games-action="reset-daily-bonuses"]');
+    var removeDailyBonusButtons = this.root.querySelectorAll('[data-games-action="remove-daily-bonus"]');
+    var refreshAnalyticsButton = this.root.querySelector('[data-games-action="refresh-game-analytics"]');
     var editPayoutButtons = this.root.querySelectorAll('[data-games-action="edit-payout-rule"]');
     var togglePayoutButtons = this.root.querySelectorAll('[data-games-action="toggle-payout-rule"]');
     var removePayoutButtons = this.root.querySelectorAll('[data-games-action="remove-payout-rule"]');
@@ -706,12 +902,32 @@ export class GamesTab extends BaseTab {
       payoutForm.addEventListener('submit', this.savePayoutRule.bind(this));
     }
 
+    if (dailyBonusForm) {
+      dailyBonusForm.addEventListener('submit', this.saveDailyLoginBonuses.bind(this));
+    }
+
     if (cancelPayoutButton) {
       cancelPayoutButton.addEventListener('click', this.cancelPayoutEdit.bind(this));
     }
 
     if (refreshPayoutButton) {
       refreshPayoutButton.addEventListener('click', this.handleRefreshPayoutRules.bind(this));
+    }
+
+    if (addDailyBonusButton) {
+      addDailyBonusButton.addEventListener('click', this.addDailyBonusRow.bind(this));
+    }
+
+    if (reloadSettingsButton) {
+      reloadSettingsButton.addEventListener('click', this.handleReloadGameSettings.bind(this));
+    }
+
+    if (resetDailyBonusesButton) {
+      resetDailyBonusesButton.addEventListener('click', this.resetDailyBonusRows.bind(this));
+    }
+
+    if (refreshAnalyticsButton) {
+      refreshAnalyticsButton.addEventListener('click', this.handleRefreshAnalytics.bind(this));
     }
 
     index = 0;
@@ -738,6 +954,12 @@ export class GamesTab extends BaseTab {
       index = index + 1;
     }
 
+    index = 0;
+    while (index < removeDailyBonusButtons.length) {
+      removeDailyBonusButtons[index].addEventListener('click', this.removeDailyBonusRow.bind(this));
+      index = index + 1;
+    }
+
     if (modal) {
       modal.addEventListener('click', this.handleModalBackdropClick.bind(this));
     }
@@ -759,7 +981,10 @@ export class GamesTab extends BaseTab {
 
     if (this.activeSection === 'spin') {
       await this.loadSpinImages();
+      return;
     }
+
+    await this.loadActiveSectionData();
   }
 
   startAddPayoutRule() {
@@ -782,6 +1007,58 @@ export class GamesTab extends BaseTab {
 
   async handleRefreshPayoutRules() {
     await this.loadPayoutRules();
+    this.renderGameDetail(this.getHamsterGameSummary());
+  }
+
+  async handleReloadGameSettings() {
+    await this.loadGameSettings();
+    this.renderGameDetail(this.getHamsterGameSummary());
+  }
+
+  async handleRefreshAnalytics() {
+    await this.loadGameAnalytics();
+    this.renderGameDetail(this.getHamsterGameSummary());
+  }
+
+  addDailyBonusRow() {
+    var nextDay = this.dailyLoginBonuses.length + 1;
+    this.dailyLoginBonuses.push({
+      day: nextDay,
+      title: 'Day ' + nextDay,
+      imageUrl: './assets/seeds/seed-poppy.png',
+      spins: 0,
+      seeds: {
+        poppy: 1,
+        sesame: 0,
+        almond: 0,
+        walnut: 0
+      },
+      active: true,
+      sortOrder: nextDay * 10
+    });
+    this.renderGameDetail(this.getHamsterGameSummary());
+  }
+
+  removeDailyBonusRow(event) {
+    var index = Number(event.currentTarget.getAttribute('data-index') || -1);
+    var next = [];
+    var cursor = 0;
+
+    while (cursor < this.dailyLoginBonuses.length) {
+      if (cursor !== index) {
+        next.push(this.dailyLoginBonuses[cursor]);
+      }
+      cursor = cursor + 1;
+    }
+
+    this.dailyLoginBonuses = next;
+    this.renderGameDetail(this.getHamsterGameSummary());
+  }
+
+  resetDailyBonusRows() {
+    this.dailyLoginBonuses = this.normalizeFallbackDailyBonuses();
+    this.settingsSource = 'fallback';
+    this.setSettingsStatus('Fallback daily bonuses restored locally. Save to publish them.', 'warning');
     this.renderGameDetail(this.getHamsterGameSummary());
   }
 
@@ -826,6 +1103,69 @@ export class GamesTab extends BaseTab {
     };
   }
 
+  async readDailyBonusForm() {
+    var rows = document.querySelectorAll('.games-daily-bonus-row');
+    var bonuses = [];
+    var index = 0;
+
+    while (index < rows.length) {
+      bonuses.push(await this.readDailyBonusRow(rows[index], index));
+      index = index + 1;
+    }
+
+    return bonuses;
+  }
+
+  async readDailyBonusRow(row, index) {
+    var day = this.readRowNumber(row, 'day', index + 1);
+    var imageUrl = this.readRowString(row, 'imageUrl', '');
+    var fileInput = row.querySelector('[data-field="imageFile"]');
+
+    if (fileInput && fileInput.files && fileInput.files.length) {
+      imageUrl = await uploadImage(fileInput.files[0], DAILY_BONUS_STORAGE_PREFIX, {
+        autoCompress: true,
+        maxDimension: 1200,
+        quality: 0.82
+      });
+    }
+
+    return {
+      day: day,
+      title: this.readRowString(row, 'title', 'Day ' + day),
+      imageUrl: imageUrl,
+      spins: this.readRowNumber(row, 'spins', 0),
+      seeds: {
+        poppy: this.readRowNumber(row, 'poppy', 0),
+        sesame: this.readRowNumber(row, 'sesame', 0),
+        almond: this.readRowNumber(row, 'almond', 0),
+        walnut: this.readRowNumber(row, 'walnut', 0)
+      },
+      active: this.readRowChecked(row, 'active'),
+      sortOrder: day * 10
+    };
+  }
+
+  readRowString(row, field, fallback) {
+    var input = row.querySelector('[data-field="' + field + '"]');
+    if (!input) {
+      return fallback;
+    }
+    return input.value.trim() || fallback;
+  }
+
+  readRowNumber(row, field, fallback) {
+    var input = row.querySelector('[data-field="' + field + '"]');
+    if (!input || !isFinite(Number(input.value))) {
+      return fallback;
+    }
+    return Math.max(0, Number(input.value));
+  }
+
+  readRowChecked(row, field) {
+    var input = row.querySelector('[data-field="' + field + '"]');
+    return input ? input.checked : false;
+  }
+
   getEditingPayoutRule() {
     var index = 0;
 
@@ -863,6 +1203,32 @@ export class GamesTab extends BaseTab {
     return rules;
   }
 
+  normalizeFallbackDailyBonuses() {
+    var bonuses = [];
+    var index = 0;
+
+    while (index < HAMSTER_DEFAULT_DAILY_BONUSES.length) {
+      var bonus = HAMSTER_DEFAULT_DAILY_BONUSES[index];
+      bonuses.push({
+        day: bonus.day,
+        title: bonus.title,
+        imageUrl: bonus.imageUrl || '',
+        spins: bonus.spins || 0,
+        seeds: {
+          poppy: bonus.seeds && bonus.seeds.poppy ? bonus.seeds.poppy : 0,
+          sesame: bonus.seeds && bonus.seeds.sesame ? bonus.seeds.sesame : 0,
+          almond: bonus.seeds && bonus.seeds.almond ? bonus.seeds.almond : 0,
+          walnut: bonus.seeds && bonus.seeds.walnut ? bonus.seeds.walnut : 0
+        },
+        active: bonus.active !== false,
+        sortOrder: bonus.sortOrder || bonus.day * 10
+      });
+      index = index + 1;
+    }
+
+    return bonuses;
+  }
+
   setPayoutStatus(message, type) {
     this.payoutStatusMessage = message || '';
     this.payoutStatusType = type || 'warning';
@@ -871,6 +1237,26 @@ export class GamesTab extends BaseTab {
   clearPayoutStatus() {
     this.payoutStatusMessage = '';
     this.payoutStatusType = 'warning';
+  }
+
+  setSettingsStatus(message, type) {
+    this.settingsStatusMessage = message || '';
+    this.settingsStatusType = type || 'warning';
+  }
+
+  clearSettingsStatus() {
+    this.settingsStatusMessage = '';
+    this.settingsStatusType = 'warning';
+  }
+
+  setAnalyticsStatus(message, type) {
+    this.analyticsStatusMessage = message || '';
+    this.analyticsStatusType = type || 'warning';
+  }
+
+  clearAnalyticsStatus() {
+    this.analyticsStatusMessage = '';
+    this.analyticsStatusType = 'warning';
   }
 
   getHamsterGameSummary() {

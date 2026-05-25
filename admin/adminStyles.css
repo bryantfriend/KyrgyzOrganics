@@ -3192,6 +3192,100 @@ button[type="submit"]:hover {
   gap: 0.75rem;
 }
 
+.games-settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.games-daily-bonus-form,
+.games-daily-bonus-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.games-daily-bonus-row {
+  display: grid;
+  grid-template-columns: 72px repeat(4, minmax(110px, 1fr));
+  gap: 0.65rem;
+  align-items: end;
+  padding: 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.games-daily-bonus-row label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.games-daily-bonus-row input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.58rem 0.65rem;
+  color: var(--admin-text);
+}
+
+.games-daily-bonus-thumb {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.games-daily-bonus-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 0.25rem;
+}
+
+.games-analytics-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.games-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.85rem;
+}
+
+.games-analytics-metric {
+  display: grid;
+  gap: 0.3rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.games-analytics-metric span {
+  color: var(--admin-muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.games-analytics-metric strong {
+  color: var(--admin-text);
+  font-size: 1.35rem;
+}
+
 .games-settings-grid {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
@@ -3357,6 +3451,10 @@ button[type="submit"]:hover {
 
   .games-payout-row-head {
     display: none;
+  }
+
+  .games-daily-bonus-row {
+    grid-template-columns: 1fr;
   }
 }
 

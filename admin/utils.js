@@ -19,7 +19,7 @@ export async function uploadImage(file, pathPrefix = 'products', options = {}) {
 }
 
 async function prepareImageForUpload(file, options = {}) {
-    const shouldCompress = options.autoCompress ?? false;
+    const shouldCompress = options.autoCompress === true;
 
     if (!shouldCompress) return file;
     if (!file.type.startsWith('image/')) return file;
@@ -47,13 +47,13 @@ async function compressImage(file, options = {}) {
     canvas.width = width;
     canvas.height = height;
 
-    const context = canvas.getContext('2d', { alpha: false });
+    const context = canvas.getContext('2d', { alpha: true });
     if (!context) return file;
 
     context.drawImage(image, 0, 0, width, height);
 
-    const blob = await new Promise((resolve, reject) => {
-        canvas.toBlob((result) => {
+    const blob = await new Promise(function(resolve, reject) {
+        canvas.toBlob(function(result) {
             if (result) resolve(result);
             else reject(new Error('Canvas compression returned an empty blob.'));
         }, outputType, quality);
@@ -71,16 +71,16 @@ async function compressImage(file, options = {}) {
 }
 
 async function loadImageFromFile(file) {
-    return await new Promise((resolve, reject) => {
+    return await new Promise(function(resolve, reject) {
         const imageUrl = URL.createObjectURL(file);
         const image = new Image();
 
-        image.onload = () => {
+        image.onload = function() {
             URL.revokeObjectURL(imageUrl);
             resolve(image);
         };
 
-        image.onerror = () => {
+        image.onerror = function() {
             URL.revokeObjectURL(imageUrl);
             reject(new Error('Could not decode image file.'));
         };

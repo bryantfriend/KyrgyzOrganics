@@ -15,31 +15,17 @@ import pipeline from "../ICF/engine/pipeline.js";
 import gamesIntent from "../ICF/Intents/GamesIntent.js";
 import { HAMSTER_DEFAULT_SPIN_IMAGES, HAMSTER_SPIN_MIN_IMAGES } from "./spin-image-defaults.js";
 import { HAMSTER_DEFAULT_PAYOUT_RULES } from "./payout-defaults.js";
+import { HAMSTER_DEFAULT_DAILY_BONUSES } from "./daily-bonus-defaults.js";
 
 const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.11";
+const APP_VERSION = "1.12";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
 const NOTIFICATION_LAST_BONUS_KEY = "hg_bonus_notification_date";
-const loginBonusSchedule = [
-  { day: 1, spins: 1, seeds: {}, title: "1 вращение" },
-  { day: 2, spins: 0, seeds: { poppy: 10 }, title: "10 маковых семян" },
-  { day: 3, spins: 0, seeds: { sesame: 1 }, title: "1 кунжутное семя" },
-  { day: 4, spins: 2, seeds: {}, title: "2 вращения" },
-  { day: 5, spins: 0, seeds: { poppy: 25 }, title: "25 маковых семян" },
-  { day: 6, spins: 0, seeds: { sesame: 1 }, title: "1 кунжутное семя" },
-  { day: 7, spins: 0, seeds: { almond: 1 }, title: "1 миндальное семя" },
-  { day: 8, spins: 3, seeds: {}, title: "3 вращения" },
-  { day: 9, spins: 0, seeds: { poppy: 40 }, title: "40 маковых семян" },
-  { day: 10, spins: 0, seeds: { sesame: 2 }, title: "2 кунжутных семени" },
-  { day: 11, spins: 4, seeds: {}, title: "4 вращения" },
-  { day: 12, spins: 0, seeds: { almond: 1 }, title: "1 миндальное семя" },
-  { day: 13, spins: 2, seeds: { poppy: 75 }, title: "75 маковых семян и 2 вращения" },
-  { day: 14, spins: 10, seeds: { sesame: 5, walnut: 1 }, title: "Грецкий орех, 5 кунжутных семян и 10 вращений" }
-];
+let loginBonusSchedule = normalizeDailyBonusSchedule(HAMSTER_DEFAULT_DAILY_BONUSES);
 const avatarOptions = {
   sizes: [
     { key: "tiny", label: "Кроха" },
@@ -397,12 +383,28 @@ const navItems = [
 
 window.addEventListener("keydown", handleGlobalKeydown);
 
+preloadGameAssets();
 init();
+
+function preloadGameAssets() {
+  preloadImage("./assets/machine/lever-up.png");
+  preloadImage("./assets/machine/lever-down.png");
+}
+
+function preloadImage(src) {
+  try {
+    var image = new Image();
+    image.src = src;
+  } catch (error) {
+    console.warn("Asset preload skipped:", src, error);
+  }
+}
 
 async function init() {
   try {
     await loadManagedSpinImages();
     await loadManagedPayoutRules();
+    await loadManagedGameSettings();
     await loadCurrentUser();
     await ensureDailyLoginBonus();
   } catch (error) {
@@ -480,6 +482,39 @@ async function loadManagedPayoutRules() {
   } catch (error) {
     console.warn("Hamster payout rule load failed; using legacy fallback payouts.", error);
     applyPayoutRules(HAMSTER_DEFAULT_PAYOUT_RULES, "fallback");
+  }
+}
+
+async function loadManagedGameSettings() {
+  try {
+    var actor = {
+      id: "hamster-game",
+      role: "system"
+    };
+    var intent = gamesIntent.createLoadGameSettingsIntent(
+      actor,
+      {
+        storeId: COMPANY_ID,
+        gameId: "hamster-spin"
+      },
+      {
+        db: db,
+        storeId: COMPANY_ID,
+        gameId: "hamster-spin",
+        fallbackDailyLoginBonuses: HAMSTER_DEFAULT_DAILY_BONUSES,
+        source: "game"
+      }
+    );
+    var result = await pipeline.run(intent);
+
+    if (!result.ok) {
+      throw new Error(getResultErrorMessage(result));
+    }
+
+    loginBonusSchedule = normalizeDailyBonusSchedule(result.data.dailyLoginBonuses || HAMSTER_DEFAULT_DAILY_BONUSES);
+  } catch (error) {
+    console.warn("Hamster settings load failed; using legacy fallback settings.", error);
+    loginBonusSchedule = normalizeDailyBonusSchedule(HAMSTER_DEFAULT_DAILY_BONUSES);
   }
 }
 
@@ -635,6 +670,7 @@ function renderDailyCalendar() {
       </div>
       <div class="hg-daily-current">
         <span class="hg-daily-current-day">День ${currentDay}</span>
+        ${loginBonusSchedule[currentDay - 1] && loginBonusSchedule[currentDay - 1].imageUrl ? renderAssetImage(loginBonusSchedule[currentDay - 1].imageUrl, loginBonusSchedule[currentDay - 1].title, "hg-daily-current-img", "🎁") : ""}
         <strong>${escapeHtml(loginBonusSchedule[currentDay - 1]?.title || "Подарок")}</strong>
         <small>${todayClaimed ? "Сегодняшний приз уже добавлен в аккаунт." : "Этот приз ждёт вас сегодня."}</small>
       </div>
@@ -645,6 +681,7 @@ function renderDailyCalendar() {
           return `
             <div class="hg-daily-calendar-day ${claimed ? "hg-claimed" : ""} ${active ? "hg-active" : ""}">
               <span>День ${entry.day}</span>
+              ${entry.imageUrl ? renderAssetImage(entry.imageUrl, entry.title, "hg-daily-day-img", "🎁") : ""}
               <strong>${escapeHtml(entry.title)}</strong>
             </div>
           `;
@@ -916,7 +953,7 @@ function renderGameRewardStrip(dailyAvailable) {
       <button class="hg-button hg-strip-button" data-action="daily" ${dailyAvailable && !state.busy ? "" : "disabled"} type="button">Получить</button>
       <button class="hg-reward-strip-item hg-reward-strip-item--streak hg-strip-calendar" data-action="open-daily-calendar" type="button">
         <span class="hg-reward-strip-icon">🔥</span>
-        <span><strong>Серия входов</strong><small>День ${currentDay}/14</small></span>
+        <span><strong>Серия входов</strong><small>День ${currentDay}/${maxLoginBonusDays()}</small></span>
       </button>
     </div>
   `;
@@ -950,16 +987,16 @@ function renderLoginBonusCard() {
     <div class="hg-card hg-card-ribbon hg-login-bonus">
       <div class="hg-row">
         <div>
-          <strong>Бонус входа 14 дней</strong>
+          <strong>Бонус входа ${maxLoginBonusDays()} дней</strong>
         <div class="hg-muted">${todayClaimed ? "Сегодняшний подарок уже у вас." : "Новый подарок ждёт вас прямо сейчас."}</div>
       </div>
-        <span class="hg-status">День ${currentDay} / 14</span>
+        <span class="hg-status">День ${currentDay} / ${maxLoginBonusDays()}</span>
       </div>
       <div class="hg-login-bonus-track">
         ${loginBonusSchedule.map((entry) => {
           const claimed = claimedCount >= entry.day;
           const active = currentDay === entry.day;
-          return `<div class="hg-login-bonus-day ${claimed ? "hg-claimed" : ""} ${active ? "hg-active" : ""} ${entry.day === 14 ? "hg-grand" : ""}"><span>${entry.day}</span></div>`;
+          return `<div class="hg-login-bonus-day ${claimed ? "hg-claimed" : ""} ${active ? "hg-active" : ""} ${entry.day === maxLoginBonusDays() ? "hg-grand" : ""}"><span>${entry.day}</span></div>`;
         }).join("")}
       </div>
       <div class="hg-login-bonus-reward">
@@ -967,7 +1004,7 @@ function renderLoginBonusCard() {
           <div class="hg-kicker">Сегодняшний подарок</div>
           <div class="hg-login-bonus-title">${currentReward.title}</div>
         </div>
-        ${currentReward.day === 14 ? '<span class="hg-status">Большой бонус</span>' : ""}
+        ${currentReward.day === maxLoginBonusDays() ? '<span class="hg-status">Большой бонус</span>' : ""}
       </div>
       <div class="hg-login-bonus-notify">
         <div class="hg-muted">${notificationCopy}</div>
@@ -1863,11 +1900,74 @@ function defaultLoginBonus() {
 
 function normalizeLoginBonus(data) {
   const base = defaultLoginBonus();
+  const source = data || {};
   return {
-    day: Number.isInteger(data?.day) && data.day >= 0 && data.day <= 14 ? data.day : base.day,
-    lastClaimDate: typeof data?.lastClaimDate === "string" ? data.lastClaimDate : base.lastClaimDate,
-    longestStreak: Number.isInteger(data?.longestStreak) && data.longestStreak >= 0 ? data.longestStreak : base.longestStreak
+    day: Number.isInteger(source.day) && source.day >= 0 && source.day <= maxLoginBonusDays() ? source.day : base.day,
+    lastClaimDate: typeof source.lastClaimDate === "string" ? source.lastClaimDate : base.lastClaimDate,
+    longestStreak: Number.isInteger(source.longestStreak) && source.longestStreak >= 0 ? source.longestStreak : base.longestStreak
   };
+}
+
+function normalizeDailyBonusSchedule(records) {
+  var bonuses = [];
+  var index = 0;
+
+  while (index < records.length) {
+    var record = records[index] || {};
+    var day = isFinite(Number(record.day)) ? Number(record.day) : index + 1;
+
+    if (record.active !== false) {
+      bonuses.push({
+        day: day,
+        title: record.title || "Day " + day,
+        imageUrl: record.imageUrl || "",
+        spins: isFinite(Number(record.spins)) ? Math.max(0, Number(record.spins)) : 0,
+        seeds: normalizeBonusSeeds(record.seeds || {}),
+        active: true,
+        sortOrder: isFinite(Number(record.sortOrder)) ? Number(record.sortOrder) : day * 10
+      });
+    }
+
+    index = index + 1;
+  }
+
+  if (!bonuses.length) {
+    return normalizeDailyBonusSchedule(HAMSTER_DEFAULT_DAILY_BONUSES);
+  }
+
+  return bonuses.sort(compareDailyBonusEntries);
+}
+
+function normalizeBonusSeeds(seeds) {
+  return {
+    poppy: safeBonusAmount(seeds.poppy),
+    sesame: safeBonusAmount(seeds.sesame),
+    almond: safeBonusAmount(seeds.almond),
+    walnut: safeBonusAmount(seeds.walnut)
+  };
+}
+
+function safeBonusAmount(value) {
+  return isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
+}
+
+function compareDailyBonusEntries(a, b) {
+  var left = typeof a.sortOrder === "number" ? a.sortOrder : a.day;
+  var right = typeof b.sortOrder === "number" ? b.sortOrder : b.day;
+
+  if (left < right) {
+    return -1;
+  }
+
+  if (left > right) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function maxLoginBonusDays() {
+  return Math.max(1, loginBonusSchedule.length);
 }
 
 function defaultAvatar() {
@@ -2415,7 +2515,7 @@ function nextLoginBonusDay(loginBonus) {
   if (!loginBonus?.lastClaimDate) return 1;
   if (loginBonus.lastClaimDate === today) return Math.max(1, loginBonus.day || 1);
   if (loginBonus.lastClaimDate === yesterday) {
-    return (loginBonus.day || 0) >= 14 ? 1 : (loginBonus.day || 0) + 1;
+    return (loginBonus.day || 0) >= maxLoginBonusDays() ? 1 : (loginBonus.day || 0) + 1;
   }
   return 1;
 }

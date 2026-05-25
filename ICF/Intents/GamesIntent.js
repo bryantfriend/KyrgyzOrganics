@@ -29,6 +29,18 @@ function createLoadGameConfigIntent(actor, payload, options) {
   return createGamesIntent("LoadGameConfigIntent", actor, payload, options);
 }
 
+function createLoadGameSettingsIntent(actor, payload, options) {
+  return createGamesIntent("LoadGameSettingsIntent", actor, payload, options);
+}
+
+function createSaveDailyLoginBonusesIntent(actor, payload, options) {
+  return createGamesIntent("SaveDailyLoginBonusesIntent", actor, payload, options);
+}
+
+function createLoadGameAnalyticsIntent(actor, payload, options) {
+  return createGamesIntent("LoadGameAnalyticsIntent", actor, payload, options);
+}
+
 function createLoadSpinImagesIntent(actor, payload, options) {
   return createGamesIntent("LoadSpinImagesIntent", actor, payload, options);
 }
@@ -83,6 +95,7 @@ function createGamesIntent(type, actor, payload, options) {
       availableGames: safeOptions.availableGames || getDefaultGames(),
       fallbackImages: safeOptions.fallbackImages || [],
       fallbackPayoutRules: safeOptions.fallbackPayoutRules || getDefaultPayoutRules(),
+      fallbackDailyLoginBonuses: safeOptions.fallbackDailyLoginBonuses || getDefaultDailyLoginBonuses(),
       minActiveImages: safeOptions.minActiveImages || MIN_SPIN_IMAGES,
       payouts: safeOptions.payouts || getDefaultPayouts(),
       source: safeOptions.source || "admin"
@@ -168,7 +181,15 @@ function validateGamesPayload(intent) {
     errors.push("Payout rule id is required.");
   }
 
-  if ((intent.type === "LoadSpinImagesIntent" || intent.type === "AddSpinImageIntent" || intent.type === "RemoveSpinImageIntent" || intent.type === "LoadGameConfigIntent" || intent.type === "LoadPayoutRulesIntent" || isPayoutWriteIntent(intent.type)) && !intent.context.db) {
+  if (intent.type === "SaveDailyLoginBonusesIntent" && !Array.isArray(payload.dailyLoginBonuses)) {
+    errors.push("dailyLoginBonuses must be a list.");
+  }
+
+  if (intent.type === "SaveDailyLoginBonusesIntent") {
+    validateDailyLoginBonuses(errors, payload.dailyLoginBonuses || []);
+  }
+
+  if ((intent.type === "LoadSpinImagesIntent" || intent.type === "AddSpinImageIntent" || intent.type === "RemoveSpinImageIntent" || intent.type === "LoadGameConfigIntent" || intent.type === "LoadGameSettingsIntent" || intent.type === "SaveDailyLoginBonusesIntent" || intent.type === "LoadGameAnalyticsIntent" || intent.type === "LoadPayoutRulesIntent" || isPayoutWriteIntent(intent.type)) && !intent.context.db) {
     errors.push("Firestore database context is required.");
   }
 
@@ -247,6 +268,10 @@ function normalizeGamesPayload(intent) {
     normalized.payoutAmount = Number(payload.payoutAmount);
   }
 
+  if (Array.isArray(payload.dailyLoginBonuses)) {
+    normalized.dailyLoginBonuses = normalizeDailyLoginBonuses(payload.dailyLoginBonuses);
+  }
+
   intent.payload = normalized;
   intent.context.storeId = normalized.storeId;
   intent.context.gameId = normalized.gameId;
@@ -266,9 +291,16 @@ async function addGamesContext(intent) {
   context.spinImagesCollectionRef = collection(context.db, "stores", payload.storeId, "games", payload.gameId, "spinImages");
   context.payoutRulesCollectionRef = collection(context.db, "stores", payload.storeId, "games", payload.gameId, "payouts");
 
-  if (intent.type === "LoadGameConfigIntent") {
+  if (intent.type === "LoadGameConfigIntent" || intent.type === "LoadGameSettingsIntent" || intent.type === "SaveDailyLoginBonusesIntent") {
     context.settingsSnapshot = await getDoc(context.settingsRef);
     context.spinImages = await loadSpinImageRecords(context.spinImagesCollectionRef, false);
+  }
+
+  if (intent.type === "LoadGameAnalyticsIntent") {
+    context.customersSnapshot = await getDocs(collection(context.db, "individual_customers"));
+    context.spinImages = await loadSpinImageRecords(context.spinImagesCollectionRef, false);
+    context.payoutRules = await loadPayoutRuleRecords(context.payoutRulesCollectionRef, false);
+    context.settingsSnapshot = await getDoc(context.settingsRef);
   }
 
   if (intent.type === "LoadSpinImagesIntent") {
@@ -302,8 +334,9 @@ function authorizeGamesActor(intent) {
   var source = intent.context && intent.context.source ? intent.context.source : "admin";
   var readOnlyGameLoad = source === "game" && intent.type === "LoadSpinImagesIntent";
   var readOnlyPayoutLoad = source === "game" && intent.type === "LoadPayoutRulesIntent";
+  var readOnlySettingsLoad = source === "game" && intent.type === "LoadGameSettingsIntent";
 
-  if ((readOnlyGameLoad || readOnlyPayoutLoad) && (role === "system" || role === "admin" || role === "superadmin")) {
+  if ((readOnlyGameLoad || readOnlyPayoutLoad || readOnlySettingsLoad) && (role === "system" || role === "admin" || role === "superadmin")) {
     return {
       ok: true,
       intent: intent
@@ -335,6 +368,18 @@ async function processGamesIntent(intent) {
 
   if (intent.type === "LoadGameConfigIntent") {
     return processLoadGameConfig(intent);
+  }
+
+  if (intent.type === "LoadGameSettingsIntent") {
+    return processLoadGameSettings(intent);
+  }
+
+  if (intent.type === "SaveDailyLoginBonusesIntent") {
+    return processSaveDailyLoginBonuses(intent);
+  }
+
+  if (intent.type === "LoadGameAnalyticsIntent") {
+    return processLoadGameAnalytics(intent);
   }
 
   if (intent.type === "LoadSpinImagesIntent") {
@@ -432,6 +477,66 @@ function processLoadGameConfig(intent) {
     spinImages: applyManagedOrFallback(intent.context.spinImages, intent.context.fallbackImages, intent.context.minActiveImages),
     activeCount: countActiveImages(intent.context.spinImages),
     minActiveImages: intent.context.minActiveImages
+  };
+
+  return {
+    ok: true,
+    intent: intent
+  };
+}
+
+function processLoadGameSettings(intent) {
+  var settings = {};
+  var dailyLoginBonuses;
+
+  if (intent.context.settingsSnapshot && intent.context.settingsSnapshot.exists()) {
+    settings = intent.context.settingsSnapshot.data() || {};
+  }
+
+  dailyLoginBonuses = Array.isArray(settings.dailyLoginBonuses)
+    ? normalizeDailyLoginBonuses(settings.dailyLoginBonuses)
+    : normalizeDailyLoginBonuses(intent.context.fallbackDailyLoginBonuses);
+
+  intent.context.resultData = {
+    storeId: intent.payload.storeId,
+    gameId: intent.payload.gameId,
+    settings: settings,
+    dailyLoginBonuses: dailyLoginBonuses,
+    source: Array.isArray(settings.dailyLoginBonuses) ? "firestore" : "fallback"
+  };
+
+  return {
+    ok: true,
+    intent: intent
+  };
+}
+
+async function processSaveDailyLoginBonuses(intent) {
+  await setDoc(intent.context.settingsRef, {
+    storeId: intent.payload.storeId,
+    gameId: intent.payload.gameId,
+    dailyLoginBonuses: intent.payload.dailyLoginBonuses,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+
+  intent.context.resultData = {
+    saved: true,
+    dailyLoginBonuses: intent.payload.dailyLoginBonuses
+  };
+
+  return {
+    ok: true,
+    intent: intent
+  };
+}
+
+function processLoadGameAnalytics(intent) {
+  var analytics = buildGameAnalytics(intent);
+
+  intent.context.resultData = {
+    storeId: intent.payload.storeId,
+    gameId: intent.payload.gameId,
+    analytics: analytics
   };
 
   return {
@@ -992,6 +1097,149 @@ function buildPayoutLabel(amount, rewardType) {
   return String(safeAmount) + " " + safeType;
 }
 
+function validateDailyLoginBonuses(errors, bonuses) {
+  var index = 0;
+
+  while (index < bonuses.length) {
+    var bonus = bonuses[index] || {};
+    var label = "Daily login bonus " + String(index + 1) + ": ";
+
+    if (!isFinite(Number(bonus.day)) || Number(bonus.day) <= 0) {
+      errors.push(label + "day must be a positive number.");
+    }
+
+    if (!bonus.title || typeof bonus.title !== "string") {
+      errors.push(label + "title is required.");
+    }
+
+    if (bonus.spins !== undefined && (!isFinite(Number(bonus.spins)) || Number(bonus.spins) < 0)) {
+      errors.push(label + "spins must be a non-negative number.");
+    }
+
+    validateSeedAmount(errors, bonus, "poppy", label);
+    validateSeedAmount(errors, bonus, "sesame", label);
+    validateSeedAmount(errors, bonus, "almond", label);
+    validateSeedAmount(errors, bonus, "walnut", label);
+
+    index = index + 1;
+  }
+}
+
+function validateSeedAmount(errors, bonus, key, label) {
+  if (bonus.seeds && bonus.seeds[key] !== undefined && (!isFinite(Number(bonus.seeds[key])) || Number(bonus.seeds[key]) < 0)) {
+    errors.push(label + key + " must be a non-negative number.");
+  }
+}
+
+function normalizeDailyLoginBonuses(bonuses) {
+  var normalized = [];
+  var index = 0;
+
+  while (index < bonuses.length) {
+    var bonus = bonuses[index] || {};
+    var day = isFinite(Number(bonus.day)) ? Number(bonus.day) : index + 1;
+    var spins = isFinite(Number(bonus.spins)) ? Number(bonus.spins) : 0;
+    var seeds = bonus.seeds || {};
+
+    normalized.push({
+      day: day,
+      title: typeof bonus.title === "string" ? bonus.title.trim() : "Day " + String(day),
+      imageUrl: typeof bonus.imageUrl === "string" ? bonus.imageUrl.trim() : "",
+      spins: Math.max(0, spins),
+      seeds: {
+        poppy: getSafeSeedAmount(seeds, "poppy"),
+        sesame: getSafeSeedAmount(seeds, "sesame"),
+        almond: getSafeSeedAmount(seeds, "almond"),
+        walnut: getSafeSeedAmount(seeds, "walnut")
+      },
+      active: bonus.active !== false,
+      sortOrder: isFinite(Number(bonus.sortOrder)) ? Number(bonus.sortOrder) : day * 10
+    });
+
+    index = index + 1;
+  }
+
+  return normalized.sort(compareDailyLoginBonuses);
+}
+
+function getSafeSeedAmount(seeds, key) {
+  var amount = seeds && isFinite(Number(seeds[key])) ? Number(seeds[key]) : 0;
+  return Math.max(0, amount);
+}
+
+function compareDailyLoginBonuses(a, b) {
+  var left = typeof a.sortOrder === "number" ? a.sortOrder : a.day;
+  var right = typeof b.sortOrder === "number" ? b.sortOrder : b.day;
+
+  if (left < right) {
+    return -1;
+  }
+
+  if (left > right) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function buildGameAnalytics(intent) {
+  var docs = intent.context.customersSnapshot ? intent.context.customersSnapshot.docs : [];
+  var stats = {
+    totalPlayers: docs.length,
+    totalSpins: 0,
+    totalWins: 0,
+    totalRewards: 0,
+    pendingRewards: 0,
+    activeSpinPictures: countActiveImages(intent.context.spinImages || []),
+    activePayoutRules: getActivePayoutRules(intent.context.payoutRules || []).length,
+    dailyBonusDays: 0,
+    seedBankValue: 0,
+    longestStreak: 0
+  };
+  var index = 0;
+
+  if (intent.context.settingsSnapshot && intent.context.settingsSnapshot.exists()) {
+    var settings = intent.context.settingsSnapshot.data() || {};
+    stats.dailyBonusDays = Array.isArray(settings.dailyLoginBonuses) ? settings.dailyLoginBonuses.length : 0;
+  }
+
+  while (index < docs.length) {
+    addCustomerAnalytics(stats, docs[index].data() || {});
+    index = index + 1;
+  }
+
+  return stats;
+}
+
+function addCustomerAnalytics(stats, customer) {
+  var customerStats = customer.stats || {};
+  var rewards = Array.isArray(customer.rewards) ? customer.rewards : [];
+  var seeds = customer.seeds || {};
+  var loginBonus = customer.loginBonus || {};
+  var index = 0;
+
+  stats.totalSpins = stats.totalSpins + safeNumber(customerStats.totalSpins);
+  stats.totalWins = stats.totalWins + safeNumber(customerStats.totalWins);
+  stats.totalRewards = stats.totalRewards + rewards.length;
+  stats.seedBankValue = stats.seedBankValue
+    + safeNumber(seeds.poppy)
+    + safeNumber(seeds.sesame) * 5
+    + safeNumber(seeds.almond) * 50
+    + safeNumber(seeds.walnut) * 1000;
+  stats.longestStreak = Math.max(stats.longestStreak, safeNumber(loginBonus.longestStreak));
+
+  while (index < rewards.length) {
+    if (rewards[index] && rewards[index].status === "pending_approval") {
+      stats.pendingRewards = stats.pendingRewards + 1;
+    }
+    index = index + 1;
+  }
+}
+
+function safeNumber(value) {
+  return isFinite(Number(value)) ? Number(value) : 0;
+}
+
 function getDefaultGames() {
   return [
     {
@@ -1060,10 +1308,32 @@ function getDefaultPayoutRules() {
   ];
 }
 
+function getDefaultDailyLoginBonuses() {
+  return [
+    { day: 1, spins: 1, seeds: {}, title: "1 вращение", imageUrl: "./assets/seeds/seed-poppy.png", active: true, sortOrder: 10 },
+    { day: 2, spins: 0, seeds: { poppy: 10 }, title: "10 маковых семян", imageUrl: "./assets/seeds/seed-poppy.png", active: true, sortOrder: 20 },
+    { day: 3, spins: 0, seeds: { sesame: 1 }, title: "1 кунжутное семя", imageUrl: "./assets/seeds/seed-sesame.png", active: true, sortOrder: 30 },
+    { day: 4, spins: 2, seeds: {}, title: "2 вращения", imageUrl: "./assets/seeds/seed-poppy.png", active: true, sortOrder: 40 },
+    { day: 5, spins: 0, seeds: { poppy: 25 }, title: "25 маковых семян", imageUrl: "./assets/seeds/seed-poppy.png", active: true, sortOrder: 50 },
+    { day: 6, spins: 0, seeds: { sesame: 1 }, title: "1 кунжутное семя", imageUrl: "./assets/seeds/seed-sesame.png", active: true, sortOrder: 60 },
+    { day: 7, spins: 0, seeds: { almond: 1 }, title: "1 миндальное семя", imageUrl: "./assets/seeds/seed-almond.png", active: true, sortOrder: 70 },
+    { day: 8, spins: 3, seeds: {}, title: "3 вращения", imageUrl: "./assets/seeds/seed-poppy.png", active: true, sortOrder: 80 },
+    { day: 9, spins: 0, seeds: { poppy: 40 }, title: "40 маковых семян", imageUrl: "./assets/seeds/seed-poppy.png", active: true, sortOrder: 90 },
+    { day: 10, spins: 0, seeds: { sesame: 2 }, title: "2 кунжутных семени", imageUrl: "./assets/seeds/seed-sesame.png", active: true, sortOrder: 100 },
+    { day: 11, spins: 4, seeds: {}, title: "4 вращения", imageUrl: "./assets/seeds/seed-poppy.png", active: true, sortOrder: 110 },
+    { day: 12, spins: 0, seeds: { almond: 1 }, title: "1 миндальное семя", imageUrl: "./assets/seeds/seed-almond.png", active: true, sortOrder: 120 },
+    { day: 13, spins: 2, seeds: { poppy: 75 }, title: "75 маковых семян и 2 вращения", imageUrl: "./assets/seeds/seed-poppy.png", active: true, sortOrder: 130 },
+    { day: 14, spins: 10, seeds: { sesame: 5, walnut: 1 }, title: "Грецкий орех, 5 кунжутных семян и 10 вращений", imageUrl: "./assets/seeds/seed-walnut.png", active: true, sortOrder: 140 }
+  ];
+}
+
 export {
   createOpenGamesDashboardIntent,
   createOpenGameDetailIntent,
   createLoadGameConfigIntent,
+  createLoadGameSettingsIntent,
+  createSaveDailyLoginBonusesIntent,
+  createLoadGameAnalyticsIntent,
   createLoadSpinImagesIntent,
   createAddSpinImageIntent,
   createRemoveSpinImageIntent,
@@ -1080,6 +1350,9 @@ export default {
   createOpenGamesDashboardIntent: createOpenGamesDashboardIntent,
   createOpenGameDetailIntent: createOpenGameDetailIntent,
   createLoadGameConfigIntent: createLoadGameConfigIntent,
+  createLoadGameSettingsIntent: createLoadGameSettingsIntent,
+  createSaveDailyLoginBonusesIntent: createSaveDailyLoginBonusesIntent,
+  createLoadGameAnalyticsIntent: createLoadGameAnalyticsIntent,
   createLoadSpinImagesIntent: createLoadSpinImagesIntent,
   createAddSpinImageIntent: createAddSpinImageIntent,
   createRemoveSpinImageIntent: createRemoveSpinImageIntent,
