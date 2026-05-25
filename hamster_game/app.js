@@ -10,12 +10,16 @@ import {
   updateDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { COMPANY_ID } from "../company-config.js";
+import pipeline from "../ICF/engine/pipeline.js";
+import gamesIntent from "../ICF/Intents/GamesIntent.js";
+import { HAMSTER_DEFAULT_SPIN_IMAGES, HAMSTER_SPIN_MIN_IMAGES } from "./spin-image-defaults.js";
 
 const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.09";
+const APP_VERSION = "1.10";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
 const NOTIFICATION_LAST_BONUS_KEY = "hg_bonus_notification_date";
@@ -148,36 +152,107 @@ const seedMeta = {
   walnut: { name: "Грецкие орехи", short: "Грецкий орех", value: 1000, icon: "🥜", fallback: "🥜", img: "./assets/seeds/seed-walnut.png" }
 };
 
-const SLOT_SYMBOLS = [
-  { key: "bread", label: "Хлеб", img: "./assets/symbols/symbol-bread-classic.png", fallback: "🍞" },
-  { key: "croissant", label: "Круассан", img: "./assets/rewards/reward-bread-long.png", fallback: "🥐" },
-  { key: "cookie", label: "Печенье", img: "./assets/symbols/symbol-chocolate-cookies.png", fallback: "🍪" },
-  { key: "wheat", label: "Пшеница", img: "./assets/decor/wheat-bundle.png", fallback: "🌾" },
-  { key: "milk", label: "Молоко", img: null, fallback: "🥛" },
-  { key: "cheese", label: "Сыр", img: null, fallback: "🧀" },
-  { key: "star", label: "Звезда", img: "./assets/symbols/symbol-star-cookies.png", fallback: "⭐" },
-  { key: "walnut", label: "Грецкий орех", img: "./assets/seeds/seed-walnut.png", fallback: "🥜" }
-];
+let SLOT_SYMBOLS = buildSlotSymbols(HAMSTER_DEFAULT_SPIN_IMAGES);
+let slotSymbolByKey = buildSlotSymbolByKey(SLOT_SYMBOLS);
+let symbols = buildSymbolKeys(SLOT_SYMBOLS);
 
-const slotSymbolByKey = Object.fromEntries(SLOT_SYMBOLS.map((symbol) => [symbol.key, symbol]));
-const symbols = SLOT_SYMBOLS.map((symbol) => symbol.key);
+function buildSlotSymbols(records) {
+  var nextSymbols = [];
+  var index = 0;
+
+  while (index < records.length) {
+    var record = records[index] || {};
+    var imageUrl = record.imageUrl || record.img || "";
+    var id = record.id || record.key || "spin_" + index;
+
+    if (record.active !== false && imageUrl) {
+      nextSymbols.push({
+        key: String(id),
+        label: record.label || record.name || "Spin picture",
+        img: imageUrl,
+        fallback: record.fallback || "🎁"
+      });
+    }
+
+    index = index + 1;
+  }
+
+  return nextSymbols;
+}
+
+function buildSlotSymbolByKey(symbolList) {
+  var map = {};
+  var index = 0;
+
+  while (index < symbolList.length) {
+    map[symbolList[index].key] = symbolList[index];
+    index = index + 1;
+  }
+
+  return map;
+}
+
+function buildSymbolKeys(symbolList) {
+  var keys = [];
+  var index = 0;
+
+  while (index < symbolList.length) {
+    keys.push(symbolList[index].key);
+    index = index + 1;
+  }
+
+  return keys;
+}
+
+function applySpinImages(records, source) {
+  var nextSymbols = buildSlotSymbols(records);
+
+  if (nextSymbols.length < HAMSTER_SPIN_MIN_IMAGES) {
+    nextSymbols = buildSlotSymbols(HAMSTER_DEFAULT_SPIN_IMAGES);
+    source = "fallback";
+  }
+
+  // Spin images are loaded from Firestore when possible, with the legacy four
+  // pictures kept as a safe fallback so spinning mode never starts underfilled.
+  SLOT_SYMBOLS = nextSymbols;
+  slotSymbolByKey = buildSlotSymbolByKey(SLOT_SYMBOLS);
+  symbols = buildSymbolKeys(SLOT_SYMBOLS);
+  state.spinImagesSource = source || "fallback";
+  state.resultSymbols = normalizeResultSymbols(state.resultSymbols);
+}
+
+function normalizeResultSymbols(currentSymbols) {
+  var nextSymbols = [];
+  var index = 0;
+
+  while (index < 3) {
+    if (currentSymbols && slotSymbolByKey[currentSymbols[index]]) {
+      nextSymbols.push(currentSymbols[index]);
+    } else {
+      nextSymbols.push(symbols[index % symbols.length]);
+    }
+    index = index + 1;
+  }
+
+  return nextSymbols;
+}
+
+function hasMinimumSpinPictures() {
+  return symbols.length >= HAMSTER_SPIN_MIN_IMAGES;
+}
 
 const rewardRules = {
   bread: { two: { poppy: 5 }, three: { poppy: 25 } },
-  croissant: { two: { sesame: 1 }, three: { sesame: 3 } },
-  cookie: { two: { sesame: 1 }, three: { sesame: 5 } },
-  wheat: { two: { poppy: 10 }, three: { poppy: 75 } },
-  milk: { two: { sesame: 1 }, three: { sesame: 2 } },
-  cheese: { two: { poppy: 10 }, three: { almond: 1 } },
-  star: { two: { almond: 1 }, three: { almond: 2 } },
-  walnut: { two: { poppy: 25 }, three: { walnut: 1 } }
+  loaf: { two: { sesame: 1 }, three: { sesame: 5 } },
+  cookie: { two: { poppy: 10 }, three: { almond: 1 } },
+  chocolateCookie: { two: { sesame: 1 }, three: { almond: 2 } }
 };
 
 const winLadder = [
   { title: "Малый приз", pattern: "2 одинаковых", symbols: ["bread", "bread"], prize: { poppy: 5 }, tone: "small" },
-  { title: "Семенная выпечка", pattern: "3 хлеба или пшеницы", symbols: ["bread", "bread", "bread"], prize: { poppy: 25 }, tone: "seed" },
-  { title: "Звёздная партия", pattern: "3 звезды", symbols: ["star", "star", "star"], prize: { almond: 2 }, tone: "star" },
-  { title: "Ореховый джекпот", pattern: "3 ореха", symbols: ["walnut", "walnut", "walnut"], prize: { walnut: 1 }, tone: "jackpot" }
+  { title: "Буханки", pattern: "3 хлебные буханки", symbols: ["loaf", "loaf", "loaf"], prize: { sesame: 5 }, tone: "seed" },
+  { title: "Печенье", pattern: "3 звёздных печенья", symbols: ["cookie", "cookie", "cookie"], prize: { almond: 1 }, tone: "star" },
+  { title: "Шоколадный джекпот", pattern: "3 шоколадных печенья", symbols: ["chocolateCookie", "chocolateCookie", "chocolateCookie"], prize: { almond: 2 }, tone: "jackpot" }
 ];
 
 const storeItems = [
@@ -222,8 +297,8 @@ const taskMeta = {
   shareGame: { title: "Позовите гостей", subtitle: "Поделитесь игрой с друзьями", icon: "📣", rewardSpins: 1, action: "share" },
   visitWebsite: { title: "Проверьте лавку", subtitle: "Загляните на сайт Kyrgyz Organic", icon: "🏪", rewardSpins: 1, action: "site" },
   inviteFriend: { title: "Откройте вторую кассу", subtitle: "Пригласите друга в пекарню", icon: "🎟️", rewardSpins: 2, action: "invite" },
-  scanQr: { title: "Отметьте покупку", subtitle: "Сканируйте QR в магазине", icon: "📷", rewardSpins: 2, action: "placeholder" },
-  enterReceiptCode: { title: "Принесите чек пекарю", subtitle: "Введите код с чека", icon: "🧾", rewardSpins: 3, action: "receipt" }
+  scanQr: { title: "QR после покупки хлеба", subtitle: "После настройки магазинов сотрудник сможет выдавать QR-код за покупку", icon: "📷", rewardSpins: 2, action: "placeholder", disabled: true },
+  enterReceiptCode: { title: "Проверка покупки", subtitle: "Обычные чеки магазинов пока не подходят для автоматической выдачи вращений", icon: "🧾", rewardSpins: 3, action: "placeholder", disabled: true }
 };
 
 const recentWins = [
@@ -247,10 +322,14 @@ let state = {
   busy: false,
   message: "",
   error: "",
-  resultSymbols: ["bread", "wheat", "milk"],
+  resultSymbols: ["bread", "loaf", "cookie"],
   lastRewardKeys: ["poppy"],
   resultMessage: "Хомяк ждёт вашего первого вращения 🎰",
   spinning: false,
+  spinImagesSource: "fallback",
+  winLadderOpen: false,
+  dailyCalendarOpen: false,
+  dailyCalendarDay: null,
   toasts: []
 };
 
@@ -264,10 +343,13 @@ const navItems = [
   { key: "account", icon: "👤", label: "Аккаунт" }
 ];
 
+window.addEventListener("keydown", handleGlobalKeydown);
+
 init();
 
 async function init() {
   try {
+    await loadManagedSpinImages();
     await loadCurrentUser();
     await ensureDailyLoginBonus();
   } catch (error) {
@@ -276,6 +358,41 @@ async function init() {
   } finally {
     state.loading = false;
     render();
+  }
+}
+
+async function loadManagedSpinImages() {
+  try {
+    var actor = {
+      id: "hamster-game",
+      role: "system"
+    };
+    var intent = gamesIntent.createLoadSpinImagesIntent(
+      actor,
+      {
+        storeId: COMPANY_ID,
+        gameId: "hamster-spin",
+        includeInactive: false
+      },
+      {
+        db: db,
+        storeId: COMPANY_ID,
+        gameId: "hamster-spin",
+        fallbackImages: HAMSTER_DEFAULT_SPIN_IMAGES,
+        minActiveImages: HAMSTER_SPIN_MIN_IMAGES,
+        source: "game"
+      }
+    );
+    var result = await pipeline.run(intent);
+
+    if (!result.ok) {
+      throw new Error(getResultErrorMessage(result));
+    }
+
+    applySpinImages(result.data.images || [], result.data.source);
+  } catch (error) {
+    console.warn("Hamster spin image load failed; using legacy fallback images.", error);
+    applySpinImages(HAMSTER_DEFAULT_SPIN_IMAGES, "fallback");
   }
 }
 
@@ -306,6 +423,7 @@ function renderShell() {
     ${state.error ? `<div class="hg-card hg-error">${state.error}</div>` : ""}
     ${renderActiveScreen()}
     ${renderBottomNav()}
+    ${renderModals()}
   `;
 }
 
@@ -318,7 +436,7 @@ function renderAssetImage(src, alt, className = "", fallback = "", loading = "la
   const failHandler = fallback ? ` onerror="this.hidden=true;this.nextElementSibling.hidden=false"` : ` onerror="this.hidden=true"`;
   return `
     <span class="hg-img-shell">
-      <img class="hg-img ${className}" src="${src}" alt="${safeAlt}" loading="${loading}"${failHandler}>
+      <img class="hg-img ${className}" src="${src}" alt="${safeAlt}" loading="${loading}" decoding="async"${failHandler}>
       ${fallbackMarkup}
     </span>
   `;
@@ -330,7 +448,7 @@ function renderSeedImage(key, modifier = "", includeFallback = true) {
 }
 
 function renderSlotSymbol(symbolKey) {
-  const symbol = slotSymbolByKey[symbolKey] || slotSymbolByKey.bread;
+  const symbol = slotSymbolByKey[symbolKey] || SLOT_SYMBOLS[0];
   return `
     <span class="hg-symbol-frame" data-symbol="${symbol.key}" aria-label="${escapeHtml(symbol.label)}">
       ${renderAssetImage(symbol.img, symbol.label, "hg-symbol-img", symbol.fallback, "eager")}
@@ -339,7 +457,7 @@ function renderSlotSymbol(symbolKey) {
 }
 
 function renderWinLadderSymbol(symbolKey) {
-  const symbol = slotSymbolByKey[symbolKey] || slotSymbolByKey.bread;
+  const symbol = slotSymbolByKey[symbolKey] || SLOT_SYMBOLS[0];
   return `
     <span class="hg-win-ladder-symbol" aria-label="${escapeHtml(symbol.label)}">
       ${renderAssetImage(symbol.img, symbol.label, "hg-win-ladder-img", symbol.fallback)}
@@ -348,23 +466,132 @@ function renderWinLadderSymbol(symbolKey) {
 }
 
 function renderWinLadder() {
+  var rows = getPayoutRows();
+  var rowMarkup = "";
+  var index = 0;
+
+  while (index < rows.length) {
+    var row = rows[index];
+    rowMarkup += `
+          <div class="hg-win-ladder-tier hg-win-ladder-tier--${row.tone}">
+            <div class="hg-win-ladder-combo">${renderRepeatedWinSymbols(row.symbolKey, row.count)}</div>
+            <div class="hg-win-ladder-copy">
+              <strong>${escapeHtml(row.title)}</strong>
+              <span>${escapeHtml(row.pattern)}</span>
+            </div>
+            <div class="hg-win-ladder-prize">${formatCost(row.prize)}</div>
+          </div>
+    `;
+    index = index + 1;
+  }
+
   return `
     <div class="hg-win-ladder" aria-label="Таблица выигрышей">
       <div class="hg-win-ladder-head">
-        <span>Выигрышная линия</span>
-        <strong>Призы</strong>
+        <span>Линия</span>
+        <strong>Награда</strong>
       </div>
       <div class="hg-win-ladder-list">
-        ${winLadder.map((tier) => `
-          <div class="hg-win-ladder-tier hg-win-ladder-tier--${tier.tone}">
-            <div class="hg-win-ladder-combo">${tier.symbols.map(renderWinLadderSymbol).join("")}</div>
-            <div class="hg-win-ladder-copy">
-              <strong>${escapeHtml(tier.title)}</strong>
-              <span>${escapeHtml(tier.pattern)}</span>
+        ${rowMarkup}
+      </div>
+    </div>
+  `;
+}
+
+function getPayoutRows() {
+  var rows = [];
+  var index = 0;
+
+  while (index < SLOT_SYMBOLS.length) {
+    var symbol = SLOT_SYMBOLS[index];
+    var rule = getRewardRule(symbol.key);
+
+    rows.push({
+      symbolKey: symbol.key,
+      count: 2,
+      title: "Две одинаковые картинки",
+      pattern: symbol.label,
+      prize: rule.two,
+      tone: "small"
+    });
+
+    rows.push({
+      symbolKey: symbol.key,
+      count: 3,
+      title: "Три одинаковые картинки",
+      pattern: symbol.label,
+      prize: rule.three,
+      tone: rewardValue(rule.three) >= 50 ? "star" : "seed"
+    });
+
+    index = index + 1;
+  }
+
+  return rows;
+}
+
+function renderRepeatedWinSymbols(symbolKey, count) {
+  var markup = "";
+  var index = 0;
+
+  while (index < count) {
+    markup += renderWinLadderSymbol(symbolKey);
+    index = index + 1;
+  }
+
+  return markup;
+}
+
+function renderDailyCalendar() {
+  const bonusState = state.user?.loginBonus || defaultLoginBonus();
+  const todayClaimed = bonusState.lastClaimDate === todayKey();
+  const currentDay = state.dailyCalendarDay || (todayClaimed ? Math.max(1, bonusState.day || 1) : nextLoginBonusDay(bonusState));
+  const claimedCount = todayClaimed ? Math.max(0, bonusState.day || 0) : Math.max(0, (bonusState.day || 0) - 1);
+  return `
+    <div class="hg-daily-calendar">
+      <div class="hg-modal-head">
+        <div>
+          <div class="hg-kicker">Календарь подарков</div>
+          <h2 class="hg-section-title">Ваш ежедневный приз</h2>
+        </div>
+        <button class="hg-icon-button" data-action="close-modal" type="button" aria-label="Закрыть">×</button>
+      </div>
+      <div class="hg-daily-current">
+        <span class="hg-daily-current-day">День ${currentDay}</span>
+        <strong>${escapeHtml(loginBonusSchedule[currentDay - 1]?.title || "Подарок")}</strong>
+        <small>${todayClaimed ? "Сегодняшний приз уже добавлен в аккаунт." : "Этот приз ждёт вас сегодня."}</small>
+      </div>
+      <div class="hg-daily-calendar-grid">
+        ${loginBonusSchedule.map((entry) => {
+          const claimed = claimedCount >= entry.day;
+          const active = currentDay === entry.day;
+          return `
+            <div class="hg-daily-calendar-day ${claimed ? "hg-claimed" : ""} ${active ? "hg-active" : ""}">
+              <span>День ${entry.day}</span>
+              <strong>${escapeHtml(entry.title)}</strong>
             </div>
-            <div class="hg-win-ladder-prize">${formatCost(tier.prize)}</div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderModals() {
+  if (!state.winLadderOpen && !state.dailyCalendarOpen) return "";
+  return `
+    <div class="hg-modal-backdrop" role="presentation">
+      <div class="hg-modal" role="dialog" aria-modal="true">
+        ${state.winLadderOpen ? `
+          <div class="hg-modal-head">
+            <div>
+              <div class="hg-kicker">Награды автомата</div>
+              <h2 class="hg-section-title">Подарки за картинки</h2>
+            </div>
+            <button class="hg-icon-button" data-action="close-modal" type="button" aria-label="Закрыть">×</button>
           </div>
-        `).join("")}
+          ${renderWinLadder()}
+        ` : renderDailyCalendar()}
       </div>
     </div>
   `;
@@ -374,7 +601,7 @@ function renderStoreArt(item) {
   if (item.badge) {
     return `<span class="hg-reward-badge" aria-label="${escapeHtml(item.name)}">${escapeHtml(item.badge)}</span>`;
   }
-  return renderAssetImage(item.img || null, item.name, "hg-reward-img", item.icon || "🎁");
+  return renderAssetImage(item.img || null, item.name, "hg-reward-img", item.icon || "🎁", "eager");
 }
 
 function renderStoreVariants(item) {
@@ -518,7 +745,7 @@ function renderGame() {
             ${state.resultSymbols.map((symbol) => `<div class="hg-reel ${state.spinning ? "hg-spinning" : ""}"><span class="hg-reel-symbol">${renderSlotSymbol(symbol)}</span></div>`).join("")}
           </div>
         </div>
-        ${renderWinLadder()}
+        <button class="hg-button hg-win-table-button" data-action="open-win-ladder" type="button">Показать награды</button>
         <button class="hg-button hg-spin-button" data-action="spin" ${state.busy || !spins ? "disabled" : ""} type="button">
           <span class="hg-spin-lights" aria-hidden="true">
             ${Array.from({ length: 14 }, (_, index) => `<span class="hg-spin-bulb hg-spin-bulb--${index + 1}"></span>`).join("")}
@@ -610,10 +837,10 @@ function renderGameRewardStrip(dailyAvailable) {
         <span><strong>Ежедневный подарок</strong><small>${dailyAvailable ? "Готов к получению" : "Уже получен"}</small></span>
       </div>
       <button class="hg-button hg-strip-button" data-action="daily" ${dailyAvailable && !state.busy ? "" : "disabled"} type="button">Получить</button>
-      <div class="hg-reward-strip-item hg-reward-strip-item--streak">
+      <button class="hg-reward-strip-item hg-reward-strip-item--streak hg-strip-calendar" data-action="open-daily-calendar" type="button">
         <span class="hg-reward-strip-icon">🔥</span>
         <span><strong>Серия входов</strong><small>День ${currentDay}/14</small></span>
-      </div>
+      </button>
     </div>
   `;
 }
@@ -819,8 +1046,8 @@ function renderTasks() {
                   <input class="hg-input" data-receipt-code="${key}" inputmode="text" placeholder="Например, OAKO123">
                 </label>
               ` : ""}
-              <button class="hg-button hg-quest-button" data-action="task" data-task="${key}" ${state.busy || userTask.completed || !state.user ? "disabled" : ""} type="button">
-                ${userTask.completed ? "Выполнено" : state.user ? "Получить вращения" : "Войдите в аккаунт"}
+              <button class="hg-button hg-quest-button" data-action="task" data-task="${key}" ${state.busy || userTask.completed || !state.user || task.disabled ? "disabled" : ""} type="button">
+                ${userTask.completed ? "Выполнено" : task.disabled ? "Скоро" : state.user ? "Получить вращения" : "Войдите в аккаунт"}
               </button>
             </article>
           `;
@@ -1062,6 +1289,10 @@ function bindEvents() {
       render();
     });
   }
+  const modalBackdrop = app.querySelector(".hg-modal-backdrop");
+  if (modalBackdrop) {
+    modalBackdrop.addEventListener("click", handleModalBackdropClick);
+  }
   app.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       state.tab = button.dataset.tab;
@@ -1093,6 +1324,9 @@ async function handleAction(button) {
   if (action === "toggle-header-menu") return toggleHeaderMenu();
   if (action === "spin") return spin();
   if (action === "daily") return claimDailySpin();
+  if (action === "open-win-ladder") return openWinLadder();
+  if (action === "open-daily-calendar") return openDailyCalendar();
+  if (action === "close-modal") return closeModal();
   if (action === "enable-notifications") return enableNotifications();
   if (action === "test-notification") return sendTestNotification();
   if (action === "logout") return logout();
@@ -1105,6 +1339,18 @@ async function handleAction(button) {
   if (action === "avatar-panel") return setAvatarPanel(button.dataset.panel);
   if (action === "avatar-save") return saveAvatar();
   if (action === "avatar-reset") return resetAvatarDraft();
+}
+
+function handleModalBackdropClick(event) {
+  if (event.target && event.target.classList && event.target.classList.contains("hg-modal-backdrop")) {
+    closeModal();
+  }
+}
+
+function handleGlobalKeydown(event) {
+  if (event.key === "Escape" && (state.winLadderOpen || state.dailyCalendarOpen)) {
+    closeModal();
+  }
 }
 
 async function onAuthSubmit(event) {
@@ -1246,12 +1492,21 @@ async function ensureDailyLoginBonus() {
     available: (state.user.spins?.available || 0) + (reward.spins || 0)
   };
   await saveUserData({ seeds, spins, loginBonus });
+  state.dailyCalendarDay = day;
+  state.dailyCalendarOpen = true;
+  state.winLadderOpen = false;
   state.message = `Бонус входа: день ${day}. Хомяк принёс ${reward.title}.`;
   showToast(`Бонус входа получен: ${reward.title}`);
 }
 
 async function spin() {
   const spins = getActiveSpins();
+  if (!hasMinimumSpinPictures()) {
+    const imageMessage = "Spinning mode must have at least 4 pictures.";
+    state.resultMessage = imageMessage;
+    render();
+    return showToast(imageMessage);
+  }
   if (spins < 1) {
     const message = state.user
       ? "У вас закончились вращения. Выполните задание или приходите завтра!"
@@ -1344,8 +1599,9 @@ async function redeemReward(index) {
 
 async function claimTask(taskKey) {
   const task = taskMeta[taskKey];
-  const current = state.user.tasks?.[taskKey];
-  if (!task || current?.completed) return;
+  const current = state.user?.tasks?.[taskKey];
+  if (!state.user || !task || current?.completed) return;
+  if (task.disabled) return showToast("Для этого задания нужна настройка QR-кодов на точках продаж.");
   if (task.action === "instagram") window.open("https://www.instagram.com/", "_blank", "noopener");
   if (task.action === "site") window.open("https://oako.kg", "_blank", "noopener");
   if (task.action === "share") await shareGame();
@@ -1441,6 +1697,28 @@ function toggleHeaderMenu() {
 
 function setStoreCategory(category) {
   state.storeCategory = category || "all";
+  render();
+}
+
+function openWinLadder() {
+  state.winLadderOpen = true;
+  state.dailyCalendarOpen = false;
+  render();
+}
+
+function openDailyCalendar() {
+  const bonusState = state.user?.loginBonus || defaultLoginBonus();
+  state.dailyCalendarDay = bonusState.lastClaimDate === todayKey()
+    ? Math.max(1, bonusState.day || 1)
+    : nextLoginBonusDay(bonusState);
+  state.dailyCalendarOpen = true;
+  state.winLadderOpen = false;
+  render();
+}
+
+function closeModal() {
+  state.winLadderOpen = false;
+  state.dailyCalendarOpen = false;
   render();
 }
 
@@ -1878,18 +2156,31 @@ async function hashPin(usernameIndex, pin) {
 }
 
 function randomSymbols() {
-  return Array.from({ length: 3 }, () => symbols[Math.floor(Math.random() * symbols.length)]);
+  var result = [];
+  var index = 0;
+
+  while (index < 3) {
+    result.push(symbols[Math.floor(Math.random() * symbols.length)]);
+    index = index + 1;
+  }
+
+  return result;
 }
 
 function calculateReward(result) {
-  const counts = result.reduce((acc, symbol) => {
-    acc[symbol] = (acc[symbol] || 0) + 1;
-    return acc;
-  }, {});
-  const three = Object.entries(counts).find(([, count]) => count === 3)?.[0];
+  var counts = {};
+  var resultIndex = 0;
+
+  while (resultIndex < result.length) {
+    var symbol = result[resultIndex];
+    counts[symbol] = (counts[symbol] || 0) + 1;
+    resultIndex = resultIndex + 1;
+  }
+
+  var three = findSymbolWithCount(counts, 3);
   if (three) {
-    const reward = rewardRules[three].three;
-    const jackpot = three === "walnut";
+    const reward = getRewardRule(three).three;
+    const jackpot = rewardValue(reward) >= 1000;
     return {
       reward,
       message: jackpot ? "ДЖЕКПОТ! Хомяк нашёл грецкий орех 🥜" : "Победа! Хомяк нашёл для вас награду 🎉",
@@ -1897,9 +2188,9 @@ function calculateReward(result) {
       rank: jackpot ? 1000 : rewardValue(reward)
     };
   }
-  const two = Object.entries(counts).find(([, count]) => count === 2)?.[0];
+  const two = findSymbolWithCount(counts, 2);
   if (two) {
-    const reward = rewardRules[two].two;
+    const reward = getRewardRule(two).two;
     return { reward, message: "Почти победа! Хомяк дарит вам бонус 🌱", isWin: true, rank: rewardValue(reward) };
   }
   return {
@@ -1907,6 +2198,29 @@ function calculateReward(result) {
     message: "Хомяк всё равно нашёл для вас 1 маковое семя 🌱",
     isWin: false,
     rank: 1
+  };
+}
+
+function findSymbolWithCount(counts, targetCount) {
+  var key;
+
+  for (key in counts) {
+    if (Object.prototype.hasOwnProperty.call(counts, key) && counts[key] === targetCount) {
+      return key;
+    }
+  }
+
+  return "";
+}
+
+function getRewardRule(symbolKey) {
+  if (rewardRules[symbolKey]) {
+    return rewardRules[symbolKey];
+  }
+
+  return {
+    two: { poppy: 5 },
+    three: { poppy: 25 }
   };
 }
 
@@ -2043,6 +2357,14 @@ function showError(message) {
   state.error = message;
   state.message = "";
   render();
+}
+
+function getResultErrorMessage(result) {
+  if (result && result.errors && result.errors.length) {
+    return result.errors.join(" ");
+  }
+
+  return "Intent failed.";
 }
 
 function showToast(message) {

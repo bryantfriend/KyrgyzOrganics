@@ -5039,3 +5039,287 @@
     justify-self: start;
   }
 }
+
+/* Modal, hero, compact wallet, and lighter shop pass */
+.hg-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(24, 12, 4, 0.62);
+  backdrop-filter: blur(5px);
+}
+
+.hg-modal {
+  width: min(100%, 430px);
+  max-height: min(84vh, 720px);
+  overflow: auto;
+  padding: 16px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 219, 130, 0.18), transparent 32%),
+    linear-gradient(180deg, #fff3d0, #e8c57f);
+  border: 2px solid rgba(101, 50, 13, 0.58);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 30px 70px rgba(13, 5, 1, 0.52);
+}
+
+.hg-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.hg-icon-button {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(93, 45, 10, 0.34);
+  background: linear-gradient(180deg, #fff6d5, #d9a848);
+  color: #4a2108;
+  font: inherit;
+  font-size: 1.4rem;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 7px 14px rgba(60, 30, 8, 0.18);
+}
+
+.hg-modal .hg-win-ladder {
+  width: 100%;
+  margin-top: 0;
+}
+
+.hg-win-table-button {
+  width: min(76%, 260px);
+  min-height: 42px;
+  margin: 10px auto 0;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 240, 178, 0.98), rgba(206, 146, 47, 0.98));
+  color: #522609;
+  border: 1px solid rgba(88, 40, 8, 0.38);
+  font-size: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.52),
+    0 9px 16px rgba(24, 10, 2, 0.22);
+}
+
+.hg-daily-calendar {
+  display: grid;
+  gap: 12px;
+}
+
+.hg-daily-current {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 92% 12%, rgba(255, 239, 155, 0.44), transparent 36%),
+    linear-gradient(180deg, rgba(65, 119, 47, 0.98), rgba(32, 82, 35, 0.98));
+  color: #fff8d7;
+  box-shadow: inset 0 1px 0 rgba(240, 255, 205, 0.22);
+}
+
+.hg-daily-current-day {
+  width: max-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(255, 241, 175, 0.18);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.hg-daily-current strong {
+  font-size: 1.05rem;
+}
+
+.hg-daily-current small {
+  color: rgba(255, 245, 210, 0.82);
+  font-weight: 750;
+}
+
+.hg-daily-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hg-daily-calendar-day {
+  min-height: 64px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 9px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 251, 231, 0.96), rgba(232, 202, 145, 0.94));
+  border: 1px solid rgba(122, 74, 23, 0.18);
+  color: #563017;
+}
+
+.hg-daily-calendar-day span {
+  font-size: 10px;
+  font-weight: 950;
+  color: rgba(73, 44, 20, 0.7);
+}
+
+.hg-daily-calendar-day strong {
+  font-size: 11px;
+  line-height: 1.12;
+}
+
+.hg-daily-calendar-day.hg-active {
+  border-color: rgba(42, 119, 47, 0.58);
+  box-shadow: 0 0 0 2px rgba(62, 139, 54, 0.14);
+}
+
+.hg-daily-calendar-day.hg-claimed {
+  opacity: 0.68;
+}
+
+.hg-strip-calendar {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hg-hero-mascot {
+  z-index: 9;
+}
+
+.hg-hero-mascot .hg-img-shell {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  display: block;
+  overflow: visible;
+}
+
+.hg-hero-hamster {
+  display: block;
+  width: clamp(230px, 58vw, 330px);
+  transform: translate(-50%, 18px);
+  opacity: 1;
+  visibility: visible;
+}
+
+.hg-hero-copy {
+  z-index: 6;
+}
+
+.hg-hero-sign {
+  align-self: start;
+  justify-self: end;
+  transform: translate(-8px, 78px) rotate(-5deg);
+  z-index: 12;
+}
+
+.hg-hero-sign-inner {
+  width: 118px;
+  min-height: 86px;
+  padding: 0 13px 8px;
+  transform: rotate(-1deg);
+}
+
+.hg-hero-sign-img {
+  inset: -6px -2px 0;
+  width: calc(100% + 4px);
+  height: 100%;
+  object-fit: contain;
+  transform: none;
+}
+
+.hg-hero-sign-inner strong {
+  max-width: 76px;
+  transform: rotate(-5deg) translateY(5px);
+  color: #ffe7af;
+  font-size: 10px;
+  line-height: 0.98;
+  text-align: center;
+  text-shadow: 0 2px 0 rgba(62, 30, 9, 0.8), 0 4px 8px rgba(22, 8, 1, 0.32);
+}
+
+.hg-wallet-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hg-seed-card {
+  min-height: 0;
+  gap: 5px;
+  padding: 10px 8px;
+  border-radius: 16px;
+}
+
+.hg-seed-card-art {
+  min-height: 64px;
+}
+
+.hg-seed-card .hg-seed-img {
+  width: clamp(50px, 13vw, 66px);
+  height: clamp(50px, 13vw, 66px);
+}
+
+.hg-seed-card .hg-seed-amount {
+  top: 3px;
+  right: 8px;
+}
+
+.hg-seed-card .hg-item-name {
+  font-size: 0.86rem;
+  line-height: 1.05;
+  text-align: center;
+}
+
+.hg-seed-card .hg-muted,
+.hg-seed-card .hg-cost {
+  font-size: 10px;
+  line-height: 1.12;
+  text-align: center;
+}
+
+.hg-store-art {
+  min-height: 76px;
+}
+
+.hg-reward-img {
+  width: clamp(70px, 18vw, 94px);
+  height: clamp(64px, 16vw, 86px);
+}
+
+.hg-store-item {
+  contain: content;
+}
+
+@media (max-width: 390px) {
+  .hg-hero-hamster {
+    width: clamp(210px, 62vw, 270px);
+    transform: translate(-50%, 14px);
+  }
+
+  .hg-hero-sign {
+    transform: translate(-4px, 74px) rotate(-5deg);
+  }
+
+  .hg-hero-sign-inner {
+    width: 96px;
+    min-height: 74px;
+  }
+
+  .hg-hero-sign-inner strong {
+    max-width: 62px;
+    font-size: 8px;
+  }
+}

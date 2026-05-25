@@ -17,8 +17,9 @@ import { AuditTab } from './tabs/AuditTab.js';
 import { AnalyticsTab } from './tabs/AnalyticsTab.js';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js';
+import { GamesTab } from './tabs/GamesTab.js';
 
-const ADMIN_VERSION = '3.4';
+const ADMIN_VERSION = '3.5';
 const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
 const PLATFORM_TABS = new Set(['stores', 'analytics', 'audit']);
 
@@ -537,7 +538,8 @@ class AdminApp {
       banners: 'bannerForm',
       content: 'contentForm',
       settings: 'paymentForm',
-      campaigns: 'campaignForm'
+      campaigns: 'campaignForm',
+      games: 'gamesSpinImageForm'
     };
     const formId = formMap[this.activeTabName];
     const form = formId ? document.getElementById(formId) : null;
@@ -728,6 +730,7 @@ class AdminApp {
     this.tabs['analytics'] = new AnalyticsTab();
     this.tabs['campaigns'] = new CampaignsTab();
     this.tabs['stores'] = new StoresTab();
+    this.tabs['games'] = new GamesTab();
 
     // Listeners for Tab Switching
     // Support both .tabs button and .nav-btn
@@ -788,10 +791,11 @@ class AdminApp {
       businessAccounts: 'Business Accounts',
       audit: 'Audit Logs',
       analytics: 'Analytics',
-      campaigns: 'Campaigns'
+      campaigns: 'Campaigns',
+      games: 'Games'
     };
     document.title = `${titles[tabName] || 'Admin'} | Oako Admin`;
-    this.saveCurrentSectionBtn?.classList.toggle('is-muted', !['stores', 'products', 'categories', 'banners', 'content', 'settings', 'campaigns'].includes(tabName));
+    this.saveCurrentSectionBtn?.classList.toggle('is-muted', !['stores', 'products', 'categories', 'banners', 'content', 'settings', 'campaigns', 'games'].includes(tabName));
   }
 
   async loadOverview() {

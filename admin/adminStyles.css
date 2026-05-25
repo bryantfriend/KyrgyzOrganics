@@ -3002,6 +3002,230 @@ button[type="submit"]:hover {
   font-size: 0.78rem;
 }
 
+.games-admin-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.games-dashboard-card,
+.games-spin-manager,
+.games-payout-card,
+.games-settings-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.games-game-card {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+}
+
+.games-game-card-top,
+.games-detail-header,
+.games-spin-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.games-game-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  color: #166534;
+  background: #dcfce7;
+  font-weight: 900;
+}
+
+.games-game-card h4,
+.games-detail-header h3 {
+  margin: 0;
+  color: var(--admin-text);
+}
+
+.games-game-card p,
+.games-detail-header p {
+  margin: 0;
+  color: var(--admin-muted);
+}
+
+.games-section-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.35rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.games-section-tab {
+  border: 0;
+  border-radius: 8px;
+  padding: 0.68rem 0.9rem;
+  color: var(--admin-muted);
+  background: transparent;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.games-section-tab.active {
+  color: #14532d;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.games-spin-form {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.games-spin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.9rem;
+}
+
+.games-spin-card {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.85rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+}
+
+.games-spin-card.is-inactive {
+  opacity: 0.62;
+  background: #f8fafc;
+}
+
+.games-spin-thumb {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background:
+    linear-gradient(135deg, rgba(236, 253, 245, 0.9), rgba(255, 247, 237, 0.9)),
+    #fff;
+}
+
+.games-spin-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 0.35rem;
+}
+
+.games-spin-copy {
+  min-width: 0;
+}
+
+.games-spin-copy strong,
+.games-spin-copy span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.games-spin-copy strong {
+  color: var(--admin-text);
+}
+
+.games-spin-copy span {
+  margin-top: 0.22rem;
+  color: var(--admin-muted);
+  font-size: 0.84rem;
+}
+
+.games-spin-remove {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.games-spin-remove[disabled] {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.games-spin-empty,
+.games-empty,
+.games-muted-panel {
+  grid-column: 1 / -1;
+  padding: 1rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--admin-muted);
+  font-weight: 700;
+}
+
+.games-settings-grid,
+.games-payout-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.games-settings-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.games-settings-grid div,
+.games-payout-list div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.games-settings-grid span,
+.games-payout-list span {
+  color: var(--admin-muted);
+  font-size: 0.86rem;
+}
+
+.games-payout-modal {
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.games-payout-panel {
+  width: min(560px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  display: grid;
+  gap: 1rem;
+}
+
 .homepage-builder-preview {
   margin: 0.75rem 0 1rem;
   padding: 1rem;
