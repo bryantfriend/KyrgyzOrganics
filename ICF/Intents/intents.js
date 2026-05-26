@@ -4,6 +4,7 @@ import intentRegistry from "../Engine/intentRegistry.js";
 
 import demoIntentModule from "./DemoIntent.js";
 import gamesIntentModule from "./GamesIntent.js";
+import hamsterSpinImagesIntentModule from "./HamsterSpinImagesIntent.js";
 
 /**
  * Registers all project Intents.
@@ -14,7 +15,7 @@ import gamesIntentModule from "./GamesIntent.js";
  */
 function registerProjectIntents() {
   return intentRegistry.registerIntents({
-    DemoIntent: demoIntentModule.createDemoIntent,
+    DemoIntent: createDemoIntent,
     OpenGamesDashboardIntent: gamesIntentModule.createOpenGamesDashboardIntent,
     OpenGameDetailIntent: gamesIntentModule.createOpenGameDetailIntent,
     LoadGameConfigIntent: gamesIntentModule.createLoadGameConfigIntent,
@@ -30,8 +31,29 @@ function registerProjectIntents() {
     AddPayoutRuleIntent: gamesIntentModule.createAddPayoutRuleIntent,
     UpdatePayoutRuleIntent: gamesIntentModule.createUpdatePayoutRuleIntent,
     RemovePayoutRuleIntent: gamesIntentModule.createRemovePayoutRuleIntent,
-    TogglePayoutRuleIntent: gamesIntentModule.createTogglePayoutRuleIntent
+    TogglePayoutRuleIntent: gamesIntentModule.createTogglePayoutRuleIntent,
+    LoadHamsterSpinImagesIntent: hamsterSpinImagesIntentModule.createLoadHamsterSpinImagesIntent,
+    AddHamsterSpinImageIntent: hamsterSpinImagesIntentModule.createAddHamsterSpinImageIntent,
+    RemoveHamsterSpinImageIntent: hamsterSpinImagesIntentModule.createRemoveHamsterSpinImageIntent,
+    UpdateHamsterSpinImageIntent: hamsterSpinImagesIntentModule.createUpdateHamsterSpinImageIntent
   });
+}
+
+function createDemoIntent(actor, payload, options) {
+  var safeOptions = options || {};
+
+  return {
+    type: demoIntentModule.type,
+    description: demoIntentModule.description,
+    actor: actor || { id: "system", role: "system" },
+    payload: payload || {},
+    context: safeOptions.context || {},
+    meta: {
+      createdAt: Date.now(),
+      source: safeOptions.source || "system"
+    },
+    stages: demoIntentModule.stages
+  };
 }
 
 export default {

@@ -9,6 +9,8 @@ import requireContextModule from "./Core/requireContext.js";
 import requireActorRoleModule from "./Core/requireActorRole.js";
 import requireBaseIntentShapeModule from "./Core/requireBaseIntentShape.js";
 import exampleRequireStoreIdModule from "./Core/exampleRequireStoreId.js";
+import * as gamesValidators from "./domain/games/gamesValidators.js";
+import * as hamsterSpinImageValidators from "./domain/hamster/hamsterSpinImageValidators.js";
 
 /**
  * Validators
@@ -37,7 +39,29 @@ var validators = {
   requireBaseIntentShape: requireBaseIntentShapeModule.requireBaseIntentShape,
   exampleRequireStoreId: exampleRequireStoreIdModule.exampleRequireStoreId,
 
-  createRequireActorRoleValidator: requireActorRoleModule.createRequireActorRoleValidator
+  createRequireActorRoleValidator: requireActorRoleModule.createRequireActorRoleValidator,
+
+  validateOpenGamesDashboard: gamesValidators.validateOpenGamesDashboard,
+  validateOpenGameDetail: gamesValidators.validateOpenGameDetail,
+  validateLoadGameConfig: gamesValidators.validateLoadGameConfig,
+  validateLoadGameSettings: gamesValidators.validateLoadGameSettings,
+  validateSaveDailyLoginBonuses: gamesValidators.validateSaveDailyLoginBonuses,
+  validateLoadGameAnalytics: gamesValidators.validateLoadGameAnalytics,
+  validateLoadSpinImages: gamesValidators.validateLoadSpinImages,
+  validateAddSpinImage: gamesValidators.validateAddSpinImage,
+  validateRemoveSpinImage: gamesValidators.validateRemoveSpinImage,
+  validateOpenPayoutModal: gamesValidators.validateOpenPayoutModal,
+  validateClosePayoutModal: gamesValidators.validateClosePayoutModal,
+  validateLoadPayoutRules: gamesValidators.validateLoadPayoutRules,
+  validateAddPayoutRule: gamesValidators.validateAddPayoutRule,
+  validateUpdatePayoutRule: gamesValidators.validateUpdatePayoutRule,
+  validateRemovePayoutRule: gamesValidators.validateRemovePayoutRule,
+  validateTogglePayoutRule: gamesValidators.validateTogglePayoutRule,
+
+  validateLoadHamsterSpinImages: hamsterSpinImageValidators.validateLoadHamsterSpinImages,
+  validateAddHamsterSpinImage: hamsterSpinImageValidators.validateAddHamsterSpinImage,
+  validateRemoveHamsterSpinImage: hamsterSpinImageValidators.validateRemoveHamsterSpinImage,
+  validateUpdateHamsterSpinImage: hamsterSpinImageValidators.validateUpdateHamsterSpinImage
 };
 
 export default validators;

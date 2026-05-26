@@ -7,6 +7,8 @@ import normalizePayloadNumberFieldModule from "./Core/normalizePayloadNumberFiel
 import normalizePayloadBooleanFieldModule from "./Core/normalizePayloadBooleanField.js";
 import normalizePayloadDateFieldModule from "./Core/normalizePayloadDateField.js";
 import exampleTrimProductNameModule from "./Core/exampleTrimProductName.js";
+import * as gamesNormalizers from "./domain/games/gamesNormalizers.js";
+import * as hamsterSpinImageNormalizers from "./domain/hamster/hamsterSpinImageNormalizers.js";
 
 /**
  * Normalizers
@@ -32,7 +34,29 @@ var normalizers = {
     normalizePayloadBooleanFieldModule.createNormalizePayloadBooleanFieldNormalizer,
 
   createNormalizePayloadDateFieldNormalizer:
-    normalizePayloadDateFieldModule.createNormalizePayloadDateFieldNormalizer
+    normalizePayloadDateFieldModule.createNormalizePayloadDateFieldNormalizer,
+
+  normalizeOpenGamesDashboard: gamesNormalizers.normalizeOpenGamesDashboard,
+  normalizeOpenGameDetail: gamesNormalizers.normalizeOpenGameDetail,
+  normalizeLoadGameConfig: gamesNormalizers.normalizeLoadGameConfig,
+  normalizeLoadGameSettings: gamesNormalizers.normalizeLoadGameSettings,
+  normalizeSaveDailyLoginBonuses: gamesNormalizers.normalizeSaveDailyLoginBonuses,
+  normalizeLoadGameAnalytics: gamesNormalizers.normalizeLoadGameAnalytics,
+  normalizeLoadSpinImages: gamesNormalizers.normalizeLoadSpinImages,
+  normalizeAddSpinImage: gamesNormalizers.normalizeAddSpinImage,
+  normalizeRemoveSpinImage: gamesNormalizers.normalizeRemoveSpinImage,
+  normalizeOpenPayoutModal: gamesNormalizers.normalizeOpenPayoutModal,
+  normalizeClosePayoutModal: gamesNormalizers.normalizeClosePayoutModal,
+  normalizeLoadPayoutRules: gamesNormalizers.normalizeLoadPayoutRules,
+  normalizeAddPayoutRule: gamesNormalizers.normalizeAddPayoutRule,
+  normalizeUpdatePayoutRule: gamesNormalizers.normalizeUpdatePayoutRule,
+  normalizeRemovePayoutRule: gamesNormalizers.normalizeRemovePayoutRule,
+  normalizeTogglePayoutRule: gamesNormalizers.normalizeTogglePayoutRule,
+
+  normalizeLoadHamsterSpinImages: hamsterSpinImageNormalizers.normalizeLoadHamsterSpinImages,
+  normalizeAddHamsterSpinImage: hamsterSpinImageNormalizers.normalizeAddHamsterSpinImage,
+  normalizeRemoveHamsterSpinImage: hamsterSpinImageNormalizers.normalizeRemoveHamsterSpinImage,
+  normalizeUpdateHamsterSpinImage: hamsterSpinImageNormalizers.normalizeUpdateHamsterSpinImage
 };
 
 export default normalizers;

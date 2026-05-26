@@ -6,6 +6,9 @@ import setResultDataModule from "./Core/setResultData.js";
 import addPayloadToResultDataModule from "./Core/addPayloadToResultData.js";
 import addContextToResultDataModule from "./Core/addContextToResultData.js";
 import exampleSetCreatedProductResultModule from "./Core/exampleSetCreatedProductResult.js";
+import * as demoProcessors from "./domain/demo/demoProcessors.js";
+import * as gamesProcessors from "./domain/games/gamesProcessors.js";
+import * as hamsterSpinImageProcessors from "./domain/hamster/hamsterSpinImageProcessors.js";
 
 /**
  * Processors
@@ -21,6 +24,7 @@ import exampleSetCreatedProductResultModule from "./Core/exampleSetCreatedProduc
 var processors = {
   doNothing: doNothingModule.doNothing,
   passProcess: passProcessModule.passProcess,
+  setDemoResult: demoProcessors.setDemoResult,
   exampleSetCreatedProductResult:
     exampleSetCreatedProductResultModule.exampleSetCreatedProductResult,
 
@@ -31,7 +35,29 @@ var processors = {
     addPayloadToResultDataModule.addPayloadToResultData,
 
   addContextToResultData:
-    addContextToResultDataModule.addContextToResultData
+    addContextToResultDataModule.addContextToResultData,
+
+  processOpenGamesDashboard: gamesProcessors.processOpenGamesDashboard,
+  processOpenGameDetail: gamesProcessors.processOpenGameDetail,
+  processLoadGameConfig: gamesProcessors.processLoadGameConfig,
+  processLoadGameSettings: gamesProcessors.processLoadGameSettings,
+  processSaveDailyLoginBonuses: gamesProcessors.processSaveDailyLoginBonuses,
+  processLoadGameAnalytics: gamesProcessors.processLoadGameAnalytics,
+  processLoadSpinImages: gamesProcessors.processLoadSpinImages,
+  processAddSpinImage: gamesProcessors.processAddSpinImage,
+  processRemoveSpinImage: gamesProcessors.processRemoveSpinImage,
+  processOpenPayoutModal: gamesProcessors.processOpenPayoutModal,
+  processClosePayoutModal: gamesProcessors.processClosePayoutModal,
+  processLoadPayoutRules: gamesProcessors.processLoadPayoutRules,
+  processAddPayoutRule: gamesProcessors.processAddPayoutRule,
+  processUpdatePayoutRule: gamesProcessors.processUpdatePayoutRule,
+  processRemovePayoutRule: gamesProcessors.processRemovePayoutRule,
+  processTogglePayoutRule: gamesProcessors.processTogglePayoutRule,
+
+  processLoadHamsterSpinImages: hamsterSpinImageProcessors.processLoadHamsterSpinImages,
+  processAddHamsterSpinImage: hamsterSpinImageProcessors.processAddHamsterSpinImage,
+  processRemoveHamsterSpinImage: hamsterSpinImageProcessors.processRemoveHamsterSpinImage,
+  processUpdateHamsterSpinImage: hamsterSpinImageProcessors.processUpdateHamsterSpinImage
 };
 
 export default processors;

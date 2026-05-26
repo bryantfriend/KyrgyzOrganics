@@ -6,6 +6,8 @@ import passAuthorizeModule from "./Core/passAuthorize.js";
 import requireActorRoleModule from "./Core/requireActorRole.js";
 import requireContextRoleModule from "./Core/requireContextRole.js";
 import requireContextValueModule from "./Core/requireContextValue.js";
+import * as gamesAuthorizers from "./domain/games/gamesAuthorizers.js";
+import * as hamsterSpinImageAuthorizers from "./domain/hamster/hamsterSpinImageAuthorizers.js";
 
 /**
  * Authorizers
@@ -30,7 +32,29 @@ var authorizers = {
     requireContextRoleModule.createRequireContextRoleAuthorizer,
 
   createRequireContextValueAuthorizer:
-    requireContextValueModule.createRequireContextValueAuthorizer
+    requireContextValueModule.createRequireContextValueAuthorizer,
+
+  authorizeOpenGamesDashboard: gamesAuthorizers.authorizeOpenGamesDashboard,
+  authorizeOpenGameDetail: gamesAuthorizers.authorizeOpenGameDetail,
+  authorizeLoadGameConfig: gamesAuthorizers.authorizeLoadGameConfig,
+  authorizeLoadGameSettings: gamesAuthorizers.authorizeLoadGameSettings,
+  authorizeSaveDailyLoginBonuses: gamesAuthorizers.authorizeSaveDailyLoginBonuses,
+  authorizeLoadGameAnalytics: gamesAuthorizers.authorizeLoadGameAnalytics,
+  authorizeLoadSpinImages: gamesAuthorizers.authorizeLoadSpinImages,
+  authorizeAddSpinImage: gamesAuthorizers.authorizeAddSpinImage,
+  authorizeRemoveSpinImage: gamesAuthorizers.authorizeRemoveSpinImage,
+  authorizeOpenPayoutModal: gamesAuthorizers.authorizeOpenPayoutModal,
+  authorizeClosePayoutModal: gamesAuthorizers.authorizeClosePayoutModal,
+  authorizeLoadPayoutRules: gamesAuthorizers.authorizeLoadPayoutRules,
+  authorizeAddPayoutRule: gamesAuthorizers.authorizeAddPayoutRule,
+  authorizeUpdatePayoutRule: gamesAuthorizers.authorizeUpdatePayoutRule,
+  authorizeRemovePayoutRule: gamesAuthorizers.authorizeRemovePayoutRule,
+  authorizeTogglePayoutRule: gamesAuthorizers.authorizeTogglePayoutRule,
+
+  authorizeLoadHamsterSpinImages: hamsterSpinImageAuthorizers.authorizeLoadHamsterSpinImages,
+  authorizeAddHamsterSpinImage: hamsterSpinImageAuthorizers.authorizeAddHamsterSpinImage,
+  authorizeRemoveHamsterSpinImage: hamsterSpinImageAuthorizers.authorizeRemoveHamsterSpinImage,
+  authorizeUpdateHamsterSpinImage: hamsterSpinImageAuthorizers.authorizeUpdateHamsterSpinImage
 };
 
 export default authorizers;
