@@ -1,4 +1,4 @@
-// ICF/Engine/resultHelpers.js
+// ICF/engine/resultHelpers.js
 
 /**
  * ICF Result Helpers

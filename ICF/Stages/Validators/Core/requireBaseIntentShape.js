@@ -1,6 +1,6 @@
 // ICF/Stages/Validators/Core/requireBaseIntentShape.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Requires the basic shape that every ICF Intent must have.

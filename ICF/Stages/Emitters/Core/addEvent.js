@@ -1,6 +1,6 @@
 // ICF/Stages/Emitters/Core/addEvent.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Creates an emitter that adds a standard event to intent.context.events.

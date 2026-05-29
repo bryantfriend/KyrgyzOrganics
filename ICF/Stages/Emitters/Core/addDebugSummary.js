@@ -1,6 +1,6 @@
 // ICF/Stages/Emitters/Core/addDebugSummary.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Adds a debug summary to resultData.

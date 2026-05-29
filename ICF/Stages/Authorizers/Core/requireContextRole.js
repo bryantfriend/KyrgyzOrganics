@@ -1,6 +1,6 @@
 // ICF/Stages/Authorizers/Core/requireContextRole.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Creates an authorizer that requires intent.context.actorRole

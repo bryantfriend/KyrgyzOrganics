@@ -1,6 +1,6 @@
 // ICF/Intents/intents.js
 
-import intentRegistry from "../Engine/intentRegistry.js";
+import intentRegistry from "../engine/intentRegistry.js";
 
 import demoIntentModule from "./DemoIntent.js";
 import gamesIntentModule from "./GamesIntent.js";

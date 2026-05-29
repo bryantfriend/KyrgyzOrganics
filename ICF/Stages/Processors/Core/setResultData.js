@@ -1,6 +1,6 @@
 // ICF/Stages/Processors/Core/setResultData.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Creates a processor that stores fixed result data in intent.context.resultData.

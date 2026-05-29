@@ -1,6 +1,6 @@
 // ICF/Stages/Normalizers/Core/normalizePayloadBooleanField.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Creates a normalizer that converts common boolean-like payload values

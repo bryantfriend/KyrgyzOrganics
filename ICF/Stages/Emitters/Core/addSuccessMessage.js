@@ -1,6 +1,6 @@
 // ICF/Stages/Emitters/Core/addSuccessMessage.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Creates an emitter that adds a success message to resultData.

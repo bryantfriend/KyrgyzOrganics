@@ -1,6 +1,6 @@
 // ICF/Stages/Authorizers/Core/allow.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Explicit allow authorizer.

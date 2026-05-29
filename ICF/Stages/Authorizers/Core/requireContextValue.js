@@ -1,6 +1,6 @@
 // ICF/Stages/Authorizers/Core/requireContextValue.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Creates an authorizer that requires a context value to equal an expected value.

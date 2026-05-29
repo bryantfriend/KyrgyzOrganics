@@ -1,6 +1,6 @@
 // ICF/Stages/Normalizers/Core/trimPayloadStringField.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Creates a normalizer that trims a string field inside intent.payload.

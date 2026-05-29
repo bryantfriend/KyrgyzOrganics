@@ -1,4 +1,4 @@
-// ICF/Engine/pipeline.js
+// ICF/engine/pipeline.js
 
 /**
  * ICF Pipeline

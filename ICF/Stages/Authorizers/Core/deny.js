@@ -1,6 +1,6 @@
 // ICF/Stages/Authorizers/Core/deny.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Explicit deny authorizer.

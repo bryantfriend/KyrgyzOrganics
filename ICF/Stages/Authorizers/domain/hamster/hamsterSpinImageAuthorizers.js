@@ -1,4 +1,4 @@
-import resultHelpers from "../../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../../engine/resultHelpers.js";
 import { isAdminActor } from "../../../Processors/domain/hamster/hamsterSpinImageHelpers.js";
 
 function authorizeLoadHamsterSpinImages(intent) {

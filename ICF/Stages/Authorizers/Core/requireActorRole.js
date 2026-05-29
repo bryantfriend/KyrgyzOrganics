@@ -1,6 +1,6 @@
 // ICF/Stages/Authorizers/Core/requireActorRole.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Creates an authorizer that requires the actor to have one of the allowed roles.

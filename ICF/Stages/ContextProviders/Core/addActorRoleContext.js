@@ -1,6 +1,6 @@
 // ICF/Stages/ContextProviders/Core/addActorRoleContext.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Adds actor role context from intent.actor.role.

@@ -1,6 +1,6 @@
 // ICF/Stages/ContextProviders/Core/addSourceContext.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Adds source context from intent.meta.source.

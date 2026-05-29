@@ -1,6 +1,6 @@
 // ICF/Stages/Processors/Core/addPayloadToResultData.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Adds intent.payload into intent.context.resultData.

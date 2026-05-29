@@ -1,4 +1,4 @@
-import resultHelpers from "../../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../../engine/resultHelpers.js";
 import { normalizeDailyLoginBonuses } from "../../../Processors/domain/games/gamesHelpers.js";
 
 function normalizeOpenGamesDashboard(intent) {

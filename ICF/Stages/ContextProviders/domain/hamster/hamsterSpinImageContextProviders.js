@@ -5,7 +5,7 @@ import {
   where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-import resultHelpers from "../../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../../engine/resultHelpers.js";
 import {
   COLLECTION_NAME,
   countActiveRecords,

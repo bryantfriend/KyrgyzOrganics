@@ -1,6 +1,6 @@
 // ICF/Stages/Normalizers/Core/normalizePayloadNumberField.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Creates a normalizer that converts a payload field into a number.

@@ -1,6 +1,6 @@
 // ICF/Stages/Normalizers/Core/passNormalization.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Explicit pass-through normalizer.

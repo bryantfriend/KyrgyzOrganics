@@ -1,6 +1,6 @@
 // ICF/Stages/Emitters/Core/addResultMessage.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Creates an emitter that adds a message to intent.context.resultData.

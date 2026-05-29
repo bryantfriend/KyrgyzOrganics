@@ -1,6 +1,6 @@
 // ICF/Stages/ContextProviders/Core/addStaticContextValue.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Creates a context provider that adds one static context value.

@@ -1,4 +1,4 @@
-import resultHelpers from "../../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../../engine/resultHelpers.js";
 
 function setDemoResult(intent) {
   intent.context.resultData = {

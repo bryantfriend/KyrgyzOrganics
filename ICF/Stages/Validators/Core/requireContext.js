@@ -1,6 +1,6 @@
 // ICF/Stages/Validators/Core/requireContext.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Requires the Intent to have a context object.

@@ -1,4 +1,4 @@
-// ICF/Engine/intentRegistry.js
+// ICF/engine/intentRegistry.js
 
 /**
  * ICF Intent Registry
@@ -12,7 +12,7 @@
  *
  * Pipeline execution belongs in:
  *
- * ICF/Engine/pipeline.js
+ * ICF/engine/pipeline.js
  */
 
 var registeredIntentFactories = {};

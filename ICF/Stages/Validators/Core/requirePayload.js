@@ -1,6 +1,6 @@
 // ICF/Stages/Validators/Core/requirePayload.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Requires the Intent to have a payload object.

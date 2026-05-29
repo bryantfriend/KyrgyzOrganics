@@ -1,6 +1,6 @@
 // ICF/Stages/Validators/Core/requireActorRole.js
 
-import resultHelpers from "../../../Engine/resultHelpers.js";
+import resultHelpers from "../../../engine/resultHelpers.js";
 
 /**
  * Creates a validator that requires the actor to have one of the allowed roles.
