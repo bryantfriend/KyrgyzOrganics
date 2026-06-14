@@ -910,36 +910,123 @@
         </form>
       </div>
 
-      <div class="admin-card">
-        <h3 style="margin-bottom:1rem;">Users (Basic)</h3>
-        <p style="color:#666; margin-top:-0.5rem; margin-bottom:1rem;">
-          Create the email/password account in Firebase Authentication first, then paste that user's UID here to give them access to a store.
-        </p>
-        <form id="storeUserForm">
-          <div class="form-row">
-            <div class="form-group">
-              <label for="userUid">User UID</label>
-              <input type="text" id="userUid" placeholder="Firebase Auth UID" required>
-            </div>
-            <div class="form-group">
-              <label for="userEmail">Email</label>
-              <input type="text" id="userEmail" placeholder="user@email.com">
-            </div>
-            <div class="form-group">
-              <label for="userCompanyId">Company</label>
-              <input type="text" id="userCompanyId" placeholder="dailybread" required>
-            </div>
-            <div class="form-group">
-              <label for="userRole">Role</label>
-              <select id="userRole">
-                <option value="admin">admin</option>
-                <option value="superadmin">superadmin</option>
-              </select>
-            </div>
+      <div class="admin-card people-admin-card">
+        <div class="people-header">
+          <div>
+            <span class="eyebrow">People</span>
+            <h3>Team Access</h3>
+            <p>Invite, review, and protect the people who can operate the selected store.</p>
           </div>
-          <button type="submit" class="btn-primary" style="width:auto;">Save User Profile</button>
-        </form>
-        <div id="storeUsersList" class="item-list" style="margin-top:1rem;"></div>
+          <div id="peopleSummary" class="people-summary" aria-live="polite"></div>
+        </div>
+
+        <div class="people-grid">
+          <form id="inviteUserForm" class="people-panel">
+            <div class="people-panel-heading">
+              <h4>Invite User</h4>
+              <span>Best for new staff</span>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="inviteEmail">Email</label>
+                <input type="email" id="inviteEmail" placeholder="user@email.com" required>
+              </div>
+              <div class="form-group">
+                <label for="inviteCompanyId">Company</label>
+                <input type="text" id="inviteCompanyId" placeholder="dailybread" required>
+              </div>
+              <div class="form-group">
+                <label for="inviteRole">Role Preset</label>
+                <select id="inviteRole"></select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="inviteNote">Invite Note</label>
+              <textarea id="inviteNote" rows="2" placeholder="Optional context for this invite"></textarea>
+            </div>
+            <button type="submit" class="btn-primary" style="width:auto;">Create Invite</button>
+          </form>
+
+          <form id="storeUserForm" class="people-panel">
+            <div class="people-panel-heading">
+              <h4>Add Existing Account</h4>
+              <span>For Firebase Auth users</span>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="userUid">User UID</label>
+                <input type="text" id="userUid" placeholder="Firebase Auth UID" required>
+              </div>
+              <div class="form-group">
+                <label for="userName">Name</label>
+                <input type="text" id="userName" placeholder="Store manager">
+              </div>
+              <div class="form-group">
+                <label for="userEmail">Email</label>
+                <input type="email" id="userEmail" placeholder="user@email.com">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="userCompanyId">Company</label>
+                <input type="text" id="userCompanyId" placeholder="dailybread" required>
+              </div>
+              <div class="form-group">
+                <label for="userRole">Role Preset</label>
+                <select id="userRole"></select>
+              </div>
+              <div class="form-group">
+                <label for="userStatus">Status</label>
+                <select id="userStatus">
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="userNotes">Internal Notes</label>
+              <textarea id="userNotes" rows="2" placeholder="Shift, responsibility, or access context"></textarea>
+            </div>
+            <button type="submit" class="btn-primary" style="width:auto;">Save User Profile</button>
+          </form>
+        </div>
+
+        <div id="rolePresetGrid" class="role-preset-grid"></div>
+
+        <div class="people-directory-toolbar">
+          <div class="form-group">
+            <label for="peopleSearch">Search People</label>
+            <input type="text" id="peopleSearch" placeholder="Name, email, role, or UID">
+          </div>
+          <div class="form-group">
+            <label for="peopleRoleFilter">Role</label>
+            <select id="peopleRoleFilter">
+              <option value="">All roles</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="peopleStatusFilter">Status</label>
+            <select id="peopleStatusFilter">
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+              <option value="pending">Pending invite</option>
+              <option value="revoked">Revoked invite</option>
+            </select>
+          </div>
+          <button type="button" id="refreshPeopleBtn" class="btn-secondary">Refresh</button>
+        </div>
+
+        <div id="storeUsersList" class="people-directory" aria-live="polite"></div>
+        <div id="storeInvitesList" class="people-invites"></div>
+      </div>
+
+      <div id="personProfileDrawer" class="person-drawer hidden" aria-hidden="true">
+        <div class="person-drawer-backdrop" data-people-action="close-profile"></div>
+        <aside class="person-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="personDrawerTitle">
+          <button type="button" class="person-drawer-close" data-people-action="close-profile" aria-label="Close profile">x</button>
+          <div id="personProfileContent"></div>
+        </aside>
       </div>
     </section>
 

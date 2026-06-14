@@ -1,5 +1,5 @@
 import { BaseTab } from './BaseTab.js';
-import { db, storage } from '../../firebase-config.js';
+import { auth, db, storage } from '../../firebase-config.js';
 import { COMPANY_ID } from '../../company-config.js';
 import { getSelectedCompanyId, setSelectedCompany } from '../../store-context.js';
 import { getInventoryDocId } from '../../firestore-paths.js';
@@ -9,6 +9,7 @@ import { logAudit } from '../utils.js';
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -20,7 +21,62 @@ import {
   setDoc,
   where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getDownloadURL, ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+const ROLE_PRESETS = [
+  {
+    id: 'owner',
+    label: 'Owner',
+    authRole: 'admin',
+    summary: 'Full store operations and ownership decisions.',
+    permissions: ['Store setup', 'Orders', 'Products', 'Marketing', 'People']
+  },
+  {
+    id: 'manager',
+    label: 'Manager',
+    authRole: 'admin',
+    summary: 'Day-to-day store operations without platform control.',
+    permissions: ['Orders', 'Products', 'Inventory', 'Reports']
+  },
+  {
+    id: 'orders',
+    label: 'Orders',
+    authRole: 'admin',
+    summary: 'Fulfillment-focused access for live market operations.',
+    permissions: ['Orders', 'Customers', 'Tracking']
+  },
+  {
+    id: 'products',
+    label: 'Products',
+    authRole: 'admin',
+    summary: 'Catalog, categories, prices, and availability.',
+    permissions: ['Products', 'Categories', 'Inventory']
+  },
+  {
+    id: 'marketing',
+    label: 'Marketing',
+    authRole: 'admin',
+    summary: 'Campaigns, banners, media, and storefront presentation.',
+    permissions: ['Campaigns', 'Banners', 'Media']
+  },
+  {
+    id: 'readonly',
+    label: 'Read-only',
+    authRole: 'readonly',
+    summary: 'View store context without making changes.',
+    permissions: ['Overview', 'Reports', 'Activity']
+  },
+  {
+    id: 'superadmin',
+    label: 'Super Admin',
+    authRole: 'superadmin',
+    summary: 'Platform-wide access across stores.',
+    permissions: ['All stores', 'People', 'Platform settings']
+  }
+];
+
+const ROLE_PRESET_MAP = new Map(ROLE_PRESETS.map((role) => [role.id, role]));
 
 function toLocalDateId(date = new Date()) {
   const year = date.getFullYear();
@@ -55,6 +111,55 @@ function toDate(value) {
 function formatMoney(value) {
   const amount = Number(value || 0);
   return `${Math.round(Number.isFinite(amount) ? amount : 0).toLocaleString()} som`;
+}
+
+function formatDateTime(value) {
+  const date = toDate(value);
+  if (!date) return 'Not recorded';
+  return date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function getRolePresetId(profile = {}) {
+  profile = profile || {};
+  const preset = String(profile.permissionPreset || profile.staffRole || profile.role || 'manager').toLowerCase();
+  if (ROLE_PRESET_MAP.has(preset)) return preset;
+  if (profile.role === 'super_admin') return 'superadmin';
+  if (profile.role === 'admin') return 'manager';
+  return 'manager';
+}
+
+function getRolePreset(profile = {}) {
+  return ROLE_PRESET_MAP.get(getRolePresetId(profile)) || ROLE_PRESET_MAP.get('manager');
+}
+
+function getAuthRoleForPreset(presetId) {
+  return (ROLE_PRESET_MAP.get(presetId) || ROLE_PRESET_MAP.get('manager')).authRole;
+}
+
+function getPersonStatus(person = {}) {
+  if (person.type === 'invite') return person.status || 'pending';
+  if (person.status) return person.status;
+  if (person.active === false || person.suspendedAt) return 'suspended';
+  return 'active';
+}
+
+function isStaffProfile(profile = {}) {
+  const role = String(profile.role || '').toLowerCase();
+  return !!profile.permissionPreset || [
+    'admin',
+    'superadmin',
+    'super_admin',
+    'owner',
+    'manager',
+    'orders',
+    'products',
+    'marketing',
+    'readonly'
+  ].includes(role);
+}
+
+function normalizeSearch(value) {
+  return String(value || '').trim().toLowerCase();
 }
 
 function getStorePreviewPath(companyId) {
@@ -203,16 +308,36 @@ export class StoresTab extends BaseTab {
     ];
     this.launchChecklist = document.getElementById('storeLaunchChecklist');
 
-    // Users (basic)
+    // People access
+    this.peopleSummary = document.getElementById('peopleSummary');
+    this.rolePresetGrid = document.getElementById('rolePresetGrid');
+    this.peopleSearch = document.getElementById('peopleSearch');
+    this.peopleRoleFilter = document.getElementById('peopleRoleFilter');
+    this.peopleStatusFilter = document.getElementById('peopleStatusFilter');
+    this.refreshPeopleBtn = document.getElementById('refreshPeopleBtn');
+    this.inviteForm = document.getElementById('inviteUserForm');
+    this.inviteEmail = document.getElementById('inviteEmail');
+    this.inviteCompanyId = document.getElementById('inviteCompanyId');
+    this.inviteRole = document.getElementById('inviteRole');
+    this.inviteNote = document.getElementById('inviteNote');
     this.userForm = document.getElementById('storeUserForm');
     this.userUid = document.getElementById('userUid');
+    this.userName = document.getElementById('userName');
     this.userEmail = document.getElementById('userEmail');
     this.userCompanyId = document.getElementById('userCompanyId');
     this.userRole = document.getElementById('userRole');
+    this.userStatus = document.getElementById('userStatus');
+    this.userNotes = document.getElementById('userNotes');
     this.usersList = document.getElementById('storeUsersList');
+    this.invitesList = document.getElementById('storeInvitesList');
+    this.profileDrawer = document.getElementById('personProfileDrawer');
+    this.profileContent = document.getElementById('personProfileContent');
 
     this.unsubscribeStores = null;
     this.stores = [];
+    this.people = [];
+    this.invites = [];
+    this.selectedPerson = null;
 
     this.metricsCache = new Map(); // companyId -> metrics
     this.metricsInFlight = new Set();
@@ -224,6 +349,7 @@ export class StoresTab extends BaseTab {
 
   async init() {
     this.bindEvents();
+    this.renderRolePresetControls();
     this.subscribeStores();
     this.hydrateUserCompanyInput();
     this.loadUsersForSelectedCompany();
@@ -438,11 +564,46 @@ export class StoresTab extends BaseTab {
     if (this.userForm) {
       this.userForm.addEventListener('submit', (e) => this.saveUserProfile(e));
     }
+
+    if (this.inviteForm) {
+      this.inviteForm.addEventListener('submit', (e) => this.createUserInvite(e));
+    }
+
+    if (this.peopleSearch) {
+      this.peopleSearch.addEventListener('input', () => this.renderPeopleWorkspace());
+    }
+
+    if (this.peopleRoleFilter) {
+      this.peopleRoleFilter.addEventListener('change', () => this.renderPeopleWorkspace());
+    }
+
+    if (this.peopleStatusFilter) {
+      this.peopleStatusFilter.addEventListener('change', () => this.renderPeopleWorkspace());
+    }
+
+    if (this.refreshPeopleBtn) {
+      this.refreshPeopleBtn.addEventListener('click', () => this.loadUsersForSelectedCompany());
+    }
+
+    if (this.usersList) {
+      this.usersList.addEventListener('click', (e) => this.handlePeopleAction(e));
+    }
+
+    if (this.invitesList) {
+      this.invitesList.addEventListener('click', (e) => this.handlePeopleAction(e));
+    }
+
+    if (this.profileDrawer) {
+      this.profileDrawer.addEventListener('click', (e) => this.handlePeopleAction(e));
+    }
   }
 
   hydrateUserCompanyInput() {
     if (this.userCompanyId) {
       this.userCompanyId.value = getSelectedCompanyId();
+    }
+    if (this.inviteCompanyId) {
+      this.inviteCompanyId.value = getSelectedCompanyId();
     }
   }
 
@@ -2094,58 +2255,459 @@ export class StoresTab extends BaseTab {
     }
   }
 
+  renderRolePresetControls() {
+    const roleOptions = ROLE_PRESETS
+      .map((role) => `<option value="${escapeHtml(role.id)}">${escapeHtml(role.label)}</option>`)
+      .join('');
+    const filterOptions = ROLE_PRESETS
+      .map((role) => `<option value="${escapeHtml(role.id)}">${escapeHtml(role.label)}</option>`)
+      .join('');
+
+    if (this.userRole) this.userRole.innerHTML = roleOptions;
+    if (this.inviteRole) this.inviteRole.innerHTML = roleOptions;
+    if (this.peopleRoleFilter && this.peopleRoleFilter.options.length <= 1) {
+      this.peopleRoleFilter.insertAdjacentHTML('beforeend', filterOptions);
+    }
+
+    if (this.rolePresetGrid) {
+      this.rolePresetGrid.innerHTML = ROLE_PRESETS.map((role) => `
+        <article class="role-preset-card">
+          <div>
+            <strong>${escapeHtml(role.label)}</strong>
+            <p>${escapeHtml(role.summary)}</p>
+          </div>
+          <small>${role.permissions.map(escapeHtml).join(' / ')}</small>
+        </article>
+      `).join('');
+    }
+  }
+
   async loadUsersForSelectedCompany() {
     if (!this.usersList) return;
 
     const companyId = getSelectedCompanyId();
-    this.usersList.innerHTML = '<p style="color:#666;">Loading users...</p>';
+    this.usersList.innerHTML = '<div class="people-loading">Loading people...</div>';
+    if (this.invitesList) this.invitesList.innerHTML = '';
+
+    try {
+      let userSnap;
+      try {
+        const q = query(collection(db, 'users'), where('companyId', '==', companyId), orderBy('email', 'asc'));
+        userSnap = await getDocs(q);
+      } catch (e) {
+        if (!String(e?.message || '').includes('index')) throw e;
+        const q2 = query(collection(db, 'users'), where('companyId', '==', companyId));
+        userSnap = await getDocs(q2);
+      }
+
+      this.people = userSnap.docs
+        .map((d) => ({ type: 'user', id: d.id, ...d.data() }))
+        .filter((user) => isStaffProfile(user))
+        .sort((a, b) => String(a.email || a.displayName || '').localeCompare(String(b.email || b.displayName || '')));
+
+      this.invites = await this.loadUserInvites(companyId);
+      this.renderPeopleWorkspace();
+    } catch (err) {
+      console.error(err);
+      this.usersList.innerHTML = `<div class="inline-alert error">Error loading people: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  async loadUserInvites(companyId) {
+    try {
+      let snap;
+      try {
+        const q = query(collection(db, 'user_invites'), where('companyId', '==', companyId), orderBy('createdAt', 'desc'));
+        snap = await getDocs(q);
+      } catch (e) {
+        if (!String(e?.message || '').includes('index')) throw e;
+        const fallback = query(collection(db, 'user_invites'), where('companyId', '==', companyId));
+        snap = await getDocs(fallback);
+      }
+
+      return snap.docs
+        .map((d) => ({ type: 'invite', id: d.id, ...d.data() }))
+        .sort((a, b) => {
+          const aDate = toDate(a.createdAt)?.getTime() || 0;
+          const bDate = toDate(b.createdAt)?.getTime() || 0;
+          return bDate - aDate;
+        });
+    } catch (err) {
+      console.warn('Invites could not load:', err);
+      if (this.invitesList) {
+        this.invitesList.innerHTML = `<div class="inline-alert error">Invites could not load: ${escapeHtml(err.message)}</div>`;
+      }
+      return [];
+    }
+  }
+
+  getFilteredPeople() {
+    const term = normalizeSearch(this.peopleSearch?.value);
+    const roleFilter = String(this.peopleRoleFilter?.value || '');
+    const statusFilter = String(this.peopleStatusFilter?.value || '');
+
+    return [...this.people, ...this.invites].filter((person) => {
+      const presetId = getRolePresetId(person);
+      const status = getPersonStatus(person);
+      const haystack = normalizeSearch([
+        person.displayName,
+        person.name,
+        person.email,
+        person.id,
+        person.uid,
+        person.companyId,
+        getRolePreset(person).label,
+        status
+      ].join(' '));
+
+      return (!term || haystack.includes(term))
+        && (!roleFilter || presetId === roleFilter)
+        && (!statusFilter || status === statusFilter);
+    });
+  }
+
+  renderPeopleWorkspace() {
+    const filtered = this.getFilteredPeople();
+    const filteredUsers = filtered.filter((person) => person.type === 'user');
+    const filteredInvites = filtered.filter((person) => person.type === 'invite');
+    const activeUsers = this.people.filter((person) => getPersonStatus(person) === 'active').length;
+    const suspendedUsers = this.people.filter((person) => getPersonStatus(person) === 'suspended').length;
+    const pendingInvites = this.invites.filter((invite) => getPersonStatus(invite) === 'pending').length;
+
+    if (this.peopleSummary) {
+      this.peopleSummary.innerHTML = `
+        <span><strong>${activeUsers}</strong> active</span>
+        <span><strong>${pendingInvites}</strong> pending</span>
+        <span><strong>${suspendedUsers}</strong> suspended</span>
+      `;
+    }
+
+    if (this.usersList) {
+      this.usersList.innerHTML = this.renderPeopleDirectory(filteredUsers);
+    }
+
+    if (this.invitesList) {
+      this.invitesList.innerHTML = this.renderInvitesList(filteredInvites);
+    }
+  }
+
+  renderPeopleDirectory(users) {
+    if (!users.length) {
+      return '<div class="people-empty">No active user profiles match this view.</div>';
+    }
+
+    return `
+      <div class="people-table-wrap">
+        <table class="people-table">
+          <thead>
+            <tr>
+              <th>Person</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Last Seen</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users.map((user) => this.renderPeopleRow(user)).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  renderPeopleRow(user) {
+    const preset = getRolePreset(user);
+    const status = getPersonStatus(user);
+    const statusClass = status === 'active' ? 'success' : 'warning';
+    const displayName = user.displayName || user.name || user.email || user.id;
+    const lastSeen = user.lastActiveAt || user.lastLoginAt || user.updatedAt || user.createdAt;
+
+    return `
+      <tr>
+        <td>
+          <button type="button" class="people-name-button" data-people-action="open-profile" data-person-type="user" data-person-id="${escapeHtml(user.id)}">
+            <span class="person-avatar">${escapeHtml(String(displayName || '?').slice(0, 1).toUpperCase())}</span>
+            <span>
+              <strong>${escapeHtml(displayName)}</strong>
+              <small>${escapeHtml(user.email || user.id)}</small>
+            </span>
+          </button>
+        </td>
+        <td><span class="people-role-pill">${escapeHtml(preset.label)}</span></td>
+        <td><span class="status-badge ${statusClass}">${escapeHtml(status)}</span></td>
+        <td>${escapeHtml(formatDateTime(lastSeen))}</td>
+        <td>
+          <div class="people-row-actions">
+            <button type="button" class="btn-secondary" data-people-action="edit-user" data-person-id="${escapeHtml(user.id)}">Edit</button>
+            <button type="button" class="btn-secondary" data-people-action="open-profile" data-person-type="user" data-person-id="${escapeHtml(user.id)}">Profile</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  renderInvitesList(invites) {
+    if (!invites.length) {
+      return '<div class="people-empty">No invites match this view.</div>';
+    }
+
+    return `
+      <div class="people-section-title">
+        <h4>Invites</h4>
+        <span>${invites.length} shown</span>
+      </div>
+      <div class="invite-list">
+        ${invites.map((invite) => this.renderInviteRow(invite)).join('')}
+      </div>
+    `;
+  }
+
+  renderInviteRow(invite) {
+    const preset = getRolePreset(invite);
+    const status = getPersonStatus(invite);
+    const statusClass = status === 'pending' ? 'warning' : status === 'accepted' ? 'success' : 'error';
+    return `
+      <article class="invite-row">
+        <div>
+          <strong>${escapeHtml(invite.email || 'Pending invite')}</strong>
+          <span>${escapeHtml(preset.label)} / created ${escapeHtml(formatDateTime(invite.createdAt))}</span>
+        </div>
+        <span class="status-badge ${statusClass}">${escapeHtml(status)}</span>
+        <div class="people-row-actions">
+          <button type="button" class="btn-secondary" data-people-action="resend-invite" data-person-id="${escapeHtml(invite.id)}">Resend</button>
+          <button type="button" class="btn-secondary" data-people-action="open-profile" data-person-type="invite" data-person-id="${escapeHtml(invite.id)}">Details</button>
+          <button type="button" class="btn-danger" data-people-action="revoke-invite" data-person-id="${escapeHtml(invite.id)}">Revoke</button>
+        </div>
+      </article>
+    `;
+  }
+
+  findPerson(type, id) {
+    const source = type === 'invite' ? this.invites : this.people;
+    return source.find((person) => person.id === id) || null;
+  }
+
+  handlePeopleAction(event) {
+    const btn = event.target?.closest?.('[data-people-action]');
+    if (!btn) return;
+    const action = btn.dataset.peopleAction;
+    const personId = btn.dataset.personId;
+    const personType = btn.dataset.personType || 'user';
+
+    if (action === 'close-profile') return this.closePersonProfile();
+    if (action === 'open-profile') return this.openPersonProfile(personType, personId);
+    if (action === 'edit-user') return this.populateUserForm(personId);
+    if (action === 'suspend-user') return this.setUserSuspended(personId, true);
+    if (action === 'reactivate-user') return this.setUserSuspended(personId, false);
+    if (action === 'remove-user') return this.removeUserFromStore(personId);
+    if (action === 'reset-password') return this.sendPasswordReset(personId);
+    if (action === 'transfer-owner') return this.transferStoreOwnership(personId);
+    if (action === 'save-profile-role') return this.saveProfileRole(personId);
+    if (action === 'resend-invite') return this.resendInvite(personId);
+    if (action === 'revoke-invite') return this.revokeInvite(personId);
+  }
+
+  populateUserForm(userId) {
+    const user = this.findPerson('user', userId);
+    if (!user) return;
+    if (this.userUid) this.userUid.value = user.id;
+    if (this.userName) this.userName.value = user.displayName || user.name || '';
+    if (this.userEmail) this.userEmail.value = user.email || '';
+    if (this.userCompanyId) this.userCompanyId.value = user.companyId || getSelectedCompanyId();
+    if (this.userRole) this.userRole.value = getRolePresetId(user);
+    if (this.userStatus) this.userStatus.value = getPersonStatus(user) === 'suspended' ? 'suspended' : 'active';
+    if (this.userNotes) this.userNotes.value = user.notes || '';
+    this.userForm?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }
+
+  async openPersonProfile(type, personId) {
+    const person = this.findPerson(type, personId);
+    if (!person || !this.profileDrawer || !this.profileContent) return;
+    this.selectedPerson = person;
+    this.profileDrawer.classList.remove('hidden');
+    this.profileDrawer.setAttribute('aria-hidden', 'false');
+    this.profileContent.innerHTML = this.renderPersonProfile(person, { loadingActivity: true });
+
+    if (type === 'user') {
+      const activity = await this.loadPersonActivity(person);
+      if (this.selectedPerson?.id === person.id) {
+        this.profileContent.innerHTML = this.renderPersonProfile(person, { activity });
+      }
+    }
+  }
+
+  closePersonProfile() {
+    this.selectedPerson = null;
+    if (!this.profileDrawer) return;
+    this.profileDrawer.classList.add('hidden');
+    this.profileDrawer.setAttribute('aria-hidden', 'true');
+  }
+
+  renderPersonProfile(person, { activity = [], loadingActivity = false } = {}) {
+    const preset = getRolePreset(person);
+    const status = getPersonStatus(person);
+    const isInvite = person.type === 'invite';
+    const displayName = person.displayName || person.name || person.email || person.id;
+
+    return `
+      <div class="person-profile">
+        <span class="person-avatar large">${escapeHtml(String(displayName || '?').slice(0, 1).toUpperCase())}</span>
+        <div>
+          <p class="eyebrow">${isInvite ? 'Pending Invite' : 'User Profile'}</p>
+          <h3 id="personDrawerTitle">${escapeHtml(displayName)}</h3>
+          <p>${escapeHtml(person.email || person.id || '')}</p>
+        </div>
+      </div>
+
+      <div class="person-profile-grid">
+        <div><span>Company</span><strong>${escapeHtml(person.companyId || getSelectedCompanyId())}</strong></div>
+        <div><span>Role</span><strong>${escapeHtml(preset.label)}</strong></div>
+        <div><span>Status</span><strong>${escapeHtml(status)}</strong></div>
+        <div><span>Updated</span><strong>${escapeHtml(formatDateTime(person.updatedAt || person.createdAt))}</strong></div>
+      </div>
+
+      <section class="person-drawer-section">
+        <h4>Role Preset</h4>
+        <p>${escapeHtml(preset.summary)}</p>
+        ${isInvite ? '' : `
+          <div class="person-role-editor">
+            <select id="personRoleSelect">
+              ${ROLE_PRESETS.map((role) => `<option value="${escapeHtml(role.id)}" ${role.id === getRolePresetId(person) ? 'selected' : ''}>${escapeHtml(role.label)}</option>`).join('')}
+            </select>
+            <button type="button" class="btn-secondary" data-people-action="save-profile-role" data-person-id="${escapeHtml(person.id)}">Save Role</button>
+          </div>
+        `}
+      </section>
+
+      ${isInvite ? this.renderInviteProfileActions(person) : this.renderUserProfileActions(person)}
+
+      <section class="person-drawer-section">
+        <h4>Recent Activity</h4>
+        ${isInvite ? '<p>Invite records do not have admin activity yet.</p>' : this.renderPersonActivity(activity, loadingActivity)}
+      </section>
+
+      ${person.notes || person.note ? `
+        <section class="person-drawer-section">
+          <h4>Notes</h4>
+          <p>${escapeHtml(person.notes || person.note)}</p>
+        </section>
+      ` : ''}
+    `;
+  }
+
+  renderUserProfileActions(person) {
+    const status = getPersonStatus(person);
+    return `
+      <section class="person-drawer-section">
+        <h4>Safety Controls</h4>
+        <div class="person-action-grid">
+          <button type="button" class="btn-secondary" data-people-action="reset-password" data-person-id="${escapeHtml(person.id)}">Reset Password</button>
+          ${status === 'suspended'
+            ? `<button type="button" class="btn-secondary" data-people-action="reactivate-user" data-person-id="${escapeHtml(person.id)}">Reactivate</button>`
+            : `<button type="button" class="btn-secondary" data-people-action="suspend-user" data-person-id="${escapeHtml(person.id)}">Suspend</button>`}
+          <button type="button" class="btn-secondary" data-people-action="transfer-owner" data-person-id="${escapeHtml(person.id)}">Make Owner</button>
+          <button type="button" class="btn-danger" data-people-action="remove-user" data-person-id="${escapeHtml(person.id)}">Remove From Store</button>
+        </div>
+      </section>
+    `;
+  }
+
+  renderInviteProfileActions(invite) {
+    return `
+      <section class="person-drawer-section">
+        <h4>Invite Controls</h4>
+        <div class="person-action-grid">
+          <button type="button" class="btn-secondary" data-people-action="resend-invite" data-person-id="${escapeHtml(invite.id)}">Resend Invite</button>
+          <button type="button" class="btn-danger" data-people-action="revoke-invite" data-person-id="${escapeHtml(invite.id)}">Revoke Invite</button>
+        </div>
+      </section>
+    `;
+  }
+
+  renderPersonActivity(activity, loadingActivity) {
+    if (loadingActivity) return '<div class="people-loading">Loading recent actions...</div>';
+    if (!activity.length) return '<p>No recent admin actions found for this person.</p>';
+
+    return `
+      <div class="person-activity-list">
+        ${activity.map((item) => `
+          <article>
+            <strong>${escapeHtml(item.action || 'Activity')}</strong>
+            <span>${escapeHtml(item.details || '')}</span>
+            <time>${escapeHtml(formatDateTime(item.timestamp))}</time>
+          </article>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  async loadPersonActivity(person) {
+    const companyId = person.companyId || getSelectedCompanyId();
+    const identifiers = new Set([person.email, person.id, person.uid].filter(Boolean).map((value) => String(value).toLowerCase()));
 
     try {
       let snap;
       try {
-        const q = query(collection(db, 'users'), where('companyId', '==', companyId), orderBy('email', 'asc'));
+        const q = query(collection(db, 'audit_logs'), where('companyId', '==', companyId), orderBy('timestamp', 'desc'), limit(50));
         snap = await getDocs(q);
       } catch (e) {
         if (!String(e?.message || '').includes('index')) throw e;
-        const q2 = query(collection(db, 'users'), where('companyId', '==', companyId));
-        snap = await getDocs(q2);
+        const fallback = query(collection(db, 'audit_logs'), where('companyId', '==', companyId), limit(50));
+        snap = await getDocs(fallback);
       }
 
-      const users = snap.docs
+      return snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => String(a.email || '').localeCompare(String(b.email || '')));
+        .filter((log) => identifiers.has(String(log.user || '').toLowerCase()))
+        .slice(0, 6);
+    } catch (err) {
+      console.warn('Person activity could not load:', err);
+      return [];
+    }
+  }
 
-      if (!users.length) {
-        this.usersList.innerHTML = '<p style="color:#666;">No users found for this store.</p>';
-        return;
-      }
+  wouldRemoveLastSuperAdmin(person, nextPresetId = null) {
+    const currentPreset = getRolePresetId(person);
+    if (currentPreset !== 'superadmin') return false;
+    if (nextPresetId === 'superadmin') return false;
+    const activeSuperAdmins = this.people.filter((user) => (
+      getRolePresetId(user) === 'superadmin' && getPersonStatus(user) === 'active'
+    ));
+    return activeSuperAdmins.length <= 1;
+  }
 
-      this.usersList.innerHTML = '';
-      users.forEach((u) => {
-        const el = document.createElement('div');
-        el.className = 'list-item';
-        el.innerHTML = `
-          <div style="display:flex; flex-direction:column; gap:0.15rem;">
-            <strong>${u.email || u.id}</strong>
-            <span style="font-size:0.85rem; color:#666;">UID: ${u.id}</span>
-            <span style="font-size:0.8rem; color:#888;">Role: ${u.role || 'admin'}</span>
-          </div>
-          <div>
-            <button class="btn-secondary" type="button">Edit</button>
-          </div>
-        `;
-        el.querySelector('button')?.addEventListener('click', () => {
-          if (this.userUid) this.userUid.value = u.id;
-          if (this.userEmail) this.userEmail.value = u.email || '';
-          if (this.userCompanyId) this.userCompanyId.value = u.companyId || companyId;
-          if (this.userRole) this.userRole.value = u.role || 'admin';
-          this.userForm?.scrollIntoView?.({ behavior: 'smooth' });
-        });
-        this.usersList.appendChild(el);
+  async createUserInvite(e) {
+    e.preventDefault();
+    const email = String(this.inviteEmail?.value || '').trim().toLowerCase();
+    const companyId = String(this.inviteCompanyId?.value || getSelectedCompanyId()).trim();
+    const presetId = String(this.inviteRole?.value || 'manager');
+    const note = String(this.inviteNote?.value || '').trim();
+
+    if (!email) return alert('Invite email is required.');
+    if (!companyId) return alert('Company is required.');
+
+    try {
+      await addDoc(collection(db, 'user_invites'), {
+        email,
+        companyId,
+        permissionPreset: presetId,
+        role: getAuthRoleForPreset(presetId),
+        status: 'pending',
+        note,
+        invitedBy: auth.currentUser?.email || auth.currentUser?.uid || 'admin',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
+
+      await logAudit('User Invite Created', `${email} invited as ${getRolePreset({ permissionPreset: presetId }).label}`);
+      this.inviteForm?.reset?.();
+      this.hydrateUserCompanyInput();
+      await this.loadUsersForSelectedCompany();
+      window.adminApp?.showToast?.('Invite created.', 'success');
     } catch (err) {
       console.error(err);
-      this.usersList.innerHTML = `<p style="color:red;">Error loading users: ${err.message}</p>`;
+      alert('Failed to create invite: ' + err.message);
     }
   }
 
@@ -2154,31 +2716,159 @@ export class StoresTab extends BaseTab {
     const uid = String(this.userUid?.value || '').trim();
     if (!uid) return alert('User UID is required.');
 
-    const email = String(this.userEmail?.value || '').trim();
+    const displayName = String(this.userName?.value || '').trim();
+    const email = String(this.userEmail?.value || '').trim().toLowerCase();
     const companyId = String(this.userCompanyId?.value || '').trim();
     if (!companyId) return alert('Company is required.');
 
-    const role = String(this.userRole?.value || 'admin').trim() || 'admin';
+    const presetId = String(this.userRole?.value || 'manager').trim() || 'manager';
+    const status = String(this.userStatus?.value || 'active');
+    const existingPerson = this.people.find((person) => person.id === uid);
+    if (existingPerson && this.wouldRemoveLastSuperAdmin(existingPerson, presetId)) {
+      return alert('This store needs at least one active superadmin.');
+    }
 
     try {
       const ref = doc(db, 'users', uid);
       const existing = await getDoc(ref);
       await setDoc(ref, {
         uid,
+        displayName,
         email,
         companyId,
-        role,
+        role: getAuthRoleForPreset(presetId),
+        permissionPreset: presetId,
+        status,
+        active: status !== 'suspended',
+        notes: String(this.userNotes?.value || '').trim(),
         updatedAt: serverTimestamp(),
+        ...(status === 'suspended' ? { suspendedAt: serverTimestamp() } : {}),
         ...(existing.exists() ? {} : { createdAt: serverTimestamp() })
       }, { merge: true });
 
-      alert('User profile saved.');
+      await logAudit(existing.exists() ? 'User Profile Updated' : 'User Profile Created', `${email || uid} as ${getRolePreset({ permissionPreset: presetId }).label}`);
       this.userForm?.reset?.();
       this.hydrateUserCompanyInput();
-      this.loadUsersForSelectedCompany();
+      await this.loadUsersForSelectedCompany();
+      window.adminApp?.showToast?.('User profile saved.', 'success');
     } catch (err) {
       console.error(err);
       alert('Failed to save user profile: ' + err.message);
     }
+  }
+
+  async setUserSuspended(userId, shouldSuspend) {
+    const person = this.findPerson('user', userId);
+    if (!person) return;
+    if (shouldSuspend && this.wouldRemoveLastSuperAdmin(person)) {
+      return alert('This store needs at least one active superadmin.');
+    }
+
+    const message = shouldSuspend ? 'Suspend this user access?' : 'Reactivate this user access?';
+    if (!confirm(message)) return;
+
+    await setDoc(doc(db, 'users', userId), {
+      status: shouldSuspend ? 'suspended' : 'active',
+      active: !shouldSuspend,
+      updatedAt: serverTimestamp(),
+      ...(shouldSuspend ? { suspendedAt: serverTimestamp() } : { reactivatedAt: serverTimestamp() })
+    }, { merge: true });
+
+    await logAudit(shouldSuspend ? 'User Suspended' : 'User Reactivated', person.email || userId);
+    await this.loadUsersForSelectedCompany();
+    if (this.profileDrawer && !this.profileDrawer.classList.contains('hidden')) this.openPersonProfile('user', userId);
+  }
+
+  async removeUserFromStore(userId) {
+    const person = this.findPerson('user', userId);
+    if (!person) return;
+    if (this.wouldRemoveLastSuperAdmin(person)) {
+      return alert('This store needs at least one active superadmin.');
+    }
+    if (!confirm(`Remove ${person.email || userId} from this store?`)) return;
+
+    await deleteDoc(doc(db, 'users', userId));
+    await logAudit('User Removed From Store', person.email || userId);
+    this.closePersonProfile();
+    await this.loadUsersForSelectedCompany();
+  }
+
+  async sendPasswordReset(userId) {
+    const person = this.findPerson('user', userId);
+    if (!person?.email) return alert('This user does not have an email address on the profile.');
+
+    await sendPasswordResetEmail(auth, person.email);
+    await logAudit('Password Reset Sent', person.email);
+    window.adminApp?.showToast?.('Password reset email sent.', 'success');
+  }
+
+  async transferStoreOwnership(userId) {
+    const person = this.findPerson('user', userId);
+    if (!person) return;
+    if (!confirm(`Make ${person.email || userId} the store owner?`)) return;
+
+    await setDoc(doc(db, 'users', userId), {
+      permissionPreset: 'owner',
+      role: getAuthRoleForPreset('owner'),
+      status: 'active',
+      active: true,
+      ownershipTransferredAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    await logAudit('Store Ownership Transferred', person.email || userId);
+    await this.loadUsersForSelectedCompany();
+    this.openPersonProfile('user', userId);
+  }
+
+  async saveProfileRole(userId) {
+    const person = this.findPerson('user', userId);
+    if (!person) return;
+    const roleSelect = document.getElementById('personRoleSelect');
+    const presetId = String(roleSelect?.value || getRolePresetId(person));
+    if (this.wouldRemoveLastSuperAdmin(person, presetId)) {
+      return alert('This store needs at least one active superadmin.');
+    }
+
+    await setDoc(doc(db, 'users', userId), {
+      permissionPreset: presetId,
+      role: getAuthRoleForPreset(presetId),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    await logAudit('User Role Updated', `${person.email || userId} -> ${getRolePreset({ permissionPreset: presetId }).label}`);
+    await this.loadUsersForSelectedCompany();
+    this.openPersonProfile('user', userId);
+  }
+
+  async resendInvite(inviteId) {
+    const invite = this.findPerson('invite', inviteId);
+    if (!invite) return;
+
+    await setDoc(doc(db, 'user_invites', inviteId), {
+      status: 'pending',
+      resentAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    await logAudit('User Invite Resent', invite.email || inviteId);
+    await this.loadUsersForSelectedCompany();
+    if (this.profileDrawer && !this.profileDrawer.classList.contains('hidden')) this.openPersonProfile('invite', inviteId);
+  }
+
+  async revokeInvite(inviteId) {
+    const invite = this.findPerson('invite', inviteId);
+    if (!invite) return;
+    if (!confirm(`Revoke invite for ${invite.email || inviteId}?`)) return;
+
+    await setDoc(doc(db, 'user_invites', inviteId), {
+      status: 'revoked',
+      revokedAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+
+    await logAudit('User Invite Revoked', invite.email || inviteId);
+    this.closePersonProfile();
+    await this.loadUsersForSelectedCompany();
   }
 }
