@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Opening Glovo Product</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="tool-shell">
+    <section class="workspace">
+      <p class="eyebrow">OAKO QR link</p>
+      <h1>Opening product</h1>
+      <p class="lede" id="message">Preparing the Glovo web product link...</p>
+      <form id="fallbackForm" method="get">
+        <button type="submit">Open Product in Browser</button>
+      </form>
+      <p class="note">If nothing happens, use the button above. This page records an anonymous QR click, then opens the Glovo web product.</p>
+    </section>
+  </main>
+
+  <script src="analytics-config.js"></script>
+  <script src="analytics.js"></script>
+  <script src="open.js"></script>
+</body>
+</html>

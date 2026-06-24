@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Product QR URL Converter</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="tool-shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Product QR utility</p>
+        <h1>Glovo URL and QR converter</h1>
+        <p class="lede">Paste a Glovo product URL, convert it into a QR-safe browser landing URL, and export a branded QR code for products, shelves, campaigns, or packaging.</p>
+      </div>
+      <div class="status-card" id="statusCard">
+        <span class="status-dot"></span>
+        <span id="statusText">Ready</span>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <label for="sourceUrl">Glovo product URL</label>
+      <textarea id="sourceUrl" spellcheck="false" placeholder="https://glovoapp.com/en/kg/bishkek/stores/glovo-express-bsk?content=...&productId=...&externalProductId=..."></textarea>
+
+      <div class="actions">
+        <button id="convertButton" type="button">Convert URL</button>
+        <button id="sampleButton" type="button" class="secondary">Use tested sample</button>
+        <button id="clearButton" type="button" class="ghost">Clear</button>
+      </div>
+
+      <section class="brand-tools" aria-label="QR code brand tools">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Brand kit</p>
+            <h2>Customize the downloaded QR</h2>
+          </div>
+          <button id="resetStyleButton" type="button" class="ghost">Reset style</button>
+        </div>
+
+        <div class="field-grid">
+          <label for="brandName">Company or brand
+            <input id="brandName" autocomplete="organization" placeholder="OAKO">
+          </label>
+          <label for="companyId">Analytics company ID
+            <input id="companyId" value="kyrgyz-organics" placeholder="kyrgyz-organics">
+          </label>
+          <label for="productName">Product or campaign
+            <input id="productName" placeholder="Fresh bread QR">
+          </label>
+          <label for="productCode">SKU, batch, or note
+            <input id="productCode" placeholder="SKU-470010">
+          </label>
+          <label for="badgeText">Center badge
+            <input id="badgeText" maxlength="6" placeholder="OK">
+          </label>
+          <label for="qrColor">QR color
+            <input id="qrColor" type="color" value="#1f2a24">
+          </label>
+          <label for="backgroundColor">Background
+            <input id="backgroundColor" type="color" value="#ffffff">
+          </label>
+          <label for="accentColor">Accent
+            <input id="accentColor" type="color" value="#27724f">
+          </label>
+          <label for="qrSize">Download size
+            <select id="qrSize">
+              <option value="720">Small PNG</option>
+              <option value="960" selected>Standard PNG</option>
+              <option value="1400">Large print PNG</option>
+            </select>
+          </label>
+        </div>
+      </section>
+    </section>
+
+    <section class="results" id="results" hidden>
+      <article class="result-block recommended">
+        <div class="result-heading">
+          <div>
+            <p class="eyebrow">Recommended QR URL</p>
+            <h2>Browser-preserving landing page</h2>
+          </div>
+          <button class="copy-button" type="button" data-copy-target="landingUrl">Copy</button>
+        </div>
+        <input id="landingUrl" readonly>
+        <div class="qr-layout">
+          <div class="qr-card">
+            <canvas id="qrCanvas" width="960" height="1229" aria-label="Branded QR code preview"></canvas>
+          </div>
+          <div class="qr-actions">
+            <button id="downloadQrButton" type="button">Download QR PNG</button>
+            <button id="copyQrUrlButton" type="button" class="secondary">Copy QR URL</button>
+            <p class="note">Use this for production QR testing. It opens your landing page first, then navigates to the exact Glovo web product with a form fallback.</p>
+            <p class="note warning" id="qrWarning" hidden>QR preview needs the local QR library to load. The converted link is still valid.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="result-block">
+        <div class="result-heading">
+          <div>
+            <p class="eyebrow">Backup experiment</p>
+            <h2>Trailing-dot Glovo URL</h2>
+          </div>
+          <button class="copy-button" type="button" data-copy-target="trailingDotUrl">Copy</button>
+        </div>
+        <input id="trailingDotUrl" readonly>
+        <p class="note">This preserved Chrome in emulator testing, but some scanners or apps may normalize the hostname.</p>
+      </article>
+
+      <article class="details">
+        <h2>Detected fields</h2>
+        <dl>
+          <div><dt>Store slug</dt><dd id="storeSlug">-</dd></div>
+          <div><dt>Product ID</dt><dd id="productId">-</dd></div>
+          <div><dt>External product ID</dt><dd id="externalProductId">-</dd></div>
+          <div><dt>Content</dt><dd id="contentPath">-</dd></div>
+        </dl>
+      </article>
+    </section>
+  </main>
+
+  <script src="vendor/qrcode.min.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
