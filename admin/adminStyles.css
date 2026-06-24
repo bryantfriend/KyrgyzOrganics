@@ -2638,7 +2638,7 @@ button[type="submit"]:hover {
 }
 
 .quick-store-modal {
-  width: min(560px, 92vw);
+  width: min(720px, 94vw);
 }
 
 .quick-store-form {
@@ -2654,6 +2654,78 @@ button[type="submit"]:hover {
 
 .quick-store-copy p {
   margin: 0;
+}
+
+.quick-store-starters {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.quick-store-starter {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.7rem;
+  min-height: 118px;
+  padding: 0.9rem;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: border-color var(--admin-transition), box-shadow var(--admin-transition), background var(--admin-transition), transform var(--admin-transition);
+}
+
+.quick-store-starter:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.07);
+  transform: translateY(-1px);
+}
+
+.quick-store-starter input {
+  margin-top: 0.2rem;
+  accent-color: var(--admin-primary);
+}
+
+.quick-store-starter span {
+  min-width: 0;
+}
+
+.quick-store-starter strong,
+.quick-store-starter small {
+  display: block;
+}
+
+.quick-store-starter strong {
+  color: var(--admin-text);
+  font-size: 0.98rem;
+}
+
+.quick-store-starter small {
+  margin-top: 0.35rem;
+  color: var(--admin-muted);
+  line-height: 1.42;
+}
+
+.quick-store-starter:has(input:checked) {
+  border-color: #2563eb;
+  background: linear-gradient(180deg, #eff6ff 0%, #ffffff 100%);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.quick-store-next {
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.5;
 }
 
 .field-hint {
@@ -3848,7 +3920,7 @@ button[type="submit"]:hover {
 
 .people-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
 }
 
@@ -4219,6 +4291,10 @@ button[type="submit"]:hover {
 
   .store-onboarding-actions {
     justify-content: flex-start;
+  }
+
+  .quick-store-starters {
+    grid-template-columns: 1fr;
   }
 }
 

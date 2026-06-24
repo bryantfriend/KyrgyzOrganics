@@ -42,7 +42,7 @@
           <div class="admin-header-subtitle">
             <span id="headerStoreDomain">oako.kg</span>
             <span id="storePill">Store: kyrgyz-organics</span>
-            <span id="adminVersionPill" class="admin-version-pill">Admin v3.8</span>
+            <span id="adminVersionPill" class="admin-version-pill">Admin v3.9</span>
           </div>
         </div>
       </div>
@@ -384,12 +384,12 @@
         <div class="store-onboarding-copy">
           <div class="eyebrow">New Store Onboarding</div>
           <h3>Launch a store without hunting through the form</h3>
-          <p>Pick a starter path, fill the basics, preview the homepage, then use the launch score to finish the gaps.</p>
+          <p>Open the guided creator, choose a starter, name the store, and we’ll switch you into the new workspace.</p>
         </div>
         <div class="store-onboarding-actions">
-          <button type="button" id="startBakeryOnboardingBtn" class="btn-primary">Start Bakery Store</button>
-          <button type="button" id="startOrganicOnboardingBtn" class="btn-secondary">Start Organic Store</button>
-          <button type="button" id="startBlankOnboardingBtn" class="btn-secondary">Blank Store</button>
+          <button type="button" id="startBakeryOnboardingBtn" class="btn-secondary">Bakery Store</button>
+          <button type="button" id="startOrganicOnboardingBtn" class="btn-secondary">Organic Store</button>
+          <button type="button" id="startBlankOnboardingBtn" class="btn-primary">Blank Store</button>
         </div>
       </div>
 
@@ -411,18 +411,44 @@
           <div class="modal-header">
             <div>
               <div class="eyebrow">Create Store</div>
-              <h3>Start with the store name</h3>
+              <h3>New store setup</h3>
             </div>
             <button type="button" id="closeCreateStoreModalBtn" class="icon-button" aria-label="Close create store modal">x</button>
           </div>
           <form id="createStoreForm" class="quick-store-form">
             <div class="quick-store-copy">
-              <p>We’ll create the new store, switch the admin into it immediately, and then open the full editor so you can finish the setup.</p>
+              <p id="createStoreIntro">Choose the type of store you want, add the name, and we’ll create the workspace with a draft storefront.</p>
             </div>
+            <fieldset class="quick-store-starters" aria-label="Store starter">
+              <label class="quick-store-starter">
+                <input type="radio" name="createStoreStarter" value="blank" checked>
+                <span>
+                  <strong>Blank</strong>
+                  <small>Clean draft with only the essentials.</small>
+                </span>
+              </label>
+              <label class="quick-store-starter">
+                <input type="radio" name="createStoreStarter" value="bakery">
+                <span>
+                  <strong>Bakery</strong>
+                  <small>Bread-focused layout, bakery copy, warm theme.</small>
+                </span>
+              </label>
+              <label class="quick-store-starter">
+                <input type="radio" name="createStoreStarter" value="organic">
+                <span>
+                  <strong>Organic</strong>
+                  <small>Market layout, organic copy, campaign sections.</small>
+                </span>
+              </label>
+            </fieldset>
             <div class="form-group">
               <label for="newStoreNameInput">Store Name</label>
-              <input type="text" id="newStoreNameInput" placeholder="Daily Bread" required>
+              <input type="text" id="newStoreNameInput" placeholder="New Store" required>
               <small id="newStoreSlugHint" class="field-hint">Store ID will be generated automatically.</small>
+            </div>
+            <div id="createStoreNextSteps" class="quick-store-next">
+              After creation, you’ll land in the full editor to add logo, contact details, products, and launch settings.
             </div>
             <div id="createStoreError" class="inline-alert error" hidden></div>
             <div class="quick-store-actions">
@@ -921,6 +947,28 @@
         </div>
 
         <div class="people-grid">
+          <form id="createStoreOwnerForm" class="people-panel">
+            <div class="people-panel-heading">
+              <h4>Create Store Owner</h4>
+              <span>Creates Firebase Auth access</span>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="ownerEmail">Email</label>
+                <input type="email" id="ownerEmail" placeholder="owner@email.com" required>
+              </div>
+              <div class="form-group">
+                <label for="ownerName">Display Name</label>
+                <input type="text" id="ownerName" placeholder="Store owner" required>
+              </div>
+              <div class="form-group">
+                <label for="ownerCompanyId">Company</label>
+                <input type="text" id="ownerCompanyId" placeholder="dailybread" required>
+              </div>
+            </div>
+            <button type="submit" id="createStoreOwnerSubmitBtn" class="btn-primary" style="width:auto;">Create Store Owner</button>
+          </form>
+
           <form id="inviteUserForm" class="people-panel">
             <div class="people-panel-heading">
               <h4>Invite User</h4>

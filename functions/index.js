@@ -9,6 +9,13 @@ const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
 const COMPANY_ID = "kyrgyz-organics";
 const COMPANY_ID_PATTERN = /^[a-z0-9-]{2,80}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
+const STORE_OWNER_CLAIMS = (companyId) => ({
+    role: 'admin',
+    permissionPreset: 'owner',
+    companyId
+});
 
 const DEFAULT_CHECKOUT_SETTINGS = {
     deliveryFee: 200,
@@ -30,6 +37,63 @@ function ensureCompanyDoc(data, label, id, expectedCompanyId = COMPANY_ID) {
 
 function asTrimmedString(value, maxLength = 500) {
     return String(value || '').trim().slice(0, maxLength);
+}
+
+function normalizeRole(role) {
+    return asTrimmedString(role, 80).toLowerCase();
+}
+
+function isSuperAdminRole(role) {
+    return SUPER_ADMIN_ROLES.has(normalizeRole(role));
+}
+
+function requireValidEmail(email) {
+    if (!email) {
+        throw new functions.https.HttpsError('invalid-argument', 'Email is required');
+    }
+
+    if (!EMAIL_PATTERN.test(email)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid email address');
+    }
+}
+
+function requireValidCompanyId(companyId) {
+    if (!companyId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Company is required');
+    }
+
+    if (!COMPANY_ID_PATTERN.test(companyId)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid company');
+    }
+}
+
+async function requireStoreOwnerCreator(context) {
+    if (!context?.auth?.uid) {
+        throw new functions.https.HttpsError('unauthenticated', 'Sign in is required');
+    }
+
+    const tokenRole = normalizeRole(context.auth.token?.role);
+    if (isSuperAdminRole(tokenRole)) {
+        return { uid: context.auth.uid, email: context.auth.token?.email || '' };
+    }
+
+    const callerSnap = await db.doc(`users/${context.auth.uid}`).get();
+    const caller = callerSnap.exists ? callerSnap.data() : null;
+    if (!caller || !isSuperAdminRole(caller.role)) {
+        throw new functions.https.HttpsError('permission-denied', 'Only platform admins can create store owner users');
+    }
+
+    return {
+        uid: context.auth.uid,
+        email: context.auth.token?.email || caller.email || ''
+    };
+}
+
+async function ensureCompanyExists(companyId) {
+    const companySnap = await db.doc(`companies/${companyId}`).get();
+    if (!companySnap.exists) {
+        throw new functions.https.HttpsError('not-found', 'Store not found');
+    }
 }
 
 function resolveCompanyId(value) {
@@ -257,6 +321,104 @@ async function releaseInventory(tx, dateStr, items, companyId = COMPANY_ID) {
 
     tx.update(inventoryRef, inventoryUpdates);
 }
+
+exports.createStoreOwnerUser = functions.https.onCall(async (data, context) => {
+    let createdUid = null;
+
+    try {
+        const caller = await requireStoreOwnerCreator(context);
+        const email = asTrimmedString(data?.email, 254).toLowerCase();
+        const displayName = asTrimmedString(data?.displayName || data?.name, 120);
+        const companyId = asTrimmedString(data?.companyId || data?.storeId, 80).toLowerCase();
+        const phoneNumber = asTrimmedString(data?.phoneNumber, 30);
+
+        requireValidEmail(email);
+        if (!displayName) {
+            throw new functions.https.HttpsError('invalid-argument', 'Display name is required');
+        }
+        requireValidCompanyId(companyId);
+        if (phoneNumber && !/^\+[1-9]\d{1,14}$/.test(phoneNumber)) {
+            throw new functions.https.HttpsError('invalid-argument', 'Phone number must use E.164 format');
+        }
+
+        await ensureCompanyExists(companyId);
+
+        try {
+            await admin.auth().getUserByEmail(email);
+            throw new functions.https.HttpsError('already-exists', 'An account with this email already exists');
+        } catch (error) {
+            if (error instanceof functions.https.HttpsError) throw error;
+            if (error?.code !== 'auth/user-not-found') {
+                console.error('Store owner duplicate check failed:', error);
+                throw new functions.https.HttpsError('internal', 'Could not create store owner user');
+            }
+        }
+
+        const authUser = await admin.auth().createUser({
+            email,
+            displayName,
+            disabled: false,
+            ...(phoneNumber ? { phoneNumber } : {})
+        });
+        createdUid = authUser.uid;
+
+        const claims = STORE_OWNER_CLAIMS(companyId);
+        await admin.auth().setCustomUserClaims(authUser.uid, claims);
+
+        await db.doc(`users/${authUser.uid}`).set({
+            uid: authUser.uid,
+            email,
+            displayName,
+            ...(phoneNumber ? { phoneNumber } : {}),
+            companyId,
+            role: 'admin',
+            permissionPreset: 'owner',
+            status: 'active',
+            active: true,
+            createdAt: FieldValue.serverTimestamp(),
+            createdBy: caller.uid,
+            updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        try {
+            await db.collection('audit_logs').add({
+                companyId,
+                action: 'Store Owner User Created',
+                details: `${email} created as Owner`,
+                user: caller.email || caller.uid,
+                timestamp: FieldValue.serverTimestamp()
+            });
+        } catch (auditError) {
+            console.warn('Store owner audit log failed:', auditError);
+        }
+
+        return {
+            ok: true,
+            uid: authUser.uid,
+            email,
+            displayName,
+            companyId,
+            role: 'admin',
+            permissionPreset: 'owner',
+            passwordResetRequired: true
+        };
+    } catch (error) {
+        if (createdUid && !(error instanceof functions.https.HttpsError)) {
+            try {
+                await admin.auth().deleteUser(createdUid);
+            } catch (cleanupError) {
+                console.error('Store owner create cleanup failed:', cleanupError);
+            }
+        }
+
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
+        }
+
+        console.error('createStoreOwnerUser failed:', error);
+        throw new functions.https.HttpsError('internal', 'Could not create store owner user');
+    }
+});
 
 exports.createOrder = functions.https.onCall(async (data, context) => {
     const companyId = resolveCompanyId(data?.companyId);
