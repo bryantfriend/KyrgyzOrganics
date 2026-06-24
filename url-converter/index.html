@@ -7,8 +7,22 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app-shell">
-    <aside class="sidebar" aria-label="Tool navigation">
+  <header class="mobile-topbar" aria-label="Mobile toolbar">
+    <button class="hamburger-button" type="button" data-open-modal="menu" aria-label="Open menu" aria-controls="mobileNavigation">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+    <div class="mobile-brand" aria-label="Glovo QR Converter">
+      <span class="brand-mark" aria-hidden="true">G</span>
+      <strong>Glovo QR</strong>
+    </div>
+    <button class="mobile-pill-button" type="button" data-open-modal="brand">Brand</button>
+  </header>
+  <button class="mobile-overlay" type="button" data-close-modal aria-label="Close menu or modal"></button>
+  <div class="mobile-toast" role="status" aria-live="polite"></div><div class="app-shell">
+    <aside class="sidebar" id="mobileNavigation" aria-label="Tool navigation">
+      <button class="mobile-drawer-close" type="button" data-close-modal aria-label="Close menu">Close</button>
       <div class="brand-lockup" aria-label="Glovo QR Converter">
         <span class="brand-mark" aria-hidden="true">G</span>
         <div>
@@ -81,6 +95,12 @@
           </div>
         </section>
 
+        <div class="mobile-quick-actions" aria-label="Mobile quick actions">
+          <button type="button" class="secondary" data-paste-url>Paste URL</button>
+          <button type="button" class="secondary" data-open-modal="brand">Brand Kit</button>
+          <button type="button" class="ghost" data-open-modal="details">Details</button>
+        </div>
+
         <aside class="preview-column" aria-labelledby="preview-heading">
           <article class="preview-card">
             <div class="preview-header">
@@ -143,7 +163,10 @@
               <p class="step-label">2</p>
               <h2 id="brand-heading">Customize Your QR</h2>
             </div>
-            <button id="resetStyleButton" type="button" class="ghost">Reset Style</button>
+            <div class="section-actions">
+              <button id="resetStyleButton" type="button" class="ghost">Reset Style</button>
+              <button type="button" class="modal-close" data-close-modal>Done</button>
+            </div>
           </div>
 
           <div class="field-grid">
@@ -182,6 +205,14 @@
         </section>
 
         <section class="results" id="results" hidden>
+          <div class="mobile-modal-heading">
+            <div>
+              <p class="eyebrow">Converted URL</p>
+              <h2>Details</h2>
+            </div>
+            <button type="button" class="modal-close" data-close-modal>Done</button>
+          </div>
+
           <details class="content-card advanced-card">
             <summary>
               <span>
@@ -234,7 +265,12 @@
 
   <script src="vendor/qrcode.min.js" defer></script>
   <script src="app.js" defer></script>
+  <script src="ui.js" defer></script>
 </body>
 </html>
+
+
+
+
 
 
