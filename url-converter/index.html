@@ -62,170 +62,173 @@
         </div>
       </header>
 
-      <section class="content-card url-card" aria-labelledby="source-heading">
-        <div class="section-heading">
-          <div>
-            <p class="step-label">1</p>
-            <h2 id="source-heading">Glovo Product URL</h2>
-          </div>
-        </div>
-        <label class="field-label" for="sourceUrl">Paste product link</label>
-        <textarea id="sourceUrl" spellcheck="false" placeholder="https://glovoapp.com/en/kg/bishkek/stores/glovo-express-bsk?content=...&productId=...&externalProductId=..."></textarea>
-        <p class="helper-text">Use the product URL copied from the Glovo website. The tool keeps the same product, campaign, and analytics behavior.</p>
-
-        <div class="actions" aria-label="URL actions">
-          <button id="convertButton" type="button">Convert URL</button>
-          <button id="sampleButton" type="button" class="secondary">Use Sample</button>
-          <button id="clearButton" type="button" class="ghost">Clear</button>
-        </div>
-      </section>
-
-      <section class="content-card brand-tools" id="brand-kit" aria-labelledby="brand-heading">
-        <div class="section-heading">
-          <div>
-            <p class="step-label">2</p>
-            <h2 id="brand-heading">Customize Your QR</h2>
-          </div>
-          <button id="resetStyleButton" type="button" class="ghost">Reset Style</button>
-        </div>
-
-        <div class="field-grid">
-          <label class="field-label" for="brandName">Company Name
-            <input id="brandName" autocomplete="organization" placeholder="OAKO">
-          </label>
-          <label class="field-label" for="companyId">Analytics ID
-            <input id="companyId" value="kyrgyz-organics" placeholder="kyrgyz-organics">
-          </label>
-          <label class="field-label" for="productName">Campaign Name
-            <input id="productName" placeholder="Fresh bread QR">
-          </label>
-          <label class="field-label" for="productCode">SKU
-            <input id="productCode" placeholder="SKU-470010">
-          </label>
-          <label class="field-label" for="badgeText">Center Badge
-            <input id="badgeText" maxlength="6" placeholder="OK">
-          </label>
-          <label class="field-label swatch-field" for="qrColor">QR Color
-            <input id="qrColor" type="color" value="#1f2a24">
-          </label>
-          <label class="field-label swatch-field" for="backgroundColor">Background Color
-            <input id="backgroundColor" type="color" value="#ffffff">
-          </label>
-          <label class="field-label swatch-field" for="accentColor">Accent Color
-            <input id="accentColor" type="color" value="#27724f">
-          </label>
-          <label class="field-label download-size" for="qrSize">Download Size
-            <select id="qrSize">
-              <option value="720">Small PNG</option>
-              <option value="960" selected>Standard PNG</option>
-              <option value="1400">Large print PNG</option>
-            </select>
-          </label>
-        </div>
-      </section>
-
-      <section class="results" id="results" hidden>
-        <article class="landing-hero" aria-labelledby="landing-heading">
-          <div class="section-heading hero-heading">
+      <div class="converter-layout">
+        <section class="content-card url-card" aria-labelledby="source-heading">
+          <div class="section-heading">
             <div>
-              <p class="step-label">3</p>
-              <h2 id="landing-heading">Your QR Landing Page</h2>
+              <p class="step-label">1</p>
+              <h2 id="source-heading">Glovo Product URL</h2>
             </div>
-            <p class="result-pill">Analytics ready</p>
           </div>
+          <label class="field-label" for="sourceUrl">Paste product link</label>
+          <textarea id="sourceUrl" spellcheck="false" placeholder="https://glovoapp.com/en/kg/bishkek/stores/glovo-express-bsk?content=...&productId=...&externalProductId=..."></textarea>
+          <p class="helper-text">Use the product URL copied from the Glovo website. The tool keeps the same product, campaign, and analytics behavior.</p>
 
-          <div class="landing-grid">
-            <div class="landing-column link-panel">
-              <p class="eyebrow">Recommended short link</p>
-              <label class="field-label" for="socialShortUrl">Landing page URL</label>
-              <div class="copy-row">
-                <input id="socialShortUrl" readonly>
-                <button class="copy-button" type="button" data-copy-target="socialShortUrl">Copy</button>
+          <div class="actions" aria-label="URL actions">
+            <button id="convertButton" type="button">Convert URL</button>
+            <button id="sampleButton" type="button" class="secondary">Use Sample</button>
+            <button id="clearButton" type="button" class="ghost">Clear</button>
+          </div>
+        </section>
+
+        <aside class="preview-column" aria-labelledby="preview-heading">
+          <article class="preview-card">
+            <div class="preview-header">
+              <div>
+                <p class="eyebrow">Sticky panel</p>
+                <h2 id="preview-heading">Live QR Preview</h2>
               </div>
-              <p class="note" id="shortUrlStats">Short link length: 0 characters.</p>
-              <ul class="benefit-list" aria-label="Short link benefits">
-                <li>Compact enough for QR and social bios.</li>
-                <li>Records anonymous QR clicks before opening Glovo.</li>
-                <li>Preserves the exact original product URL.</li>
-              </ul>
-              <div class="fallback-link">
-                <label class="field-label" for="landingUrl">Full fallback URL</label>
-                <div class="copy-row">
-                  <input id="landingUrl" readonly>
-                  <button class="copy-button" type="button" data-copy-target="landingUrl">Copy</button>
-                </div>
-              </div>
+              <span class="result-pill">Live</span>
             </div>
+            <p class="helper-text">Updates as you convert and customize your QR.</p>
 
-            <div class="landing-column phone-preview" aria-label="Landing page preview">
-              <div class="phone-frame">
-                <div class="phone-top"></div>
-                <div class="phone-screen">
-                  <p class="mini-eyebrow">OAKO</p>
-                  <h3>Product landing page</h3>
-                  <div class="mini-product">
-                    <span></span>
-                    <div>
-                      <strong>Glovo product</strong>
-                      <small>Open exact product link</small>
+            <div class="preview-empty" role="status">Convert a Glovo URL to generate your QR preview.</div>
+
+            <div class="preview-ready">
+              <div class="phone-preview compact" aria-label="Landing page preview">
+                <div class="phone-frame">
+                  <div class="phone-top"></div>
+                  <div class="phone-screen">
+                    <p class="mini-eyebrow">OAKO</p>
+                    <h3>Product landing page</h3>
+                    <div class="mini-product">
+                      <span></span>
+                      <div>
+                        <strong>Glovo product</strong>
+                        <small>Open exact product link</small>
+                      </div>
+                    </div>
+                    <div class="mini-button">Open in browser</div>
+                    <div class="mini-lines" aria-hidden="true">
+                      <span></span>
+                      <span></span>
+                      <span></span>
                     </div>
                   </div>
-                  <div class="mini-button">Open in browser</div>
-                  <div class="mini-lines" aria-hidden="true">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
                 </div>
               </div>
-            </div>
 
-            <div class="landing-column qr-preview">
               <div class="qr-card">
                 <canvas id="qrCanvas" width="960" height="1229" aria-label="Branded QR code preview"></canvas>
               </div>
+
               <div class="qr-actions">
                 <button id="downloadQrButton" type="button">Download QR PNG</button>
-                <button id="copyQrUrlButton" type="button" class="secondary">Copy URL</button>
+                <button id="copyQrUrlButton" type="button" class="secondary">Copy QR URL</button>
               </div>
               <p class="note warning" id="qrWarning" hidden>QR preview needs the local QR library to load. The converted link is still valid.</p>
-            </div>
-          </div>
-        </article>
 
-        <details class="content-card advanced-card">
-          <summary>
-            <span>
-              <span class="step-label">4</span>
-              <strong>Advanced Testing</strong>
-            </span>
-            <span class="summary-hint">Backup experiment</span>
-          </summary>
-          <div class="advanced-body">
-            <label class="field-label" for="trailingDotUrl">Trailing-dot Glovo URL</label>
-            <div class="copy-row">
-              <input id="trailingDotUrl" readonly>
-              <button class="copy-button" type="button" data-copy-target="trailingDotUrl">Copy</button>
+              <div class="current-url-panel">
+                <label class="field-label" for="socialShortUrl">Current landing page URL</label>
+                <input id="socialShortUrl" readonly>
+                <p class="note" id="shortUrlStats">Short link length: 0 characters.</p>
+              </div>
             </div>
-            <p class="note">This preserved Chrome in emulator testing, but some scanners or apps may normalize the hostname.</p>
-          </div>
-        </details>
+          </article>
+        </aside>
 
-        <article class="content-card details" aria-labelledby="detected-heading">
+        <section class="content-card brand-tools" id="brand-kit" aria-labelledby="brand-heading">
           <div class="section-heading">
             <div>
-              <p class="step-label">5</p>
-              <h2 id="detected-heading">Detected Fields</h2>
+              <p class="step-label">2</p>
+              <h2 id="brand-heading">Customize Your QR</h2>
             </div>
+            <button id="resetStyleButton" type="button" class="ghost">Reset Style</button>
           </div>
-          <dl>
-            <div><dt>Store slug</dt><dd id="storeSlug">Not detected</dd></div>
-            <div><dt>Product ID</dt><dd id="productId">Not detected</dd></div>
-            <div><dt>External product ID</dt><dd id="externalProductId">Not detected</dd></div>
-            <div><dt>Content</dt><dd id="contentPath">Not detected</dd></div>
-          </dl>
-        </article>
-      </section>
+
+          <div class="field-grid">
+            <label class="field-label" for="brandName">Company Name
+              <input id="brandName" autocomplete="organization" placeholder="OAKO">
+            </label>
+            <label class="field-label" for="companyId">Analytics ID
+              <input id="companyId" value="kyrgyz-organics" placeholder="kyrgyz-organics">
+            </label>
+            <label class="field-label" for="productName">Campaign Name
+              <input id="productName" placeholder="Fresh bread QR">
+            </label>
+            <label class="field-label" for="productCode">SKU
+              <input id="productCode" placeholder="SKU-470010">
+            </label>
+            <label class="field-label" for="badgeText">Center Badge
+              <input id="badgeText" maxlength="6" placeholder="OK">
+            </label>
+            <label class="field-label swatch-field" for="qrColor">QR Color
+              <input id="qrColor" type="color" value="#1f2a24">
+            </label>
+            <label class="field-label swatch-field" for="backgroundColor">Background Color
+              <input id="backgroundColor" type="color" value="#ffffff">
+            </label>
+            <label class="field-label swatch-field" for="accentColor">Accent Color
+              <input id="accentColor" type="color" value="#27724f">
+            </label>
+            <label class="field-label download-size" for="qrSize">Download Size
+              <select id="qrSize">
+                <option value="720">Small PNG</option>
+                <option value="960" selected>Standard PNG</option>
+                <option value="1400">Large print PNG</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="results" id="results" hidden>
+          <details class="content-card advanced-card">
+            <summary>
+              <span>
+                <span class="step-label">3</span>
+                <strong>Backup / Advanced Testing</strong>
+              </span>
+              <span class="summary-hint">Backup experiment</span>
+            </summary>
+            <div class="advanced-body">
+              <label class="field-label" for="trailingDotUrl">Trailing-dot Glovo URL</label>
+              <div class="copy-row">
+                <input id="trailingDotUrl" readonly>
+                <button class="copy-button" type="button" data-copy-target="trailingDotUrl">Copy</button>
+              </div>
+              <p class="note">This preserved Chrome in emulator testing, but some scanners or apps may normalize the hostname.</p>
+            </div>
+          </details>
+
+          <article class="content-card details" aria-labelledby="detected-heading">
+            <div class="section-heading">
+              <div>
+                <p class="step-label">4</p>
+                <h2 id="detected-heading">Detected Fields</h2>
+              </div>
+            </div>
+            <dl>
+              <div><dt>Store slug</dt><dd id="storeSlug">Not detected</dd></div>
+              <div><dt>Product ID</dt><dd id="productId">Not detected</dd></div>
+              <div><dt>External product ID</dt><dd id="externalProductId">Not detected</dd></div>
+              <div><dt>Content</dt><dd id="contentPath">Not detected</dd></div>
+            </dl>
+          </article>
+
+          <article class="content-card fallback-url-card" aria-labelledby="fallback-heading">
+            <div class="section-heading compact-heading">
+              <div>
+                <p class="eyebrow">Debug fallback</p>
+                <h2 id="fallback-heading">Full landing page link</h2>
+              </div>
+              <button class="copy-button" type="button" data-copy-target="landingUrl">Copy</button>
+            </div>
+            <label class="field-label" for="landingUrl">Full landing page URL</label>
+            <input id="landingUrl" readonly>
+            <p class="note">Keep this as a debugging fallback. The sticky panel uses the compact QR URL for scanning and sharing.</p>
+          </article>
+        </section>
+      </div>
     </main>
   </div>
 
@@ -233,3 +236,5 @@
   <script src="app.js" defer></script>
 </body>
 </html>
+
+
