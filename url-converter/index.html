@@ -79,12 +79,13 @@
       <article class="result-block recommended">
         <div class="result-heading">
           <div>
-            <p class="eyebrow">Recommended QR URL</p>
-            <h2>Browser-preserving landing page</h2>
+            <p class="eyebrow">Recommended social + QR URL</p>
+            <h2>Compact OAKO short link</h2>
           </div>
-          <button class="copy-button" type="button" data-copy-target="landingUrl">Copy</button>
+          <button class="copy-button" type="button" data-copy-target="socialShortUrl">Copy</button>
         </div>
-        <input id="landingUrl" readonly>
+        <input id="socialShortUrl" readonly>
+        <p class="note" id="shortUrlStats">Short link length: 0 characters.</p>
         <div class="qr-layout">
           <div class="qr-card">
             <canvas id="qrCanvas" width="960" height="1229" aria-label="Branded QR code preview"></canvas>
@@ -92,10 +93,21 @@
           <div class="qr-actions">
             <button id="downloadQrButton" type="button">Download QR PNG</button>
             <button id="copyQrUrlButton" type="button" class="secondary">Copy QR URL</button>
-            <p class="note">Use this for production QR testing. It opens your landing page first, then navigates to the exact Glovo web product with a form fallback.</p>
+            <p class="note">Use this short link for Instagram, TikTok, QR codes, packaging, and stories. It reconstructs the exact Glovo product URL, records the anonymous click, then opens Glovo.</p>
             <p class="note warning" id="qrWarning" hidden>QR preview needs the local QR library to load. The converted link is still valid.</p>
           </div>
         </div>
+      </article>
+      <article class="result-block">
+        <div class="result-heading">
+          <div>
+            <p class="eyebrow">Long fallback URL</p>
+            <h2>Full landing page link</h2>
+          </div>
+          <button class="copy-button" type="button" data-copy-target="landingUrl">Copy</button>
+        </div>
+        <input id="landingUrl" readonly>
+        <p class="note">Keep this as a debugging fallback. Social platforms may reject it because it includes the full encoded Glovo URL.</p>
       </article>
 
       <article class="result-block">

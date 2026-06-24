@@ -8,11 +8,13 @@
   const resetStyleButton = document.getElementById("resetStyleButton");
   const results = document.getElementById("results");
   const landingUrl = document.getElementById("landingUrl");
+  const socialShortUrl = document.getElementById("socialShortUrl");
   const trailingDotUrl = document.getElementById("trailingDotUrl");
   const statusCard = document.getElementById("statusCard");
   const statusText = document.getElementById("statusText");
   const qrCanvas = document.getElementById("qrCanvas");
   const qrWarning = document.getElementById("qrWarning");
+  const shortUrlStats = document.getElementById("shortUrlStats");
   const downloadQrButton = document.getElementById("downloadQrButton");
   const copyQrUrlButton = document.getElementById("copyQrUrlButton");
 
@@ -49,6 +51,7 @@
 
   let renderToken = 0;
   let currentCanonicalUrl = "";
+  let currentParsedUrl = null;
 
   function setStatus(message, isError) {
     statusText.textContent = message;
@@ -118,6 +121,26 @@
     openUrl.searchParams.set("label", settings.product);
     openUrl.searchParams.set("code", settings.code);
     return openUrl.href;
+  }
+
+  function buildSocialShortUrl(parsed, settings) {
+    const base = window.location.pathname.includes("/url-converter/") ? "../q/" : "q/";
+    const shortUrl = new URL(base, window.location.href);
+    shortUrl.searchParams.set("s", parsed.storeSlug);
+    shortUrl.searchParams.set("c", parsed.content);
+    shortUrl.searchParams.set("p", decimalToBase36(parsed.productId));
+    shortUrl.searchParams.set("e", decimalToBase36(parsed.externalProductId));
+
+    if (settings.companyId && settings.companyId !== defaultStyle.companyId) {
+      shortUrl.searchParams.set("cid", settings.companyId);
+    }
+
+    return shortUrl.href;
+  }
+
+  function decimalToBase36(value) {
+    const clean = String(value || "").replace(/[^0-9]/g, "");
+    return clean ? BigInt(clean).toString(36) : "0";
   }
 
   function getText(id, fallback) {
@@ -391,12 +414,17 @@
   }
 
   function refreshLandingUrl() {
-    if (!currentCanonicalUrl) return;
-    landingUrl.value = buildLandingUrl(currentCanonicalUrl, getQrSettings());
+    if (!currentCanonicalUrl || !currentParsedUrl) return;
+    const settings = getQrSettings();
+    landingUrl.value = buildLandingUrl(currentCanonicalUrl, settings);
+    socialShortUrl.value = buildSocialShortUrl(currentParsedUrl, settings);
+    if (shortUrlStats) {
+      shortUrlStats.textContent = `Short link length: ${socialShortUrl.value.length} characters.`;
+    }
   }
 
   function downloadQrCode() {
-    if (!landingUrl.value) return;
+    if (!socialShortUrl.value && !landingUrl.value) return;
 
     const settings = getQrSettings();
     const productId = fields.productId.textContent && fields.productId.textContent !== "-"
@@ -423,6 +451,7 @@
     try {
       const parsed = parseGlovoUrl(sourceUrl.value);
       currentCanonicalUrl = parsed.canonical;
+      currentParsedUrl = parsed;
       trailingDotUrl.value = buildTrailingDotUrl(parsed.canonical);
 
       fields.storeSlug.textContent = parsed.storeSlug;
@@ -433,11 +462,12 @@
       refreshLandingUrl();
 
       results.hidden = false;
-      drawQrCode(landingUrl.value);
+      drawQrCode(socialShortUrl.value || landingUrl.value);
       setStatus("Converted with analytics ID", false);
     } catch (error) {
       results.hidden = true;
       currentCanonicalUrl = "";
+      currentParsedUrl = null;
       setStatus(error.message, true);
     }
   }
@@ -459,7 +489,7 @@
   function refreshQr() {
     refreshLandingUrl();
     if (!results.hidden && landingUrl.value) {
-      drawQrCode(landingUrl.value);
+      drawQrCode(socialShortUrl.value || landingUrl.value);
     }
   }
 
@@ -485,7 +515,7 @@
   });
   resetStyleButton.addEventListener("click", resetStyle);
   downloadQrButton.addEventListener("click", downloadQrCode);
-  copyQrUrlButton.addEventListener("click", () => copyValue("landingUrl"));
+  copyQrUrlButton.addEventListener("click", () => copyValue("socialShortUrl"));
 
   document.querySelectorAll("[data-copy-target]").forEach((button) => {
     button.addEventListener("click", () => copyValue(button.dataset.copyTarget));
@@ -502,7 +532,7 @@
 
   window.addEventListener("load", () => {
     if (!results.hidden && landingUrl.value) {
-      drawQrCode(landingUrl.value);
+      drawQrCode(socialShortUrl.value || landingUrl.value);
     }
   });
 })();
