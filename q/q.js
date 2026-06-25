@@ -1,11 +1,4 @@
 (function () {
-  const ANALYTICS = {
-    projectId: "oa-kyrgyz-organic",
-    apiKey: "AIzaSyB2azgMx3VRCqKTVj4zhdqv51o6w1cAtxI",
-    collection: "campaign_events",
-    actionType: "qr_click",
-  };
-
   const params = new URLSearchParams(window.location.search);
   const message = document.getElementById("message");
   const fallbackForm = document.getElementById("fallbackForm");
@@ -68,82 +61,6 @@
     return (hash >>> 0).toString(36);
   }
 
-  function getSessionId() {
-    try {
-      const key = "qr_analytics_session_id";
-      const existing = window.sessionStorage.getItem(key);
-      if (existing) return existing;
-      const next = `qr-session-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-      window.sessionStorage.setItem(key, next);
-      return next;
-    } catch (error) {
-      return `qr-session-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-    }
-  }
-
-  function getBishkekDateId(date) {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Bishkek",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(date).reduce((acc, part) => {
-      acc[part.type] = part.value;
-      return acc;
-    }, {});
-    return `${parts.year}-${parts.month}-${parts.day}`;
-  }
-
-  function getWeekStartId(dayId) {
-    const parts = dayId.split("-").map(Number);
-    const date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12));
-    const weekday = date.getUTCDay() || 7;
-    date.setUTCDate(date.getUTCDate() - weekday + 1);
-    return date.toISOString().slice(0, 10);
-  }
-
-  function firestoreString(value) {
-    return { stringValue: String(value || "") };
-  }
-
-  function trackClick(payload) {
-    const now = new Date();
-    const dayId = getBishkekDateId(now);
-    const endpoint = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(ANALYTICS.projectId)}/databases/(default)/documents/${encodeURIComponent(ANALYTICS.collection)}?key=${encodeURIComponent(ANALYTICS.apiKey)}`;
-    const body = JSON.stringify({
-      fields: {
-        companyId: firestoreString(payload.companyId),
-        campaignId: firestoreString(payload.linkId),
-        sessionId: firestoreString(getSessionId()),
-        actionType: firestoreString(ANALYTICS.actionType),
-        linkId: firestoreString(payload.linkId),
-        brand: firestoreString(payload.brand),
-        label: firestoreString(payload.label),
-        code: firestoreString(payload.code),
-        targetUrl: firestoreString(payload.targetUrl),
-        targetHost: firestoreString("glovoapp.com"),
-        productId: firestoreString(payload.productId),
-        externalProductId: firestoreString(payload.externalProductId),
-        landingPath: firestoreString(window.location.pathname),
-        referrer: firestoreString(document.referrer),
-        userAgent: firestoreString(navigator.userAgent),
-        dayId: firestoreString(dayId),
-        weekId: firestoreString(getWeekStartId(dayId)),
-        monthId: firestoreString(dayId.slice(0, 7)),
-        timestamp: { timestampValue: now.toISOString() },
-        createdAt: { timestampValue: now.toISOString() },
-      },
-    });
-
-    return fetch(endpoint, {
-      method: "POST",
-      mode: "cors",
-      keepalive: true,
-      headers: { "Content-Type": "application/json" },
-      body,
-    }).catch(() => false);
-  }
-
   function buildTargetUrl() {
     const storeSlug = sanitizeSlug(requireValue("s", "Store slug"));
     const content = requireValue("c", "Content path");
@@ -156,6 +73,41 @@
     return { target, storeSlug, productId, externalProductId };
   }
 
+  function getOpenPageUrl() {
+    const openPath = window.location.pathname.startsWith("/q/")
+      ? "/url-converter/open.html"
+      : "../open.html";
+    return new URL(openPath, window.location.href);
+  }
+
+  function buildOpenUrl(built) {
+    const companyId = normalizeCompanyId(params.get("cid"));
+    const label = humanizeSlug(built.storeSlug);
+    const code = `SKU ${built.externalProductId}`;
+    const linkId = `qr-${hashString(`${companyId}|${built.target.href}`)}`;
+    const openUrl = getOpenPageUrl();
+
+    openUrl.searchParams.set("u", built.target.href);
+    openUrl.searchParams.set("lid", linkId);
+    openUrl.searchParams.set("cid", companyId);
+    openUrl.searchParams.set("brand", companyId);
+    openUrl.searchParams.set("label", label);
+    openUrl.searchParams.set("code", code);
+    return openUrl;
+  }
+
+  function setFallback(openUrl) {
+    fallbackForm.action = openUrl.origin + openUrl.pathname;
+    openUrl.searchParams.forEach((value, key) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = key;
+      input.value = value;
+      fallbackForm.appendChild(input);
+    });
+    fallbackForm.hidden = false;
+  }
+
   function start() {
     let built;
     try {
@@ -165,38 +117,13 @@
       return;
     }
 
-    const companyId = normalizeCompanyId(params.get("cid"));
-    const linkId = `qr-${hashString(`${companyId}|${built.target.href}`)}`;
-    const label = humanizeSlug(built.storeSlug);
-    const code = `SKU ${built.externalProductId}`;
+    const openUrl = buildOpenUrl(built);
+    setFallback(openUrl);
+    message.textContent = "Opening the exact Glovo web product through the OAKO landing page.";
 
-    fallbackForm.action = built.target.origin + built.target.pathname;
-    built.target.searchParams.forEach((value, key) => {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = key;
-      input.value = value;
-      fallbackForm.appendChild(input);
-    });
-    fallbackForm.hidden = false;
-
-    message.textContent = "Opening the exact Glovo web product. Use the button if your browser blocks the automatic navigation.";
-
-    Promise.race([
-      trackClick({
-        companyId,
-        linkId,
-        brand: companyId,
-        label,
-        code,
-        targetUrl: built.target.href,
-        productId: built.productId,
-        externalProductId: built.externalProductId,
-      }),
-      new Promise((resolve) => window.setTimeout(resolve, 350)),
-    ]).finally(() => {
-      window.setTimeout(() => window.location.replace(built.target.href), 150);
-    });
+    window.setTimeout(() => {
+      window.location.replace(openUrl.href);
+    }, 150);
   }
 
   start();
