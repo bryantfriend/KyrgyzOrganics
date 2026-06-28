@@ -93,10 +93,12 @@
   }
 
   function getOpenPageUrl() {
-    const openPath = window.location.pathname.startsWith("/q/")
+    const openMode = params.get("op");
+    if (openMode === "root") return "../open.html";
+    if (openMode === "uc") return "/url-converter/open.html";
+    return window.location.pathname.startsWith("/q/")
       ? "/url-converter/open.html"
       : "../open.html";
-    return new URL(openPath, window.location.href);
   }
 
   function buildOpenUrl(built) {

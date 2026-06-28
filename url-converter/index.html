@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Product QR URL Converter</title>
+  <title>Product Link & QR Hub</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -15,7 +15,7 @@
     </button>
     <div class="mobile-brand" aria-label="QR Link Converter">
       <span class="brand-mark" aria-hidden="true">G</span>
-      <strong>QR Links</strong>
+      <strong>Product Hub</strong>
     </div>
     <button class="mobile-pill-button" type="button" data-open-modal="brand">Brand</button>
   </header>
@@ -26,19 +26,19 @@
       <div class="brand-lockup" aria-label="QR Link Converter">
         <span class="brand-mark" aria-hidden="true">G</span>
         <div>
-          <strong>QR Links</strong>
-          <span>Converter</span>
+          <strong>Product Hub</strong>
+          <span>Builder</span>
         </div>
       </div>
 
       <nav class="side-nav" aria-label="Primary">
         <a class="nav-item active" href="#converter">
           <span class="nav-icon" aria-hidden="true">01</span>
-          URL &amp; QR Converter
+          Product Hub Builder
         </a>
         <a class="nav-item" href="#brand-kit">
           <span class="nav-icon" aria-hidden="true">02</span>
-          Brand Kit
+          Brand &amp; QR
         </a>
         <a class="nav-item" href="#history">
           <span class="nav-icon" aria-hidden="true">03</span>
@@ -57,7 +57,7 @@
         </div>
         <div class="help-card">
           <strong>Need help?</strong>
-          <span>Paste a Glovo product or Yandex Eats restaurant link and export a QR-ready short URL.</span>
+          <span>Build one mobile product hub link for Glovo, Yandex, pickup, Instagram, TikTok, and QR.</span>
         </div>
         <p class="version">Version 1.0</p>
       </div>
@@ -66,9 +66,9 @@
     <main class="tool-shell" id="converter">
       <header class="page-header">
         <div>
-          <p class="eyebrow">Product QR utility</p>
-          <h1>Product and restaurant QR converter</h1>
-          <p class="lede">Turn a Glovo product URL or Yandex Eats restaurant URL into a compact, trackable QR landing page with branded export controls.</p>
+          <p class="eyebrow">Smart Product Link Hub</p>
+          <h1>Product Link &amp; QR Hub</h1>
+          <p class="lede">Create one mobile-first product page with buttons for Glovo, Yandex, and pickup locations, then export a branded QR for Instagram, TikTok, and packaging.</p>
         </div>
         <div class="status-card" id="statusCard" role="status" aria-live="polite">
           <span class="status-dot" aria-hidden="true"></span>
@@ -81,15 +81,19 @@
           <div class="section-heading">
             <div>
               <p class="step-label">1</p>
-              <h2 id="source-heading">Product or Restaurant URL</h2>
+              <h2 id="source-heading">Delivery Links</h2>
             </div>
           </div>
-          <label class="field-label" for="sourceUrl">Paste product or restaurant link</label>
-          <textarea id="sourceUrl" spellcheck="false" placeholder="https://glovoapp.com/...productId=... or https://eda.yandex.kg/r/faiza_1706873280"></textarea>
-          <p class="helper-text">Use a Glovo product URL for exact products, or a Yandex Eats restaurant URL for restaurant/store QR codes. Yandex product-level URLs are not supported yet.</p>
+          <label class="field-label" for="sourceUrl">Glovo product link</label>
+          <textarea id="sourceUrl" spellcheck="false" placeholder="https://glovoapp.com/...productId=..."></textarea>
+          <p class="helper-text">Glovo keeps the existing exact web product behavior. We do not force unsupported native product deep links.</p>
+
+          <label class="field-label stacked-field" for="yandexUrl">Yandex delivery link</label>
+          <input id="yandexUrl" spellcheck="false" inputmode="url" placeholder="https://eda.yandex.kg/r/faiza_1706873280">
+          <p class="helper-text">Yandex links are validated conservatively and preserved as pasted. Product-level support is only claimed when the pasted URL already does it.</p>
 
           <div class="actions" aria-label="URL actions">
-            <button id="convertButton" type="button">Convert URL</button>
+            <button id="convertButton" type="button">Build Product Hub</button>
             <button id="sampleButton" type="button" class="secondary">Use Sample</button>
             <button id="clearButton" type="button" class="ghost">Clear</button>
           </div>
@@ -112,7 +116,7 @@
             </div>
             <p class="helper-text">Updates as you convert and customize your QR.</p>
 
-            <div class="preview-empty" role="status">Convert a supported URL to generate your QR preview.</div>
+            <div class="preview-empty" role="status">Add product details and at least one customer action to generate your hub QR preview.</div>
 
             <div class="preview-ready">
               <div class="phone-preview compact" aria-label="Landing page preview">
@@ -120,15 +124,15 @@
                   <div class="phone-top"></div>
                   <div class="phone-screen">
                     <p class="mini-eyebrow">OAKO</p>
-                    <h3>Product landing page</h3>
+                    <h3 id="previewProductName">Product landing page</h3>
                     <div class="mini-product">
                       <span></span>
                       <div>
-                        <strong>Destination link</strong>
-                        <small>Open destination link</small>
+                        <strong id="previewBrandName">Product Hub</strong>
+                        <small id="previewActionSummary">Glovo, Yandex, pickup</small>
                       </div>
                     </div>
-                    <div class="mini-button">Open in browser</div>
+                    <div class="mini-button">Choose order option</div>
                     <div class="mini-lines" aria-hidden="true">
                       <span></span>
                       <span></span>
@@ -149,7 +153,7 @@
               <p class="note warning" id="qrWarning" hidden>QR preview needs the local QR library to load. The converted link is still valid.</p>
 
               <div class="current-url-panel">
-                <label class="field-label" for="socialShortUrl">Current landing page URL</label>
+                <label class="field-label" for="socialShortUrl">Public product hub link</label>
                 <input id="socialShortUrl" readonly>
                 <p class="note" id="shortUrlStats">Short link length: 0 characters.</p>
               </div>
@@ -161,7 +165,7 @@
           <div class="section-heading">
             <div>
               <p class="step-label">2</p>
-              <h2 id="brand-heading">Customize Your QR</h2>
+              <h2 id="brand-heading">Product Details, Brand &amp; QR</h2>
             </div>
             <div class="section-actions">
               <button id="resetStyleButton" type="button" class="ghost">Reset Style</button>
@@ -170,17 +174,32 @@
           </div>
 
           <div class="field-grid">
-            <label class="field-label" for="brandName">Company Name
+            <label class="field-label" for="brandName">Company / Brand Name
               <input id="brandName" autocomplete="organization" placeholder="OAKO">
             </label>
             <label class="field-label" for="companyId">Analytics ID
               <input id="companyId" value="kyrgyz-organics" placeholder="kyrgyz-organics">
             </label>
-            <label class="field-label" for="productName">Campaign Name
-              <input id="productName" placeholder="Fresh bread QR">
+            <label class="field-label" for="productName">Product Name
+              <input id="productName" placeholder="Fresh sourdough bread">
             </label>
             <label class="field-label" for="productCode">SKU
               <input id="productCode" placeholder="SKU-470010">
+            </label>
+            <label class="field-label wide-field" for="productDescription">Product Description
+              <textarea id="productDescription" rows="3" placeholder="Soft, fresh bread baked for pickup or delivery today."></textarea>
+            </label>
+            <label class="field-label wide-field" for="productImageUrl">Product Image URL
+              <input id="productImageUrl" inputmode="url" placeholder="https://example.com/product.jpg">
+            </label>
+            <label class="field-label" for="campaignName">Campaign Name
+              <input id="campaignName" placeholder="Instagram shelf QR">
+            </label>
+            <label class="field-label" for="priceText">Price Text
+              <input id="priceText" placeholder="from 120 KGS">
+            </label>
+            <label class="field-label" for="heroBadgeText">Hero Badge Text
+              <input id="heroBadgeText" placeholder="Made fresh daily">
             </label>
             <label class="field-label" for="badgeText">Center Badge
               <input id="badgeText" maxlength="6" placeholder="OK">
@@ -202,6 +221,43 @@
               </select>
             </label>
           </div>
+        </section>
+
+        <section class="content-card pickup-card" id="pickup-locations" aria-labelledby="pickup-heading">
+          <div class="section-heading">
+            <div>
+              <p class="step-label">3</p>
+              <h2 id="pickup-heading">Pickup Locations</h2>
+            </div>
+          </div>
+          <div class="field-grid location-grid">
+            <label class="field-label" for="locationName">Location Name
+              <input id="locationName" placeholder="OAKO Dostuk">
+            </label>
+            <label class="field-label" for="locationPhone">Phone
+              <input id="locationPhone" inputmode="tel" placeholder="+996 ...">
+            </label>
+            <label class="field-label wide-field" for="locationAddress">Address
+              <input id="locationAddress" placeholder="Street, neighborhood, city">
+            </label>
+            <label class="field-label" for="locationHours">Hours
+              <input id="locationHours" placeholder="Mon-Sun 09:00-21:00">
+            </label>
+            <label class="field-label" for="locationLatitude">Latitude
+              <input id="locationLatitude" inputmode="decimal" placeholder="42.8746">
+            </label>
+            <label class="field-label" for="locationLongitude">Longitude
+              <input id="locationLongitude" inputmode="decimal" placeholder="74.5698">
+            </label>
+            <label class="field-label wide-field" for="locationMapUrl">Map URL
+              <input id="locationMapUrl" inputmode="url" placeholder="https://maps.google.com/... or https://yandex.com/maps/...">
+            </label>
+          </div>
+          <div class="actions">
+            <button id="addLocationButton" type="button" class="secondary">Add Location</button>
+          </div>
+          <div id="locationsList" class="locations-list" aria-live="polite"></div>
+          <p class="helper-text">Geolocation is requested only after the customer taps locations on the public hub page.</p>
         </section>
 
         <section class="results" id="results" hidden>
@@ -259,11 +315,22 @@
             <p class="note">Keep this as a debugging fallback. The sticky panel uses the compact QR URL for scanning and sharing.</p>
           </article>
         </section>
+        <section class="content-card history-panel" id="history" aria-labelledby="history-heading">
+          <div class="section-heading compact-heading">
+            <div>
+              <p class="eyebrow">Saved locally</p>
+              <h2 id="history-heading">History</h2>
+            </div>
+            <button id="clearHistoryButton" type="button" class="ghost">Clear History</button>
+          </div>
+          <div id="historyList" class="history-list" aria-live="polite"></div>
+        </section>
       </div>
     </main>
   </div>
 
   <script src="vendor/qrcode.min.js" defer></script>
+  <script src="storageAdapter.js" defer></script>
   <script src="app.js" defer></script>
   <script src="ui.js" defer></script>
 </body>

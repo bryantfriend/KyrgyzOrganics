@@ -23,9 +23,12 @@
   }
 
   const normalizedHost = target.hostname.replace(/\.$/, "").toLowerCase();
-  const allowedHosts = new Set(["glovoapp.com", "eda.yandex.kg"]);
-  if (target.protocol !== "https:" || !allowedHosts.has(normalizedHost)) {
-    fail("Only Glovo product URLs and Yandex Eats restaurant URLs are allowed.");
+  function isAllowedHost(host) {
+    return host === "glovoapp.com" || host === "www.glovoapp.com" || host === "ya.cc" || /(^|\.)yandex\.[a-z.]+$/i.test(host) || /(^|\.)yandexgo\.[a-z.]+$/i.test(host);
+  }
+
+  if ((target.protocol !== "https:" && target.protocol !== "http:") || !isAllowedHost(normalizedHost)) {
+    fail("Only Glovo and Yandex destination URLs are allowed.");
     return;
   }
 
@@ -72,3 +75,4 @@
     window.setTimeout(redirectSoon, 150);
   });
 })();
+

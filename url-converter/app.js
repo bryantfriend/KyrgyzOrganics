@@ -17,6 +17,32 @@
   const shortUrlStats = document.getElementById("shortUrlStats");
   const downloadQrButton = document.getElementById("downloadQrButton");
   const copyQrUrlButton = document.getElementById("copyQrUrlButton");
+  const yandexUrl = document.getElementById("yandexUrl");
+  const previewProductName = document.getElementById("previewProductName");
+  const previewBrandName = document.getElementById("previewBrandName");
+  const previewActionSummary = document.getElementById("previewActionSummary");
+  const addLocationButton = document.getElementById("addLocationButton");
+  const locationsList = document.getElementById("locationsList");
+  const historyList = document.getElementById("historyList");
+  const clearHistoryButton = document.getElementById("clearHistoryButton");
+
+  const extraControls = {
+    productDescription: document.getElementById("productDescription"),
+    productImageUrl: document.getElementById("productImageUrl"),
+    campaignName: document.getElementById("campaignName"),
+    priceText: document.getElementById("priceText"),
+    heroBadgeText: document.getElementById("heroBadgeText"),
+  };
+
+  const locationControls = {
+    name: document.getElementById("locationName"),
+    address: document.getElementById("locationAddress"),
+    latitude: document.getElementById("locationLatitude"),
+    longitude: document.getElementById("locationLongitude"),
+    phone: document.getElementById("locationPhone"),
+    hours: document.getElementById("locationHours"),
+    mapUrl: document.getElementById("locationMapUrl"),
+  };
 
   const brandControls = {
     brandName: document.getElementById("brandName"),
@@ -28,6 +54,11 @@
     backgroundColor: document.getElementById("backgroundColor"),
     accentColor: document.getElementById("accentColor"),
     qrSize: document.getElementById("qrSize"),
+    productDescription: document.getElementById("productDescription"),
+    productImageUrl: document.getElementById("productImageUrl"),
+    campaignName: document.getElementById("campaignName"),
+    priceText: document.getElementById("priceText"),
+    heroBadgeText: document.getElementById("heroBadgeText"),
   };
 
   const defaultStyle = {
@@ -40,6 +71,11 @@
     backgroundColor: "#ffffff",
     accentColor: "#27724f",
     qrSize: "960",
+    productDescription: "",
+    productImageUrl: "",
+    campaignName: "",
+    priceText: "",
+    heroBadgeText: "Made fresh daily",
   };
 
   const fields = {
@@ -52,6 +88,10 @@
   let renderToken = 0;
   let currentCanonicalUrl = "";
   let currentParsedUrl = null;
+  let currentGlovoParsed = null;
+  let currentYandexParsed = null;
+  let currentHub = null;
+  let pickupLocations = [];
   const autoFilled = {
     productName: "",
     productCode: "",
@@ -65,7 +105,7 @@
   function parseSourceUrl(rawValue) {
     const trimmed = rawValue.trim();
     if (!trimmed) {
-      throw new Error("Paste a Glovo product URL or Yandex Eats restaurant URL first.");
+      throw new Error("Paste a Glovo product URL or Yandex delivery URL first.");
     }
 
     let url;
@@ -75,16 +115,16 @@
       throw new Error("That does not look like a valid URL.");
     }
 
-    const normalizedHost = url.hostname.replace(/\.$/, "").toLowerCase();
+    const normalizedHost = normalizeHost(url.hostname);
     if (normalizedHost === "glovoapp.com" || normalizedHost === "www.glovoapp.com") {
       return parseGlovoUrl(url);
     }
 
-    if (normalizedHost === "eda.yandex.kg" || normalizedHost === "www.eda.yandex.kg") {
-      return parseYandexEatsUrl(url);
+    if (isYandexLikeHost(normalizedHost)) {
+      return parseYandexDeliveryUrl(url);
     }
 
-    throw new Error("Use a glovoapp.com product URL or eda.yandex.kg restaurant URL.");
+    throw new Error("Use a glovoapp.com product URL or a Yandex delivery link.");
   }
 
   function parseGlovoUrl(url) {
@@ -160,6 +200,51 @@
     return clean;
   }
 
+  function normalizeHost(value) {
+    return String(value || "").replace(/\.$/, "").toLowerCase();
+  }
+
+  function isYandexLikeHost(host) {
+    return /(^|.)yandex.[a-z.]+$/i.test(host) || /(^|.)yandexgo.[a-z.]+$/i.test(host) || host === "ya.cc";
+  }
+
+  function assertSafeHttpUrl(url, label) {
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new Error(label + " must start with http:// or https://.");
+    }
+    return url;
+  }
+
+  function parseYandexDeliveryUrl(value) {
+    const url = value instanceof URL ? new URL(value.href) : new URL(String(value || "").trim());
+    assertSafeHttpUrl(url, "Yandex link");
+    const host = normalizeHost(url.hostname);
+    if (!isYandexLikeHost(host)) {
+      throw new Error("This does not look like a Yandex link, but you can still save it later as a custom delivery link.");
+    }
+
+    const isEatsRestaurant = (host === "eda.yandex.kg" || host === "www.eda.yandex.kg") && /^\/(?:[a-z]{2}-[a-z]{2}\/)?(?:r|restaurant)\//i.test(url.pathname);
+    let parsed = null;
+    if (isEatsRestaurant) {
+      try {
+        parsed = parseYandexEatsUrl(url);
+      } catch (error) {
+        parsed = null;
+      }
+    }
+    return {
+      platform: "yandex-eats",
+      url,
+      canonical: url.href,
+      route: parsed ? parsed.route : "external",
+      storeSlug: parsed ? parsed.storeSlug : host,
+      productId: "",
+      externalProductId: "",
+      content: parsed ? parsed.content : "Yandex delivery link preserved as pasted",
+      exactProductSupport: !isEatsRestaurant,
+    };
+  }
+
   function canonicalizeGlovoUrl(url) {
     const canonical = new URL(url.href);
     canonical.protocol = "https:";
@@ -173,7 +258,7 @@
     return url.href;
   }
 
-  function buildLandingUrl(canonicalUrl, settings) {
+  function buildLandingUrl(canonicalUrl, settings, platform) {
     const openUrl = new URL("open.html", window.location.href);
     openUrl.searchParams.set("u", canonicalUrl);
     openUrl.searchParams.set("lid", buildLinkId(canonicalUrl, settings));
@@ -181,12 +266,14 @@
     openUrl.searchParams.set("brand", settings.brand);
     openUrl.searchParams.set("label", settings.product);
     openUrl.searchParams.set("code", settings.code);
+    if (platform) openUrl.searchParams.set("platform", platform);
     return openUrl.href;
   }
 
   function buildSocialShortUrl(parsed, settings) {
     const base = window.location.pathname.includes("/url-converter/") ? "../q/" : "q/";
     const shortUrl = new URL(base, window.location.href);
+    shortUrl.searchParams.set("op", window.location.pathname.includes("/url-converter/") ? "uc" : "root");
     if (parsed.platform === "yandex-eats") {
       shortUrl.searchParams.set("y", parsed.storeSlug);
       if (parsed.route === "restaurant") {
@@ -210,6 +297,254 @@
     }
 
     return shortUrl.href;
+  }
+
+
+  function getControlValue(control) {
+    return control ? control.value.trim() : "";
+  }
+
+  function isSafeOptionalUrl(value, label) {
+    const clean = String(value || "").trim();
+    if (!clean) return "";
+    try {
+      const url = new URL(clean);
+      assertSafeHttpUrl(url, label);
+      return url.href;
+    } catch (error) {
+      throw new Error(label + " must be a valid http or https URL.");
+    }
+  }
+
+  function createProductHub(glovoParsed, yandexParsed, settings) {
+    const now = new Date().toISOString();
+    const productName = getControlValue(brandControls.productName) || settings.product;
+    const slug = slugify(settings.companyId + "-" + (productName || "product") + "-" + (settings.code || Date.now().toString(36))).slice(0, 90);
+    const productImageUrl = isSafeOptionalUrl(getControlValue(extraControls.productImageUrl), "Product image URL");
+    const activeLocations = pickupLocations.filter(function (location) { return location.active !== false; });
+    const glovoLink = glovoParsed ? {
+      enabled: true,
+      originalUrl: glovoParsed.url.href,
+      convertedUrl: buildSocialShortUrl(glovoParsed, settings),
+      buttonLabel: "Order on Glovo",
+      helperText: "Open the product on Glovo",
+      platformName: "Glovo",
+      openMode: "browser-preserved",
+      productId: glovoParsed.productId,
+      externalProductId: glovoParsed.externalProductId,
+      content: glovoParsed.content,
+    } : { enabled: false };
+    const yandexLink = yandexParsed ? {
+      enabled: true,
+      originalUrl: yandexParsed.url.href,
+      convertedUrl: yandexParsed.route === "external" ? yandexParsed.canonical : buildSocialShortUrl(yandexParsed, settings),
+      buttonLabel: "Order on Yandex",
+      helperText: "Quick delivery to your door",
+      platformName: "Yandex",
+      openMode: "external-url",
+    } : { enabled: false };
+
+    if (!productName) {
+      throw new Error("Add a product name before publishing the hub.");
+    }
+    if (!glovoLink.enabled && !yandexLink.enabled && activeLocations.length === 0) {
+      throw new Error("Add at least one way for customers to order or find this product.");
+    }
+
+    return {
+      id: "hub-" + hashString(slug + "|" + now),
+      slug,
+      companyName: settings.brand,
+      brandName: settings.brand,
+      productName,
+      productDescription: getControlValue(extraControls.productDescription),
+      productImageUrl,
+      sku: settings.code,
+      campaignName: getControlValue(extraControls.campaignName) || productName,
+      analyticsId: settings.companyId,
+      heroBadgeText: getControlValue(extraControls.heroBadgeText) || "Made fresh daily",
+      priceText: getControlValue(extraControls.priceText),
+      active: true,
+      createdAt: currentHub && currentHub.createdAt ? currentHub.createdAt : now,
+      updatedAt: now,
+      glovoLink,
+      yandexLink,
+      locations: activeLocations,
+      branding: {
+        logoUrl: "",
+        primaryColor: settings.qrColor,
+        accentColor: settings.accentColor,
+        backgroundColor: settings.backgroundColor,
+        cardColor: "#ffffff",
+        textColor: textColorFor(settings.backgroundColor),
+        qrColor: settings.qrColor,
+        qrBackgroundColor: settings.backgroundColor,
+        centerBadgeText: settings.badge,
+      },
+      analytics: {
+        viewCount: 0,
+        glovoClickCount: 0,
+        yandexClickCount: 0,
+        mapClickCount: 0,
+        lastClickedAt: "",
+      },
+    };
+  }
+
+  function toPublicHubPayload(hub) {
+    function publicLink(link) {
+      if (!link || !link.enabled) return { enabled: false };
+      return {
+        enabled: true,
+        convertedUrl: link.convertedUrl,
+        buttonLabel: link.buttonLabel,
+        helperText: link.helperText,
+        platformName: link.platformName,
+      };
+    }
+
+    return {
+      v: 1,
+      id: hub.id,
+      slug: hub.slug,
+      companyName: hub.companyName,
+      brandName: hub.brandName,
+      productName: hub.productName,
+      productDescription: hub.productDescription,
+      productImageUrl: hub.productImageUrl,
+      sku: hub.sku,
+      campaignName: hub.campaignName,
+      analyticsId: hub.analyticsId,
+      heroBadgeText: hub.heroBadgeText,
+      priceText: hub.priceText,
+      active: hub.active,
+      glovoLink: publicLink(hub.glovoLink),
+      yandexLink: publicLink(hub.yandexLink),
+      locations: hub.locations.map(function (location) {
+        return {
+          id: location.id,
+          name: location.name,
+          address: location.address,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          phone: location.phone,
+          hours: location.hours,
+          mapUrl: location.mapUrl,
+          active: location.active,
+        };
+      }),
+      branding: hub.branding,
+    };
+  }
+
+  function encodeHubPayload(hub) {
+    const json = JSON.stringify(toPublicHubPayload(hub));
+    const bytes = new TextEncoder().encode(json);
+    let binary = "";
+    bytes.forEach(function (byte) {
+      binary += String.fromCharCode(byte);
+    });
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+
+  function buildProductHubUrl(hub) {
+    const base = window.location.pathname.includes("/url-converter/") ? "../p/" : "p/";
+    const url = new URL(base, window.location.href);
+    url.searchParams.set("h", encodeHubPayload(hub));
+    return url.href;
+  }
+
+  function summarizeActions(hub) {
+    const actions = [];
+    if (hub.glovoLink && hub.glovoLink.enabled) actions.push("Glovo");
+    if (hub.yandexLink && hub.yandexLink.enabled) actions.push("Yandex");
+    if (hub.locations && hub.locations.length) actions.push("Pickup");
+    return actions.join(", ") || "No actions yet";
+  }
+
+  function updateHubPreview(hub) {
+    if (!hub) return;
+    if (previewProductName) previewProductName.textContent = hub.productName || "Product landing page";
+    if (previewBrandName) previewBrandName.textContent = hub.brandName || "Product Hub";
+    if (previewActionSummary) previewActionSummary.textContent = summarizeActions(hub);
+  }
+
+  function saveHubToHistory(hub, publicUrl) {
+    if (!window.ProductHubStorage) return;
+    window.ProductHubStorage.saveProductHub(Object.assign({}, hub, { publicUrl }));
+    renderHistory();
+  }
+
+  function renderHistory() {
+    if (!historyList) return;
+    const hubs = window.ProductHubStorage ? window.ProductHubStorage.listProductHubs() : [];
+    if (!hubs.length) {
+      historyList.innerHTML = '<p class="helper-text">No product hubs saved yet.</p>';
+      return;
+    }
+    historyList.innerHTML = "";
+    hubs.slice(0, 12).forEach(function (hub) {
+      const item = document.createElement("article");
+      item.className = "history-item";
+      const platforms = summarizeActions(hub);
+      item.innerHTML = '<div><strong></strong><span></span><small></small></div><button type="button" class="copy-button">Copy Link</button>';
+      item.querySelector("strong").textContent = hub.productName || "Untitled product";
+      item.querySelector("span").textContent = (hub.brandName || hub.companyName || "Brand") + " - " + platforms;
+      item.querySelector("small").textContent = hub.updatedAt ? new Date(hub.updatedAt).toLocaleDateString() : "Saved";
+      item.querySelector("button").addEventListener("click", async function () {
+        await navigator.clipboard.writeText(hub.publicUrl || "");
+        setStatus("Hub link copied", false);
+      });
+      historyList.appendChild(item);
+    });
+  }
+
+  function readLocationDraft() {
+    const name = getControlValue(locationControls.name);
+    const mapUrl = isSafeOptionalUrl(getControlValue(locationControls.mapUrl), "Map URL");
+    if (!name && !mapUrl && !getControlValue(locationControls.address)) {
+      throw new Error("Add a location name, address, or map URL first.");
+    }
+    return {
+      id: "loc-" + hashString(name + "|" + Date.now()),
+      name: name || "Pickup location",
+      address: getControlValue(locationControls.address),
+      latitude: Number.parseFloat(getControlValue(locationControls.latitude)) || null,
+      longitude: Number.parseFloat(getControlValue(locationControls.longitude)) || null,
+      phone: getControlValue(locationControls.phone),
+      hours: getControlValue(locationControls.hours),
+      mapUrl,
+      active: true,
+    };
+  }
+
+  function clearLocationDraft() {
+    Object.values(locationControls).forEach(function (control) {
+      if (control) control.value = "";
+    });
+  }
+
+  function renderLocations() {
+    if (!locationsList) return;
+    locationsList.innerHTML = "";
+    if (!pickupLocations.length) {
+      locationsList.innerHTML = '<p class="helper-text">No pickup locations added yet.</p>';
+      return;
+    }
+    pickupLocations.forEach(function (location) {
+      const item = document.createElement("article");
+      item.className = "location-item";
+      item.innerHTML = '<div><strong></strong><span></span><small></small></div><button type="button" class="ghost">Remove</button>';
+      item.querySelector("strong").textContent = location.name;
+      item.querySelector("span").textContent = location.address || location.mapUrl || "Pickup available";
+      item.querySelector("small").textContent = location.hours || location.phone || "";
+      item.querySelector("button").addEventListener("click", function () {
+        pickupLocations = pickupLocations.filter(function (candidate) { return candidate.id !== location.id; });
+        renderLocations();
+        refreshQr();
+      });
+      locationsList.appendChild(item);
+    });
   }
 
   function decimalToBase36(value) {
@@ -411,7 +746,7 @@
       await renderRawQr(rawQr, value, {
         width: qrSize,
         margin: 2,
-        errorCorrectionLevel: "H",
+        errorCorrectionLevel: value.length > 1200 ? "M" : "H",
         color: {
           dark: settings.qrColor,
           light: "#ffffff",
@@ -472,7 +807,7 @@
     }
 
     const footerY = panelY + panelSize + Math.round(width * 0.075);
-    const footerText = currentParsedUrl && currentParsedUrl.platform === "yandex-eats" ? "Scan for restaurant" : "Scan for product";
+    const footerText = "Scan for product hub";
     drawFittedText(context, footerText, width / 2, footerY, width * 0.76, width * 0.042, 900, textColor);
 
     if (settings.code) {
@@ -492,17 +827,20 @@
   }
 
   function refreshLandingUrl() {
-    if (!currentCanonicalUrl || !currentParsedUrl) return;
+    if (!currentHub) return;
     const settings = getQrSettings();
-    landingUrl.value = buildLandingUrl(currentCanonicalUrl, settings);
-    socialShortUrl.value = buildSocialShortUrl(currentParsedUrl, settings);
+    currentHub = createProductHub(currentGlovoParsed, currentYandexParsed, settings);
+    const publicUrl = buildProductHubUrl(currentHub);
+    landingUrl.value = currentGlovoParsed ? buildLandingUrl(currentGlovoParsed.canonical, settings, "glovo") : "";
+    socialShortUrl.value = publicUrl;
+    updateHubPreview(currentHub);
     if (shortUrlStats) {
-      shortUrlStats.textContent = `Short link length: ${socialShortUrl.value.length} characters.`;
+      shortUrlStats.textContent = "Hub link length: " + socialShortUrl.value.length + " characters. Use the QR for long rich hubs.";
     }
   }
 
   function downloadQrCode() {
-    if (!socialShortUrl.value && !landingUrl.value) return;
+    if (!socialShortUrl.value) return;
 
     const settings = getQrSettings();
     const productId = fields.productId.textContent && fields.productId.textContent !== "-"
@@ -544,25 +882,56 @@
 
   function convert() {
     try {
-      const parsed = parseSourceUrl(sourceUrl.value);
-      currentCanonicalUrl = parsed.canonical;
-      currentParsedUrl = parsed;
-      trailingDotUrl.value = buildTrailingDotUrl(parsed.canonical);
+      const sourceValue = sourceUrl.value.trim();
+      const yandexValue = yandexUrl ? yandexUrl.value.trim() : "";
+      let glovoParsed = null;
+      let yandexParsed = null;
 
-      fields.storeSlug.textContent = parsed.storeSlug;
-      fields.productId.textContent = parsed.productId || "Not supported";
-      fields.externalProductId.textContent = parsed.externalProductId || "Not used";
-      fields.contentPath.textContent = parsed.content || "-";
-      fillDefaultProductFields(parsed);
-      refreshLandingUrl();
+      if (sourceValue) {
+        const parsed = parseSourceUrl(sourceValue);
+        if (parsed.platform === "glovo") glovoParsed = parsed;
+        else yandexParsed = parsed;
+      }
+
+      if (yandexValue) {
+        yandexParsed = parseYandexDeliveryUrl(yandexValue);
+      }
+
+      const primaryParsed = glovoParsed || yandexParsed;
+      currentCanonicalUrl = primaryParsed ? primaryParsed.canonical : "";
+      currentParsedUrl = primaryParsed;
+      currentGlovoParsed = glovoParsed;
+      currentYandexParsed = yandexParsed;
+
+      const settings = getQrSettings();
+      currentHub = createProductHub(glovoParsed, yandexParsed, settings);
+      const publicUrl = buildProductHubUrl(currentHub);
+
+      trailingDotUrl.value = glovoParsed ? buildTrailingDotUrl(glovoParsed.canonical) : yandexParsed ? yandexParsed.canonical : "";
+      landingUrl.value = glovoParsed ? buildLandingUrl(glovoParsed.canonical, settings, "glovo") : "";
+      socialShortUrl.value = publicUrl;
+
+      fields.storeSlug.textContent = primaryParsed ? primaryParsed.storeSlug : "-";
+      fields.productId.textContent = glovoParsed ? glovoParsed.productId : "Not supported";
+      fields.externalProductId.textContent = glovoParsed ? glovoParsed.externalProductId : "Not used";
+      fields.contentPath.textContent = primaryParsed ? primaryParsed.content || "-" : "-";
+      if (primaryParsed) fillDefaultProductFields(primaryParsed);
+      updateHubPreview(currentHub);
+      saveHubToHistory(currentHub, publicUrl);
 
       results.hidden = false;
-      drawQrCode(socialShortUrl.value || landingUrl.value);
-      setStatus(parsed.platform === "yandex-eats" ? "Converted Yandex restaurant link" : "Converted with analytics ID", false);
+      drawQrCode(publicUrl);
+      if (shortUrlStats) {
+        shortUrlStats.textContent = "Hub link length: " + publicUrl.length + " characters. Use the QR for long rich hubs.";
+      }
+      setStatus("Product hub ready", false);
     } catch (error) {
       results.hidden = true;
       currentCanonicalUrl = "";
       currentParsedUrl = null;
+      currentGlovoParsed = null;
+      currentYandexParsed = null;
+      currentHub = null;
       setStatus(error.message, true);
     }
   }
@@ -582,9 +951,13 @@
   }
 
   function refreshQr() {
-    refreshLandingUrl();
-    if (!results.hidden && landingUrl.value) {
-      drawQrCode(socialShortUrl.value || landingUrl.value);
+    try {
+      refreshLandingUrl();
+      if (!results.hidden && socialShortUrl.value) {
+        drawQrCode(socialShortUrl.value);
+      }
+    } catch (error) {
+      setStatus(error.message, true);
     }
   }
 
@@ -605,10 +978,34 @@
     sourceUrl.value = "";
     results.hidden = true;
     currentCanonicalUrl = "";
+    currentParsedUrl = null;
+    currentGlovoParsed = null;
+    currentYandexParsed = null;
+    currentHub = null;
     setStatus("Ready", false);
     sourceUrl.focus();
   });
   resetStyleButton.addEventListener("click", resetStyle);
+  if (addLocationButton) {
+    addLocationButton.addEventListener("click", function () {
+      try {
+        pickupLocations.push(readLocationDraft());
+        clearLocationDraft();
+        renderLocations();
+        refreshQr();
+        setStatus("Pickup location added", false);
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    });
+  }
+  if (clearHistoryButton) {
+    clearHistoryButton.addEventListener("click", function () {
+      if (window.ProductHubStorage) window.ProductHubStorage.clearProductHubs();
+      renderHistory();
+      setStatus("History cleared", false);
+    });
+  }
   downloadQrButton.addEventListener("click", downloadQrCode);
   copyQrUrlButton.addEventListener("click", () => copyValue("socialShortUrl"));
 
@@ -616,19 +1013,33 @@
     button.addEventListener("click", () => copyValue(button.dataset.copyTarget));
   });
 
-  sourceUrl.addEventListener("input", () => {
-    if (sourceUrl.value.trim()) setStatus("Ready to convert", false);
+  sourceUrl.addEventListener("input", function () {
+    if (sourceUrl.value.trim()) setStatus("Ready to build", false);
     else setStatus("Ready", false);
   });
+
+  if (yandexUrl) {
+    yandexUrl.addEventListener("input", function () {
+      if (yandexUrl.value.trim()) setStatus("Yandex link ready", false);
+    });
+  }
 
   Object.values(brandControls).forEach((control) => {
     control.addEventListener("input", refreshQr);
   });
 
-  window.addEventListener("load", () => {
-    if (!results.hidden && landingUrl.value) {
-      drawQrCode(socialShortUrl.value || landingUrl.value);
+  window.addEventListener("load", function () {
+    renderLocations();
+    renderHistory();
+    if (!results.hidden && socialShortUrl.value) {
+      drawQrCode(socialShortUrl.value);
     }
   });
 })();
+
+
+
+
+
+
 

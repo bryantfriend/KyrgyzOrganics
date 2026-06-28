@@ -1458,3 +1458,101 @@ dd {
     transform: translateY(0);
   }
 }
+
+.stacked-field {
+  margin-top: 18px;
+}
+
+.wide-field {
+  grid-column: 1 / -1;
+}
+
+.field-grid textarea {
+  min-height: 112px;
+  margin-top: 8px;
+}
+
+.pickup-card,
+.history-panel {
+  grid-column: 1;
+  margin-top: 18px;
+}
+
+.location-grid {
+  margin-top: 4px;
+}
+
+.locations-list,
+.history-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.location-item,
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fbfcfa;
+}
+
+.location-item div,
+.history-item div {
+  min-width: 0;
+}
+
+.location-item strong,
+.location-item span,
+.location-item small,
+.history-item strong,
+.history-item span,
+.history-item small {
+  display: block;
+}
+
+.location-item span,
+.location-item small,
+.history-item span,
+.history-item small {
+  margin-top: 3px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 1024px) {
+  .pickup-card,
+  .history-panel {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 760px) {
+  .pickup-card,
+  .history-panel {
+    order: 4;
+  }
+
+  .brand-tools {
+    order: 5;
+  }
+
+  .results {
+    order: 6;
+  }
+
+  .history-item,
+  .location-item {
+    display: grid;
+  }
+
+  .history-item button,
+  .location-item button {
+    width: 100%;
+  }
+}
