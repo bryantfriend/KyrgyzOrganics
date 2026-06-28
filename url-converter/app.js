@@ -25,6 +25,14 @@
   const locationsList = document.getElementById("locationsList");
   const historyList = document.getElementById("historyList");
   const clearHistoryButton = document.getElementById("clearHistoryButton");
+  const linkFinderModal = document.getElementById("linkFinderModal");
+  const linkFinderFrame = document.getElementById("linkFinderFrame");
+  const linkFinderUrl = document.getElementById("linkFinderUrl");
+  const linkFinderProviderName = document.getElementById("linkFinderProviderName");
+  const linkFinderHelp = document.getElementById("linkFinderHelp");
+  const linkFinderOpenButton = document.getElementById("linkFinderOpenButton");
+  const linkFinderPasteButton = document.getElementById("linkFinderPasteButton");
+  const linkFinderUseButton = document.getElementById("linkFinderUseButton");
 
   const extraControls = {
     productDescription: document.getElementById("productDescription"),
@@ -92,6 +100,7 @@
   let currentYandexParsed = null;
   let currentHub = null;
   let pickupLocations = [];
+  let activeFinderProvider = "glovo";
   const autoFilled = {
     productName: "",
     productCode: "",
@@ -547,6 +556,98 @@
     });
   }
 
+
+  function getFinderProviderConfig(provider) {
+    if (provider === "yandex") {
+      return {
+        key: "yandex",
+        name: "Yandex",
+        url: "https://eda.yandex.kg/",
+        help: "Open Yandex Eats, navigate to the product or restaurant, copy the browser URL, then paste it here.",
+      };
+    }
+    return {
+      key: "glovo",
+      name: "Glovo",
+      url: "https://glovoapp.com/en/kg/bishkek/",
+      help: "Open Glovo, navigate to the exact product page, copy the browser URL, then paste it here.",
+    };
+  }
+
+  function setFinderProvider(provider) {
+    const config = getFinderProviderConfig(provider);
+    activeFinderProvider = config.key;
+    if (linkFinderProviderName) linkFinderProviderName.textContent = config.name;
+    if (linkFinderHelp) linkFinderHelp.textContent = config.help;
+    if (linkFinderFrame) linkFinderFrame.src = config.url;
+    if (linkFinderOpenButton) linkFinderOpenButton.textContent = "Open " + config.name + " website";
+    document.querySelectorAll("[data-link-finder-provider]").forEach(function (button) {
+      button.classList.toggle("is-active", button.dataset.linkFinderProvider === config.key);
+    });
+  }
+
+  function openLinkFinder(provider) {
+    if (!linkFinderModal) return;
+    setFinderProvider(provider || activeFinderProvider);
+    linkFinderModal.hidden = false;
+    document.body.classList.add("link-finder-open");
+    if (linkFinderUrl) {
+      linkFinderUrl.value = provider === "yandex" && yandexUrl ? yandexUrl.value : sourceUrl.value;
+      window.setTimeout(function () { linkFinderUrl.focus(); }, 50);
+    }
+  }
+
+  function closeLinkFinder() {
+    if (!linkFinderModal) return;
+    linkFinderModal.hidden = true;
+    document.body.classList.remove("link-finder-open");
+    if (linkFinderFrame) linkFinderFrame.src = "about:blank";
+  }
+
+  function openFinderWebsite() {
+    const config = getFinderProviderConfig(activeFinderProvider);
+    window.open(config.url, "_blank", "noopener,noreferrer");
+  }
+
+  async function pasteFinderUrl() {
+    if (!navigator.clipboard || !linkFinderUrl) {
+      setStatus("Clipboard paste is not available in this browser", true);
+      return;
+    }
+    try {
+      linkFinderUrl.value = await navigator.clipboard.readText();
+      setStatus("Link pasted", false);
+    } catch (error) {
+      setStatus("Allow clipboard access or paste the link manually", true);
+    }
+  }
+
+  function useFinderUrl() {
+    if (!linkFinderUrl) return;
+    const value = linkFinderUrl.value.trim();
+    if (!value) {
+      setStatus("Paste the selected provider URL first", true);
+      return;
+    }
+    try {
+      if (activeFinderProvider === "yandex") {
+        const parsed = parseYandexDeliveryUrl(value);
+        yandexUrl.value = parsed.url.href;
+        fillDefaultProductFields(parsed);
+        setStatus("Yandex link captured", false);
+      } else {
+        const parsed = parseGlovoUrl(new URL(value));
+        sourceUrl.value = parsed.url.href;
+        fillDefaultProductFields(parsed);
+        setStatus("Glovo product link captured", false);
+      }
+      closeLinkFinder();
+      convert();
+    } catch (error) {
+      setStatus(error.message, true);
+    }
+  }
+
   function decimalToBase36(value) {
     const clean = String(value || "").replace(/[^0-9]/g, "");
     return clean ? BigInt(clean).toString(36) : "0";
@@ -968,6 +1069,23 @@
     refreshQr();
     setStatus("Style reset", false);
   }
+
+  document.querySelectorAll("[data-open-link-finder]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      openLinkFinder(button.dataset.openLinkFinder);
+    });
+  });
+  document.querySelectorAll("[data-close-link-finder]").forEach(function (button) {
+    button.addEventListener("click", closeLinkFinder);
+  });
+  document.querySelectorAll("[data-link-finder-provider]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      setFinderProvider(button.dataset.linkFinderProvider);
+    });
+  });
+  if (linkFinderOpenButton) linkFinderOpenButton.addEventListener("click", openFinderWebsite);
+  if (linkFinderPasteButton) linkFinderPasteButton.addEventListener("click", pasteFinderUrl);
+  if (linkFinderUseButton) linkFinderUseButton.addEventListener("click", useFinderUrl);
 
   convertButton.addEventListener("click", convert);
   sampleButton.addEventListener("click", () => {

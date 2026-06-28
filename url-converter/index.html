@@ -92,6 +92,11 @@
           <input id="yandexUrl" spellcheck="false" inputmode="url" placeholder="https://eda.yandex.kg/r/faiza_1706873280">
           <p class="helper-text">Yandex links are validated conservatively and preserved as pasted. Product-level support is only claimed when the pasted URL already does it.</p>
 
+          <div class="finder-actions" aria-label="Find product links">
+            <button type="button" class="secondary" data-open-link-finder="glovo">Find on Glovo</button>
+            <button type="button" class="secondary" data-open-link-finder="yandex">Find on Yandex</button>
+          </div>
+
           <div class="actions" aria-label="URL actions">
             <button id="convertButton" type="button">Build Product Hub</button>
             <button id="sampleButton" type="button" class="secondary">Use Sample</button>
@@ -328,6 +333,43 @@
       </div>
     </main>
   </div>
+
+  <section class="link-finder-modal" id="linkFinderModal" hidden aria-labelledby="linkFinderTitle" role="dialog" aria-modal="true">
+    <div class="link-finder-backdrop" data-close-link-finder></div>
+    <article class="link-finder-panel">
+      <header class="link-finder-header">
+        <div>
+          <p class="eyebrow">Product link finder</p>
+          <h2 id="linkFinderTitle">Find a delivery link</h2>
+          <p class="helper-text" id="linkFinderHelp">Open a provider, navigate to the product, then paste the final browser URL here.</p>
+        </div>
+        <button type="button" class="ghost" data-close-link-finder aria-label="Close link finder">Close</button>
+      </header>
+      <div class="finder-provider-tabs" role="tablist" aria-label="Delivery provider">
+        <button type="button" class="secondary is-active" data-link-finder-provider="glovo">Glovo</button>
+        <button type="button" class="secondary" data-link-finder-provider="yandex">Yandex</button>
+      </div>
+      <div class="finder-browser-shell">
+        <iframe id="linkFinderFrame" title="Provider website preview" referrerpolicy="no-referrer"></iframe>
+        <div class="finder-browser-note">
+          <strong id="linkFinderProviderName">Glovo</strong>
+          <span>Some provider pages block embedding. Use “Open website” if the preview stays blank.</span>
+        </div>
+      </div>
+      <div class="finder-capture-card">
+        <label class="field-label" for="linkFinderUrl">Selected product or store URL</label>
+        <div class="copy-row">
+          <input id="linkFinderUrl" inputmode="url" spellcheck="false" placeholder="Paste the product URL after selecting it">
+          <button id="linkFinderPasteButton" class="copy-button" type="button">Paste</button>
+        </div>
+        <div class="finder-modal-actions">
+          <button id="linkFinderOpenButton" type="button">Open website</button>
+          <button id="linkFinderUseButton" type="button" class="secondary">Use this link</button>
+        </div>
+        <p class="note">On desktop, copy the address from the provider tab. On phone, use Share or Copy Link, return here, then tap Paste.</p>
+      </div>
+    </article>
+  </section>
 
   <script src="vendor/qrcode.min.js" defer></script>
   <script src="storageAdapter.js" defer></script>

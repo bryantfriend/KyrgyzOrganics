@@ -14,6 +14,7 @@ QR / Instagram / TikTok link
 
 ## What it does
 
+- Adds a provider link finder modal for Glovo and Yandex. It opens the provider website, supports an external-tab fallback, and lets the user paste or clipboard-capture the selected product/store URL for conversion.
 - Builds a product hub with product name, description, image URL, SKU, campaign, badge, price text, brand colors, and QR styling.
 - Keeps the working Glovo product URL parser for `productId`, `externalProductId`, store slug, and content path.
 - Uses the existing compact Glovo `/q/?s=...&c=...&p=...&e=...` route for the Glovo action so exact web product behavior is preserved.
@@ -26,17 +27,23 @@ QR / Instagram / TikTok link
 
 ## Files
 
-- `index.html` - admin builder for product details, delivery links, pickup locations, brand controls, QR preview, and history.
+- `index.html` - admin builder for product details, delivery links, provider link finder modal, pickup locations, brand controls, QR preview, and history.
 - `app.js` - URL parsing, product hub model creation, public hub link generation, QR rendering, download, copy, and history wiring.
 - `storageAdapter.js` - localStorage adapter for product hubs and local analytics events.
 - `p/index.html` - public product hub route.
 - `p/product-hub.js` - decodes the hub payload, renders the customer page, handles map/geolocation behavior, and records local click events.
-- `p/product-hub.css` - mobile-first public hub styling.
+- `p/product-hub.css` - premium mobile-first dashboard styling for the public QR destination.
 - `q/index.html` and `q/q.js` - compact provider link expander used by Glovo and supported Yandex Eats restaurant links.
 - `open.html` and `open.js` - browser-preserving provider redirect page with analytics.
 - `analytics-config.js` and `analytics.js` - existing Firestore click analytics client.
 - `styles.css` - admin styling and responsive layout.
 - `vendor/qrcode.min.js` - bundled browser build of `qrcode@1.5.3`.
+
+## Link Finder Workflow
+
+The admin builder includes **Find on Glovo** and **Find on Yandex** buttons. The modal attempts to show the provider website and also offers an **Open website** button. After navigating to a product or store page, copy the browser URL, return to the modal, paste it, then click **Use this link**.
+
+Browser security prevents this static app from reading the current URL inside a cross-origin Glovo/Yandex page automatically, and some provider pages block iframe embedding. The modal therefore uses the safest reliable workflow: open, navigate, paste/capture, validate, and convert.
 
 ## Public Hub Links
 

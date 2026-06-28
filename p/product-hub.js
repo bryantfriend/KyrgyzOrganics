@@ -46,13 +46,21 @@
     root.querySelector("p:last-child").textContent = message;
   }
 
+  function iconClassFor(action) {
+    if (action === "glovo_click") return "glovo";
+    if (action === "yandex_click") return "yandex";
+    return "map";
+  }
+
   function buildAction(link, action, icon, primary, hub) {
     const anchor = document.createElement("a");
     anchor.className = "action-card" + (primary ? " primary" : "");
     anchor.href = safeHref(link.convertedUrl || link.originalUrl);
     anchor.rel = "noopener noreferrer";
     anchor.innerHTML = '<span class="action-icon"></span><span><strong></strong><span></span></span><span class="chevron" aria-hidden="true">›</span>';
-    anchor.querySelector(".action-icon").textContent = icon;
+    const iconNode = anchor.querySelector(".action-icon");
+    iconNode.classList.add(iconClassFor(action));
+    iconNode.textContent = icon;
     anchor.querySelector("strong").textContent = text(link.buttonLabel, action);
     anchor.querySelector("span span").textContent = text(link.helperText, "Open delivery link");
     anchor.addEventListener("click", function () { recordLocal(action, hub); });
@@ -100,6 +108,20 @@
     });
   }
 
+  function renderLocationPreview(location) {
+    if (!location) return "";
+    const hours = text(location.hours, "Pickup available");
+    return '<section class="location-preview"><div class="map-art"></div><div class="map-pin"><span>●</span></div><div class="location-preview-content"><span class="mini-label">Nearest location</span><strong></strong><span class="location-address"></span><small><span class="open-text">Open</span> · <span class="location-hours"></span></small></div></section>';
+  }
+
+  function hydrateLocationPreview(location) {
+    const preview = root.querySelector(".location-preview");
+    if (!preview || !location) return;
+    preview.querySelector("strong").textContent = text(location.name, "Pickup location");
+    preview.querySelector(".location-address").textContent = text(location.address, "Pickup available");
+    preview.querySelector(".location-hours").textContent = text(location.hours, "Hours vary");
+  }
+
   function renderHub(hub) {
     if (!hub || hub.active === false) {
       showState("Product unavailable", "This product link is not active right now.");
@@ -108,13 +130,14 @@
     const brand = text(hub.brandName || hub.companyName, "Local bakery");
     const product = text(hub.productName, "Fresh product");
     const locations = Array.isArray(hub.locations) ? hub.locations.filter(function (location) { return location.active !== false; }) : [];
-    root.innerHTML = '<article class="hub-page"><header class="hub-top"><span class="brand-badge"></span><div><strong></strong><span></span></div></header><section class="hero-card"><div class="hero-image"></div><div class="hero-body"><p class="badge"></p><h1></h1><p class="description"></p><span class="price"></span></div></section><section class="action-list" aria-label="Order options"></section><section class="location-panel" id="locationPanel"></section><section class="info-strip"></section><p class="footer-note">Thank you for supporting local.</p></article>';
+    const firstLocation = locations[0] || null;
+    root.innerHTML = '<article class="hub-page"><section class="dashboard-card"><div class="hero-wrap"><div class="hero-image"></div><div class="top-row"><div class="brand-lock"><span class="brand-badge"></span><strong></strong><span></span></div><div class="fresh-badge">♡ <span></span></div></div><div class="hero-copy"><h1></h1><div class="wheat-rule">⌁</div><p class="description"></p><span class="price"></span></div></div><div class="content-stack"><section class="action-list" aria-label="Order options"></section><section class="location-preview-slot"></section><section class="location-panel" id="locationPanel"></section><section class="info-card"><div class="info-tile"><span class="info-icon">□</span><div><strong>Pickup</strong><span>Skip the wait. Order ahead & pick up.</span></div></div><div class="info-tile"><span class="info-icon">↗</span><div><strong>Delivery</strong><span>Fresh to your door. Fast & reliable.</span></div></div></section><p class="footer-note">♡ Thank you for supporting local</p></div></section></article>';
     root.querySelector(".brand-badge").textContent = initials(brand);
-    root.querySelector(".hub-top strong").textContent = brand;
-    root.querySelector(".hub-top span").textContent = text(hub.campaignName, "Product order hub");
-    root.querySelector(".badge").textContent = text(hub.heroBadgeText, "Made fresh daily");
+    root.querySelector(".brand-lock strong").textContent = brand;
+    root.querySelector(".brand-lock span:last-child").textContent = "Bakery";
+    root.querySelector(".fresh-badge span").textContent = text(hub.heroBadgeText, "Made fresh daily");
     root.querySelector("h1").textContent = product;
-    root.querySelector(".description").textContent = text(hub.productDescription, "Choose delivery or pickup in a few seconds.");
+    root.querySelector(".description").textContent = text(hub.productDescription, "Get your favorite fresh product fast.");
     const price = root.querySelector(".price");
     price.textContent = text(hub.priceText, "");
     price.hidden = !price.textContent;
@@ -138,7 +161,7 @@
       const button = document.createElement("button");
       button.type = "button";
       button.className = "action-card" + (actionCount === 0 ? " primary" : "");
-      button.innerHTML = '<span class="action-icon">M</span><span><strong>View map locations</strong><span>Find pickup near you</span></span><span class="chevron" aria-hidden="true">›</span>';
+      button.innerHTML = '<span class="action-icon map">⌖</span><span><strong>View map locations</strong><span>Find us near you</span></span><span class="chevron" aria-hidden="true">›</span>';
       button.addEventListener("click", function () {
         recordLocal("map_click", hub);
         if (locations.length === 1 && locations[0].mapUrl && isSafeUrl(locations[0].mapUrl)) {
@@ -166,8 +189,17 @@
       });
       actions.appendChild(button);
     }
+    if (firstLocation) {
+      root.querySelector(".location-preview-slot").innerHTML = renderLocationPreview(firstLocation);
+      hydrateLocationPreview(firstLocation);
+    }
+    if (!locations.length) {
+      root.querySelector(".info-card .info-tile:first-child span:last-child").textContent = "Add a pickup location to show pickup details.";
+    }
+    if (!hub.glovoLink.enabled && !hub.yandexLink.enabled) {
+      root.querySelector(".info-card .info-tile:last-child span:last-child").textContent = "Add Glovo or Yandex to show delivery details.";
+    }
     if (!actions.children.length) showState("Product link not ready", "No order or pickup action is available yet.");
-    root.querySelector(".info-strip").innerHTML = '<span>Delivery available when provider buttons are shown.</span><span>Pickup available when locations are listed.</span>';
     recordLocal("page_view", hub);
   }
 
