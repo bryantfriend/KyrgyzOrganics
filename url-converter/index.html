@@ -13,9 +13,9 @@
       <span></span>
       <span></span>
     </button>
-    <div class="mobile-brand" aria-label="Glovo QR Converter">
+    <div class="mobile-brand" aria-label="QR Link Converter">
       <span class="brand-mark" aria-hidden="true">G</span>
-      <strong>Glovo QR</strong>
+      <strong>QR Links</strong>
     </div>
     <button class="mobile-pill-button" type="button" data-open-modal="brand">Brand</button>
   </header>
@@ -23,10 +23,10 @@
   <div class="mobile-toast" role="status" aria-live="polite"></div><div class="app-shell">
     <aside class="sidebar" id="mobileNavigation" aria-label="Tool navigation">
       <button class="mobile-drawer-close" type="button" data-close-modal aria-label="Close menu">Close</button>
-      <div class="brand-lockup" aria-label="Glovo QR Converter">
+      <div class="brand-lockup" aria-label="QR Link Converter">
         <span class="brand-mark" aria-hidden="true">G</span>
         <div>
-          <strong>Glovo QR</strong>
+          <strong>QR Links</strong>
           <span>Converter</span>
         </div>
       </div>
@@ -57,7 +57,7 @@
         </div>
         <div class="help-card">
           <strong>Need help?</strong>
-          <span>Paste a Glovo product link and export a QR-ready short URL.</span>
+          <span>Paste a Glovo product or Yandex Eats restaurant link and export a QR-ready short URL.</span>
         </div>
         <p class="version">Version 1.0</p>
       </div>
@@ -67,8 +67,8 @@
       <header class="page-header">
         <div>
           <p class="eyebrow">Product QR utility</p>
-          <h1>Glovo URL and QR converter</h1>
-          <p class="lede">Turn a Glovo product URL into a compact, trackable QR landing page with branded export controls.</p>
+          <h1>Product and restaurant QR converter</h1>
+          <p class="lede">Turn a Glovo product URL or Yandex Eats restaurant URL into a compact, trackable QR landing page with branded export controls.</p>
         </div>
         <div class="status-card" id="statusCard" role="status" aria-live="polite">
           <span class="status-dot" aria-hidden="true"></span>
@@ -81,12 +81,12 @@
           <div class="section-heading">
             <div>
               <p class="step-label">1</p>
-              <h2 id="source-heading">Glovo Product URL</h2>
+              <h2 id="source-heading">Product or Restaurant URL</h2>
             </div>
           </div>
-          <label class="field-label" for="sourceUrl">Paste product link</label>
-          <textarea id="sourceUrl" spellcheck="false" placeholder="https://glovoapp.com/en/kg/bishkek/stores/glovo-express-bsk?content=...&productId=...&externalProductId=..."></textarea>
-          <p class="helper-text">Use the product URL copied from the Glovo website. The tool keeps the same product, campaign, and analytics behavior.</p>
+          <label class="field-label" for="sourceUrl">Paste product or restaurant link</label>
+          <textarea id="sourceUrl" spellcheck="false" placeholder="https://glovoapp.com/...productId=... or https://eda.yandex.kg/r/faiza_1706873280"></textarea>
+          <p class="helper-text">Use a Glovo product URL for exact products, or a Yandex Eats restaurant URL for restaurant/store QR codes. Yandex product-level URLs are not supported yet.</p>
 
           <div class="actions" aria-label="URL actions">
             <button id="convertButton" type="button">Convert URL</button>
@@ -112,7 +112,7 @@
             </div>
             <p class="helper-text">Updates as you convert and customize your QR.</p>
 
-            <div class="preview-empty" role="status">Convert a Glovo URL to generate your QR preview.</div>
+            <div class="preview-empty" role="status">Convert a supported URL to generate your QR preview.</div>
 
             <div class="preview-ready">
               <div class="phone-preview compact" aria-label="Landing page preview">
@@ -124,8 +124,8 @@
                     <div class="mini-product">
                       <span></span>
                       <div>
-                        <strong>Glovo product</strong>
-                        <small>Open exact product link</small>
+                        <strong>Destination link</strong>
+                        <small>Open destination link</small>
                       </div>
                     </div>
                     <div class="mini-button">Open in browser</div>
@@ -222,7 +222,7 @@
               <span class="summary-hint">Backup experiment</span>
             </summary>
             <div class="advanced-body">
-              <label class="field-label" for="trailingDotUrl">Trailing-dot Glovo URL</label>
+              <label class="field-label" for="trailingDotUrl">Trailing-dot destination URL</label>
               <div class="copy-row">
                 <input id="trailingDotUrl" readonly>
                 <button class="copy-button" type="button" data-copy-target="trailingDotUrl">Copy</button>
@@ -240,7 +240,7 @@
             </div>
             <dl>
               <div><dt>Store slug</dt><dd id="storeSlug">Not detected</dd></div>
-              <div><dt>Product ID</dt><dd id="productId">Not detected</dd></div>
+              <div><dt>Product / item ID</dt><dd id="productId">Not detected</dd></div>
               <div><dt>External product ID</dt><dd id="externalProductId">Not detected</dd></div>
               <div><dt>Content</dt><dd id="contentPath">Not detected</dd></div>
             </dl>
@@ -268,6 +268,7 @@
   <script src="ui.js" defer></script>
 </body>
 </html>
+
 
 
 

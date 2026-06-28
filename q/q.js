@@ -34,6 +34,12 @@
     return clean;
   }
 
+  function sanitizeYandexSlug(value) {
+    const clean = String(value || "").trim().toLowerCase();
+    if (!/^[a-z0-9_-]{2,120}$/.test(clean)) throw new Error("Invalid Yandex Eats restaurant slug.");
+    return clean;
+  }
+
   function normalizeCompanyId(value) {
     const clean = String(value || "kyrgyz-organics")
       .trim()
@@ -46,7 +52,7 @@
 
   function humanizeSlug(slug) {
     return slug
-      .split("-")
+      .split(/[-_]+/)
       .filter(Boolean)
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ");
@@ -62,6 +68,19 @@
   }
 
   function buildTargetUrl() {
+    if (params.has("y")) {
+      const storeSlug = sanitizeYandexSlug(requireValue("y", "Yandex Eats restaurant slug"));
+      const route = params.get("yr") === "restaurant" ? "restaurant" : "r";
+      const target = new URL(`https://eda.yandex.kg/${route}/${storeSlug}`);
+      return {
+        platform: "yandex-eats",
+        target,
+        storeSlug,
+        productId: "",
+        externalProductId: "",
+      };
+    }
+
     const storeSlug = sanitizeSlug(requireValue("s", "Store slug"));
     const content = requireValue("c", "Content path");
     const productId = base36ToDecimal(requireValue("p", "Product ID"));
@@ -70,7 +89,7 @@
     target.searchParams.set("content", content);
     target.searchParams.set("productId", productId);
     target.searchParams.set("externalProductId", externalProductId);
-    return { target, storeSlug, productId, externalProductId };
+    return { platform: "glovo", target, storeSlug, productId, externalProductId };
   }
 
   function getOpenPageUrl() {
@@ -83,13 +102,14 @@
   function buildOpenUrl(built) {
     const companyId = normalizeCompanyId(params.get("cid"));
     const label = humanizeSlug(built.storeSlug);
-    const code = `SKU ${built.externalProductId}`;
+    const code = built.platform === "yandex-eats" ? "Yandex Eats" : `SKU ${built.externalProductId}`;
     const linkId = `qr-${hashString(`${companyId}|${built.target.href}`)}`;
     const openUrl = getOpenPageUrl();
 
     openUrl.searchParams.set("u", built.target.href);
     openUrl.searchParams.set("lid", linkId);
     openUrl.searchParams.set("cid", companyId);
+    openUrl.searchParams.set("platform", built.platform);
     openUrl.searchParams.set("brand", companyId);
     openUrl.searchParams.set("label", label);
     openUrl.searchParams.set("code", code);
@@ -119,7 +139,9 @@
 
     const openUrl = buildOpenUrl(built);
     setFallback(openUrl);
-    message.textContent = "Opening the exact Glovo web product through the OAKO landing page.";
+    message.textContent = built.platform === "yandex-eats"
+      ? "Opening the Yandex Eats restaurant through the OAKO landing page."
+      : "Opening the exact Glovo web product through the OAKO landing page.";
 
     window.setTimeout(() => {
       window.location.replace(openUrl.href);
@@ -128,3 +150,4 @@
 
   start();
 })();
+

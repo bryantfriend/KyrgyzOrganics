@@ -10,7 +10,7 @@
   }
 
   if (!encodedTarget) {
-    fail("No product URL was provided.");
+    fail("No target URL was provided.");
     return;
   }
 
@@ -18,13 +18,14 @@
   try {
     target = new URL(encodedTarget);
   } catch (error) {
-    fail("The product URL is invalid.");
+    fail("The target URL is invalid.");
     return;
   }
 
   const normalizedHost = target.hostname.replace(/\.$/, "").toLowerCase();
-  if (target.protocol !== "https:" || normalizedHost !== "glovoapp.com") {
-    fail("Only https://glovoapp.com product URLs are allowed.");
+  const allowedHosts = new Set(["glovoapp.com", "eda.yandex.kg"]);
+  if (target.protocol !== "https:" || !allowedHosts.has(normalizedHost)) {
+    fail("Only Glovo product URLs and Yandex Eats restaurant URLs are allowed.");
     return;
   }
 
@@ -48,6 +49,7 @@
       brand: params.get("brand") || "",
       label: params.get("label") || "",
       code: params.get("code") || "",
+      platform: params.get("platform") || (normalizedHost === "eda.yandex.kg" ? "yandex-eats" : "glovo"),
       targetUrl: target.href,
       productId: target.searchParams.get("productId") || "",
       externalProductId: target.searchParams.get("externalProductId") || "",
@@ -59,7 +61,9 @@
     window.location.replace(target.href);
   }
 
-  message.textContent = "Opening the exact Glovo web product. Use the button if your browser blocks the automatic navigation.";
+  message.textContent = normalizedHost === "eda.yandex.kg"
+    ? "Opening the Yandex Eats restaurant. Use the button if your browser blocks the automatic navigation."
+    : "Opening the exact Glovo web product. Use the button if your browser blocks the automatic navigation.";
 
   Promise.race([
     trackClick(),

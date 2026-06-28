@@ -52,16 +52,20 @@
   let renderToken = 0;
   let currentCanonicalUrl = "";
   let currentParsedUrl = null;
+  const autoFilled = {
+    productName: "",
+    productCode: "",
+  };
 
   function setStatus(message, isError) {
     statusText.textContent = message;
     statusCard.classList.toggle("error", Boolean(isError));
   }
 
-  function parseGlovoUrl(rawValue) {
+  function parseSourceUrl(rawValue) {
     const trimmed = rawValue.trim();
     if (!trimmed) {
-      throw new Error("Paste a Glovo product URL first.");
+      throw new Error("Paste a Glovo product URL or Yandex Eats restaurant URL first.");
     }
 
     let url;
@@ -71,6 +75,19 @@
       throw new Error("That does not look like a valid URL.");
     }
 
+    const normalizedHost = url.hostname.replace(/\.$/, "").toLowerCase();
+    if (normalizedHost === "glovoapp.com" || normalizedHost === "www.glovoapp.com") {
+      return parseGlovoUrl(url);
+    }
+
+    if (normalizedHost === "eda.yandex.kg" || normalizedHost === "www.eda.yandex.kg") {
+      return parseYandexEatsUrl(url);
+    }
+
+    throw new Error("Use a glovoapp.com product URL or eda.yandex.kg restaurant URL.");
+  }
+
+  function parseGlovoUrl(url) {
     const normalizedHost = url.hostname.replace(/\.$/, "").toLowerCase();
     if (normalizedHost !== "glovoapp.com" && normalizedHost !== "www.glovoapp.com") {
       throw new Error("This converter expects a glovoapp.com product URL.");
@@ -90,6 +107,7 @@
     }
 
     return {
+      platform: "glovo",
       url,
       canonical: canonicalizeGlovoUrl(url),
       storeSlug,
@@ -97,6 +115,49 @@
       externalProductId,
       content: url.searchParams.get("content") || "",
     };
+  }
+
+  function parseYandexEatsUrl(url) {
+    const pathParts = url.pathname.split("/").filter(Boolean);
+    const routeParts = pathParts.length > 0 && /^[a-z]{2}-[a-z]{2}$/i.test(pathParts[0])
+      ? pathParts.slice(1)
+      : pathParts;
+    const route = routeParts[0] || "";
+    const slug = routeParts[1] || "";
+
+    if (!slug) {
+      throw new Error("Could not find a Yandex Eats restaurant slug in this URL.");
+    }
+
+    if (route !== "r" && route !== "restaurant") {
+      throw new Error("Use a Yandex Eats restaurant URL such as https://eda.yandex.kg/r/faiza_1706873280.");
+    }
+
+    if (routeParts.length > 2 || url.searchParams.has("item") || url.searchParams.has("openItemCard") || url.searchParams.has("open_item_card")) {
+      throw new Error("Yandex Eats product-level links are not supported yet. Use the restaurant page URL.");
+    }
+
+    const yandexSlug = sanitizeYandexSlug(slug);
+    const canonical = new URL(`https://eda.yandex.kg/${route}/${yandexSlug}`);
+
+    return {
+      platform: "yandex-eats",
+      url,
+      canonical: canonical.href,
+      route,
+      storeSlug: yandexSlug,
+      productId: "",
+      externalProductId: "",
+      content: route === "r" ? "Canonical Yandex Eats restaurant link" : "Legacy Yandex Eats restaurant link",
+    };
+  }
+
+  function sanitizeYandexSlug(value) {
+    const clean = String(value || "").trim().toLowerCase();
+    if (!/^[a-z0-9_-]{2,120}$/.test(clean)) {
+      throw new Error("Invalid Yandex Eats restaurant slug.");
+    }
+    return clean;
   }
 
   function canonicalizeGlovoUrl(url) {
@@ -108,7 +169,7 @@
 
   function buildTrailingDotUrl(canonicalUrl) {
     const url = new URL(canonicalUrl);
-    url.hostname = "glovoapp.com.";
+    url.hostname = url.hostname.replace(/\.$/, "") + ".";
     return url.href;
   }
 
@@ -126,6 +187,19 @@
   function buildSocialShortUrl(parsed, settings) {
     const base = window.location.pathname.includes("/url-converter/") ? "../q/" : "q/";
     const shortUrl = new URL(base, window.location.href);
+    if (parsed.platform === "yandex-eats") {
+      shortUrl.searchParams.set("y", parsed.storeSlug);
+      if (parsed.route === "restaurant") {
+        shortUrl.searchParams.set("yr", "restaurant");
+      }
+
+      if (settings.companyId && settings.companyId !== defaultStyle.companyId) {
+        shortUrl.searchParams.set("cid", settings.companyId);
+      }
+
+      return shortUrl.href;
+    }
+
     shortUrl.searchParams.set("s", parsed.storeSlug);
     shortUrl.searchParams.set("c", parsed.content);
     shortUrl.searchParams.set("p", decimalToBase36(parsed.productId));
@@ -149,11 +223,14 @@
   }
 
   function getQrSettings() {
-    const productId = fields.productId.textContent !== "-" ? fields.productId.textContent : "";
-    const externalProductId = fields.externalProductId.textContent !== "-" ? fields.externalProductId.textContent : "";
+    const productId = fields.productId.textContent !== "-" && !fields.productId.textContent.startsWith("Not ") ? fields.productId.textContent : "";
+    const externalProductId = fields.externalProductId.textContent !== "-" && !fields.externalProductId.textContent.startsWith("Not ") ? fields.externalProductId.textContent : "";
     const storeSlug = fields.storeSlug.textContent !== "-" ? fields.storeSlug.textContent : "";
     const brand = getText("brandName", "Product QR");
-    const product = getText("productName", storeSlug ? humanizeSlug(storeSlug) : "Glovo product");
+    const fallbackLabel = currentParsedUrl && currentParsedUrl.platform === "yandex-eats"
+      ? "Yandex Eats restaurant"
+      : "Glovo product";
+    const product = getText("productName", storeSlug ? humanizeSlug(storeSlug) : fallbackLabel);
     const code = getText("productCode", externalProductId ? `SKU ${externalProductId}` : productId);
     const badge = getText("badgeText", initials(brand));
 
@@ -195,7 +272,7 @@
 
   function humanizeSlug(slug) {
     return slug
-      .split("-")
+      .split(/[-_]+/)
       .filter(Boolean)
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ");
@@ -395,7 +472,8 @@
     }
 
     const footerY = panelY + panelSize + Math.round(width * 0.075);
-    drawFittedText(context, "Scan for product", width / 2, footerY, width * 0.76, width * 0.042, 900, textColor);
+    const footerText = currentParsedUrl && currentParsedUrl.platform === "yandex-eats" ? "Scan for restaurant" : "Scan for product";
+    drawFittedText(context, footerText, width / 2, footerY, width * 0.76, width * 0.042, 900, textColor);
 
     if (settings.code) {
       drawFittedText(context, settings.code, width / 2, footerY + Math.round(width * 0.055), width * 0.74, width * 0.028, 700, textColor);
@@ -429,7 +507,9 @@
     const settings = getQrSettings();
     const productId = fields.productId.textContent && fields.productId.textContent !== "-"
       ? fields.productId.textContent
-      : "glovo-product";
+      : currentParsedUrl && currentParsedUrl.platform === "yandex-eats"
+        ? "yandex-restaurant"
+        : "glovo-product";
     const link = document.createElement("a");
     link.download = `${slugify(settings.brand)}-${slugify(settings.product)}-${productId}-qr.png`;
     link.href = qrCanvas.toDataURL("image/png");
@@ -437,33 +517,48 @@
     setStatus("QR downloaded", false);
   }
 
+  function setAutoFilledField(key, value) {
+    const control = brandControls[key];
+    if (!control) return;
+    const current = control.value.trim();
+    if (!current || current === autoFilled[key]) {
+      control.value = value;
+      autoFilled[key] = value;
+    }
+  }
+
   function fillDefaultProductFields(parsed) {
-    if (!brandControls.productCode.value.trim()) {
-      brandControls.productCode.value = parsed.externalProductId ? `SKU ${parsed.externalProductId}` : "";
+    if (parsed.platform === "yandex-eats") {
+      setAutoFilledField("productCode", "Yandex Eats");
+      if (parsed.storeSlug) {
+        setAutoFilledField("productName", humanizeSlug(parsed.storeSlug));
+      }
+      return;
     }
 
-    if (!brandControls.productName.value.trim() && parsed.storeSlug) {
-      brandControls.productName.value = humanizeSlug(parsed.storeSlug);
+    setAutoFilledField("productCode", parsed.externalProductId ? `SKU ${parsed.externalProductId}` : "");
+    if (parsed.storeSlug) {
+      setAutoFilledField("productName", humanizeSlug(parsed.storeSlug));
     }
   }
 
   function convert() {
     try {
-      const parsed = parseGlovoUrl(sourceUrl.value);
+      const parsed = parseSourceUrl(sourceUrl.value);
       currentCanonicalUrl = parsed.canonical;
       currentParsedUrl = parsed;
       trailingDotUrl.value = buildTrailingDotUrl(parsed.canonical);
 
       fields.storeSlug.textContent = parsed.storeSlug;
-      fields.productId.textContent = parsed.productId;
-      fields.externalProductId.textContent = parsed.externalProductId;
+      fields.productId.textContent = parsed.productId || "Not supported";
+      fields.externalProductId.textContent = parsed.externalProductId || "Not used";
       fields.contentPath.textContent = parsed.content || "-";
       fillDefaultProductFields(parsed);
       refreshLandingUrl();
 
       results.hidden = false;
       drawQrCode(socialShortUrl.value || landingUrl.value);
-      setStatus("Converted with analytics ID", false);
+      setStatus(parsed.platform === "yandex-eats" ? "Converted Yandex restaurant link" : "Converted with analytics ID", false);
     } catch (error) {
       results.hidden = true;
       currentCanonicalUrl = "";
@@ -536,3 +631,4 @@
     }
   });
 })();
+

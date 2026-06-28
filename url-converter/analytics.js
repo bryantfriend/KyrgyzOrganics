@@ -16,8 +16,9 @@
       brand: sanitize(payload.brand, 120),
       label: sanitize(payload.label, 160),
       code: sanitize(payload.code, 120),
+      platform: sanitize(payload.platform, 80),
       targetUrl: sanitize(payload.targetUrl, 1200),
-      targetHost: "glovoapp.com",
+      targetHost: getTargetHost(payload.targetUrl),
       productId: sanitize(payload.productId, 120),
       externalProductId: sanitize(payload.externalProductId, 120),
       landingPath: sanitize(payload.landingPath || window.location.pathname, 200),
@@ -32,6 +33,14 @@
 
   function sanitize(value, maxLength) {
     return String(value || "").trim().slice(0, maxLength);
+  }
+
+  function getTargetHost(value) {
+    try {
+      return sanitize(new URL(value).hostname.replace(/\.$/, "").toLowerCase(), 120);
+    } catch (error) {
+      return "";
+    }
   }
 
   function getSessionId() {
@@ -84,6 +93,7 @@
         brand: firestoreString(payload.brand),
         label: firestoreString(payload.label),
         code: firestoreString(payload.code),
+        platform: firestoreString(payload.platform),
         targetUrl: firestoreString(payload.targetUrl),
         targetHost: firestoreString(payload.targetHost),
         productId: firestoreString(payload.productId),

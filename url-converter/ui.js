@@ -23,7 +23,7 @@
 
   function openSurface(surface) {
     if (surface === "details" && results && results.hidden) {
-      showToast("Convert a Glovo URL first to see details.");
+      showToast("Convert a supported URL first to see details.");
       sourceUrl && sourceUrl.focus();
       return;
     }
