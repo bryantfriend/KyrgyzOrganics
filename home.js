@@ -447,7 +447,7 @@ async function loadData() {
     const activeCompanyId = getCurrentCompanyId();
 
     // 1. Load Banners Separately & Immediately
-    getDocs(collection(db, "banners")).then(snap => {
+    getDocs(query(collection(db, "banners"), where("active", "==", true))).then(snap => {
         const now = new Date();
         bannerData = snap.docs
             .map(d => ({ id: d.id, ...d.data() }))
