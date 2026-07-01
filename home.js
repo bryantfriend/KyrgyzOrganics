@@ -492,27 +492,6 @@ async function loadData() {
         // Banners removed from here
         const pmRes = results[2].status === 'fulfilled' ? results[2].value : { docs: [] };
         const collectionRes = results[3].status === 'fulfilled' ? results[3].value : { docs: [] };
-
-
-        // Fetch Inventory (company-scoped, with legacy fallback)
-        const invId = getInventoryDocId(activeCompanyId, todayStr);
-        let invSnap = await getDoc(doc(db, 'inventory', invId));
-        if (!invSnap.exists() && activeCompanyId === COMPANY_ID) {
-            invSnap = await getDoc(doc(db, 'inventory', todayStr));
-        }
-        if (invSnap.exists()) {
-            const inventoryData = invSnap.data();
-            if (inventoryData.companyId && inventoryData.companyId !== activeCompanyId) {
-                console.warn('Inventory companyId mismatch:', todayStr);
-                dailyInventory = {};
-            } else {
-                if (!inventoryData.companyId && activeCompanyId === COMPANY_ID) console.warn('Inventory missing companyId:', todayStr);
-                dailyInventory = inventoryData;
-            }
-        } else {
-            dailyInventory = {};
-        }
-
         products = pRes.docs
             .map(doc => ({ id: doc.id, ...doc.data() }))
             .filter(p => matchesCompanyId(p, `products/${p.id}`));
@@ -537,6 +516,31 @@ async function loadData() {
             .map(d => ({ id: d.id, ...d.data() }))
             .filter(col => matchesCompanyId(col, `product_collections/${col.id}`))
             .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+
+        try {
+            // Fetch inventory separately so stock-rule issues do not blank the catalog.
+            const invId = getInventoryDocId(activeCompanyId, todayStr);
+            let invSnap = await getDoc(doc(db, 'inventory', invId));
+            if (!invSnap.exists() && activeCompanyId === COMPANY_ID) {
+                invSnap = await getDoc(doc(db, 'inventory', todayStr));
+            }
+            if (invSnap.exists()) {
+                const inventoryData = invSnap.data();
+                if (inventoryData.companyId && inventoryData.companyId !== activeCompanyId) {
+                    console.warn('Inventory companyId mismatch:', todayStr);
+                    dailyInventory = {};
+                } else {
+                    if (!inventoryData.companyId && activeCompanyId === COMPANY_ID) console.warn('Inventory missing companyId:', todayStr);
+                    dailyInventory = inventoryData;
+                }
+            } else {
+                dailyInventory = {};
+            }
+        } catch (inventoryError) {
+            console.warn('Inventory load failed:', inventoryError);
+            dailyInventory = {};
+        }
+
         await loadCampaignTimeline();
         await loadCheckoutSettings();
         syncCartWithCatalog();
