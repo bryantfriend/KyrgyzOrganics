@@ -42,7 +42,7 @@
           <div class="admin-header-subtitle">
             <span id="headerStoreDomain">oako.kg</span>
             <span id="storePill">Store: kyrgyz-organics</span>
-            <span id="adminVersionPill" class="admin-version-pill">Admin v3.9</span>
+            <span id="adminVersionPill" class="admin-version-pill">Admin v3.10</span>
           </div>
         </div>
       </div>
@@ -1154,6 +1154,45 @@
             </div>
           </div>
 
+          <h4 style="margin:1.5rem 0 1rem;">External Ordering & Store Links</h4>
+          <div class="external-links-builder">
+            <div class="external-link-card">
+              <div class="external-link-card-head">
+                <strong>Glovo</strong>
+                <label><input type="checkbox" id="pGlovoEnabled"> Show</label>
+              </div>
+              <label for="pGlovoUrl">Glovo product or store URL</label>
+              <input type="text" id="pGlovoUrl" placeholder="https://glovoapp.com/...">
+              <small>Use the exact Glovo product URL when available.</small>
+            </div>
+
+            <div class="external-link-card">
+              <div class="external-link-card-head">
+                <strong>Yandex Eats</strong>
+                <label><input type="checkbox" id="pYandexEnabled"> Show</label>
+              </div>
+              <label for="pYandexUrl">Yandex restaurant URL</label>
+              <div class="external-link-row">
+                <input type="text" id="pYandexUrl" placeholder="https://eda.yandex.kg/r/restaurant_slug">
+                <button type="button" id="importYandexMenuBtn" class="btn-secondary">Import menu</button>
+              </div>
+              <input type="hidden" id="pYandexSelectedJson">
+              <div id="pYandexSelectedProduct" class="external-selected-product">No Yandex product selected.</div>
+              <button type="button" id="clearYandexProductBtn" class="btn-secondary">Clear Yandex product</button>
+              <small>The customer page shows this exact product, then opens the Yandex restaurant to order.</small>
+            </div>
+
+            <div class="external-link-card">
+              <div class="external-link-card-head">
+                <strong>Map / Stockists</strong>
+                <label><input type="checkbox" id="pMapEnabled"> Show</label>
+              </div>
+              <label for="pMapUrl">Map or stockist URL</label>
+              <input type="text" id="pMapUrl" placeholder="https://maps.google.com/...">
+              <small>Use this for store locations or where-to-buy pages.</small>
+            </div>
+          </div>
+
           <h4 style="margin:1.5rem 0 1rem;">Availability Planning</h4>
           <div class="form-row">
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" class="pAvailDay" value="1"> Monday</label>
@@ -1282,6 +1321,24 @@
         </form>
         <div id="collectionList" class="item-list" style="margin-top:1rem;"></div>
       </div>
+    <div id="yandexMenuModal" class="modal hidden">
+      <div class="modal-panel yandex-menu-panel">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Yandex Eats</p>
+            <h3>Select a menu product</h3>
+          </div>
+          <button type="button" id="closeYandexMenuModalBtn" class="btn-secondary">Close</button>
+        </div>
+        <div class="yandex-menu-search">
+          <input type="search" id="yandexMenuSearch" placeholder="Search imported Yandex products">
+          <span id="yandexMenuStatus">Paste a restaurant URL and import its menu.</span>
+        </div>
+        <div id="yandexMenuResults" class="yandex-menu-results"></div>
+      </div>
+    </div>
+
+
     </section>
 
     <!-- CONTENT PAGES -->

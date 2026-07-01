@@ -102,3 +102,6 @@ If one pickup location exists, the public map button opens its `mapUrl` directly
 - Public hubs are encoded into the URL for this static MVP, so very rich hubs can create long links.
 - Admin history is local to the browser until a backend storage adapter is added.
 - Public hub view/click analytics are local-only in this MVP, while provider redirects continue to use the existing analytics flow.
+
+
+Production link rule: use the generated full OAKO landing page URL for Instagram, TikTok, QR codes, and packaging. Do not shorten it; provider buttons inside the hub use full landing/original URLs.

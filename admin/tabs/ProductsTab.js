@@ -1,5 +1,5 @@
 import { BaseTab } from './BaseTab.js';
-import { db } from '../../firebase-config.js';
+import { db, functions, httpsCallable } from '../../firebase-config.js';
 import { uploadImage, logAudit } from '../utils.js';
 import { buildProductPageUrl, getBusinessPrice, getPreferredProductName, getRetailPrice, slugifyProductName } from '../../product-utils.js';
 import { getSelectedCompanyId, matchesSelectedCompany } from '../../store-context.js';
@@ -57,6 +57,22 @@ export class ProductsTab extends BaseTab {
         this.unsubscribeCategories = null;
         this.unsubscribeCollections = null;
         this.slugTouched = false;
+        this.pGlovoEnabled = document.getElementById('pGlovoEnabled');
+        this.pGlovoUrl = document.getElementById('pGlovoUrl');
+        this.pYandexEnabled = document.getElementById('pYandexEnabled');
+        this.pYandexUrl = document.getElementById('pYandexUrl');
+        this.pYandexSelectedJson = document.getElementById('pYandexSelectedJson');
+        this.pYandexSelectedProduct = document.getElementById('pYandexSelectedProduct');
+        this.importYandexMenuBtn = document.getElementById('importYandexMenuBtn');
+        this.clearYandexProductBtn = document.getElementById('clearYandexProductBtn');
+        this.yandexMenuModal = document.getElementById('yandexMenuModal');
+        this.closeYandexMenuModalBtn = document.getElementById('closeYandexMenuModalBtn');
+        this.yandexMenuSearch = document.getElementById('yandexMenuSearch');
+        this.yandexMenuResults = document.getElementById('yandexMenuResults');
+        this.yandexMenuStatus = document.getElementById('yandexMenuStatus');
+        this.pMapEnabled = document.getElementById('pMapEnabled');
+        this.pMapUrl = document.getElementById('pMapUrl');
+        this.yandexMenuProducts = [];
     }
 
     async init() {
@@ -85,6 +101,16 @@ export class ProductsTab extends BaseTab {
         if (this.migrateProductPricesBtn) this.migrateProductPricesBtn.addEventListener('click', this.migrateLegacyPrices.bind(this));
         if (this.collectionForm) this.collectionForm.addEventListener('submit', (e) => this.saveCollection(e));
         if (this.collectionCancelBtn) this.collectionCancelBtn.addEventListener('click', () => this.resetCollectionForm());
+        if (this.importYandexMenuBtn) this.importYandexMenuBtn.addEventListener('click', () => this.importYandexMenu());
+        if (this.clearYandexProductBtn) this.clearYandexProductBtn.addEventListener('click', () => this.clearYandexSelection());
+        if (this.closeYandexMenuModalBtn) this.closeYandexMenuModalBtn.addEventListener('click', () => this.closeYandexModal());
+        if (this.yandexMenuModal) {
+            this.yandexMenuModal.addEventListener('click', (event) => {
+                if (event.target === this.yandexMenuModal) this.closeYandexModal();
+            });
+        }
+        if (this.yandexMenuSearch) this.yandexMenuSearch.addEventListener('input', () => this.renderYandexMenuProducts());
+
         if (this.collectionName && this.collectionSlug) {
             this.collectionName.addEventListener('input', () => {
                 if (!this.collectionId?.value) this.collectionSlug.value = slugifyProductName(this.collectionName.value);
@@ -282,6 +308,7 @@ export class ProductsTab extends BaseTab {
                 <div style="flex:1; margin-left:1rem;">
                     <strong>${p.name_ru || 'No Name'}</strong><br>
                     Retail: ${getRetailPrice(p)} som | Business: ${getBusinessPrice(p)} som | ${p.weight}<br>
+                    <span class="external-link-count">${this.getExternalLinkSummary(p)}</span><br>
                     <a href="${pageUrl}" target="_blank" rel="noopener" style="font-size:0.85rem; color:#2e7d32;">${pageUrl}</a>
                 </div>
                 <div style="display:flex; gap:0.5rem;">
@@ -440,6 +467,175 @@ export class ProductsTab extends BaseTab {
         this.renderCollectionProductPicker([]);
     }
 
+    escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    normalizeExternalUrl(value, allowedHosts = []) {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+
+        try {
+            const url = new URL(raw);
+            if (!['http:', 'https:'].includes(url.protocol)) return '';
+            if (allowedHosts.length) {
+                const host = url.hostname.replace(/\.$/, '').toLowerCase();
+                if (!allowedHosts.includes(host)) return '';
+            }
+            return url.toString();
+        } catch (error) {
+            return '';
+        }
+    }
+
+    parseSelectedYandexProduct() {
+        if (!this.pYandexSelectedJson?.value) return null;
+        try {
+            return JSON.parse(this.pYandexSelectedJson.value);
+        } catch (error) {
+            return null;
+        }
+    }
+
+    readExternalLinksFromForm() {
+        const glovoUrl = this.normalizeExternalUrl(this.pGlovoUrl?.value, ['glovoapp.com', 'www.glovoapp.com']);
+        const yandexProduct = this.parseSelectedYandexProduct();
+        const yandexUrl = this.normalizeExternalUrl(this.pYandexUrl?.value || yandexProduct?.restaurantUrl, ['eda.yandex.kg', 'eda.yandex.ru', 'eda.yandex.com']);
+        const mapUrl = this.normalizeExternalUrl(this.pMapUrl?.value);
+
+        return {
+            glovo: {
+                enabled: Boolean(this.pGlovoEnabled?.checked && glovoUrl),
+                url: glovoUrl,
+                label: 'Order on Glovo'
+            },
+            yandex: {
+                enabled: Boolean(this.pYandexEnabled?.checked && yandexUrl),
+                url: yandexUrl,
+                restaurantUrl: yandexUrl,
+                label: 'Order on Yandex',
+                product: yandexProduct || null
+            },
+            map: {
+                enabled: Boolean(this.pMapEnabled?.checked && mapUrl),
+                url: mapUrl,
+                label: 'View map locations'
+            }
+        };
+    }
+
+    getExternalLinkSummary(product) {
+        const links = product?.externalLinks || {};
+        const active = ['glovo', 'yandex', 'map'].filter((key) => links[key]?.enabled && links[key]?.url);
+        return active.length ? 'External links: ' + active.join(', ') : 'External links: none';
+    }
+
+    setYandexSelection(product) {
+        if (!product) {
+            this.clearYandexSelection();
+            return;
+        }
+
+        if (this.pYandexSelectedJson) this.pYandexSelectedJson.value = JSON.stringify(product);
+        if (this.pYandexUrl && product.restaurantUrl) this.pYandexUrl.value = product.restaurantUrl;
+        if (this.pYandexEnabled) this.pYandexEnabled.checked = true;
+        this.renderYandexSelectedProduct(product);
+        this.closeYandexModal();
+    }
+
+    renderYandexSelectedProduct(product = this.parseSelectedYandexProduct()) {
+        if (!this.pYandexSelectedProduct) return;
+        if (!product) {
+            this.pYandexSelectedProduct.innerHTML = 'No Yandex product selected.';
+            return;
+        }
+
+        const price = product.price ? product.price + ' som' : 'Price not available';
+        this.pYandexSelectedProduct.innerHTML =
+            (product.imageUrl ? '<img src="' + this.escapeHtml(product.imageUrl) + '" alt="">' : '') +
+            '<div>' +
+                '<strong>' + this.escapeHtml(product.name) + '</strong>' +
+                '<span>' + this.escapeHtml(product.categoryName || 'Yandex item') + ' - ' + this.escapeHtml(price) + '</span>' +
+                '<small>ID ' + this.escapeHtml(product.itemId) + (product.publicId ? ' - ' + this.escapeHtml(product.publicId) : '') + '</small>' +
+            '</div>';
+    }
+
+    clearYandexSelection() {
+        if (this.pYandexSelectedJson) this.pYandexSelectedJson.value = '';
+        if (this.pYandexEnabled) this.pYandexEnabled.checked = Boolean(this.pYandexUrl?.value);
+        this.renderYandexSelectedProduct(null);
+    }
+
+    openYandexModal() {
+        if (this.yandexMenuModal) this.yandexMenuModal.classList.remove('hidden');
+        if (this.yandexMenuSearch) this.yandexMenuSearch.focus();
+    }
+
+    closeYandexModal() {
+        if (this.yandexMenuModal) this.yandexMenuModal.classList.add('hidden');
+    }
+
+    async importYandexMenu() {
+        const restaurantUrl = String(this.pYandexUrl?.value || '').trim();
+        if (!restaurantUrl) {
+            alert('Paste a Yandex Eats restaurant URL first.');
+            return;
+        }
+
+        this.openYandexModal();
+        if (this.yandexMenuStatus) this.yandexMenuStatus.textContent = 'Importing Yandex menu...';
+        if (this.yandexMenuResults) this.yandexMenuResults.innerHTML = '<div class="yandex-menu-empty">Loading menu products...</div>';
+
+        try {
+            const importMenu = httpsCallable(functions, 'importYandexMenu');
+            const result = await importMenu({ restaurantUrl });
+            this.yandexMenuProducts = Array.isArray(result.data?.products) ? result.data.products : [];
+            if (this.yandexMenuStatus) this.yandexMenuStatus.textContent = this.yandexMenuProducts.length + ' Yandex products imported.';
+            this.renderYandexMenuProducts();
+        } catch (error) {
+            console.error(error);
+            if (this.yandexMenuStatus) this.yandexMenuStatus.textContent = error.message || 'Yandex import failed.';
+            if (this.yandexMenuResults) this.yandexMenuResults.innerHTML = '<div class="yandex-menu-empty error">Could not import this menu. Try another restaurant URL.</div>';
+        }
+    }
+
+    renderYandexMenuProducts() {
+        if (!this.yandexMenuResults) return;
+        const search = String(this.yandexMenuSearch?.value || '').trim().toLowerCase();
+        const products = this.yandexMenuProducts
+            .filter((product) => !search || [product.name, product.categoryName, product.description, product.itemId].some((value) => String(value || '').toLowerCase().includes(search)))
+            .slice(0, 120);
+
+        if (!products.length) {
+            this.yandexMenuResults.innerHTML = '<div class="yandex-menu-empty">No matching Yandex products.</div>';
+            return;
+        }
+
+        this.yandexMenuResults.innerHTML = products.map((product, index) => {
+            const price = product.price ? product.price + ' som' : 'Price not available';
+            return '<button type="button" class="yandex-menu-product" data-index="' + index + '">' +
+                (product.imageUrl ? '<img src="' + this.escapeHtml(product.imageUrl) + '" alt="">' : '<span class="yandex-menu-thumb-empty">No image</span>') +
+                '<span>' +
+                    '<strong>' + this.escapeHtml(product.name) + '</strong>' +
+                    '<small>' + this.escapeHtml(product.categoryName || 'Yandex menu') + ' - ' + this.escapeHtml(price) + '</small>' +
+                    (product.description ? '<em>' + this.escapeHtml(product.description) + '</em>' : '') +
+                '</span>' +
+            '</button>';
+        }).join('');
+
+        this.yandexMenuResults.querySelectorAll('.yandex-menu-product').forEach((button) => {
+            button.addEventListener('click', () => {
+                const product = products[Number(button.dataset.index)];
+                this.setYandexSelection(product);
+            });
+        });
+    }
+
     async handleSubmit(e) {
         e.preventDefault();
         const filePack = this.filePack.files[0];
@@ -487,6 +683,7 @@ export class ProductsTab extends BaseTab {
                     leadTimeHours: Math.max(0, Number(this.leadTimeHours?.value || 0) || 0),
                     note: String(this.availabilityNote?.value || '').trim()
                 },
+                externalLinks: this.readExternalLinksFromForm(),
                 slug: this.generateUniqueSlug(
                     this.pSlug.value || getPreferredProductName({
                         name_en: document.getElementById('pNameEN').value,
@@ -546,6 +743,15 @@ export class ProductsTab extends BaseTab {
         });
         if (this.leadTimeHours) this.leadTimeHours.value = 0;
         if (this.availabilityNote) this.availabilityNote.value = '';
+        if (this.pGlovoEnabled) this.pGlovoEnabled.checked = false;
+        if (this.pGlovoUrl) this.pGlovoUrl.value = '';
+        if (this.pYandexEnabled) this.pYandexEnabled.checked = false;
+        if (this.pYandexUrl) this.pYandexUrl.value = '';
+        if (this.pYandexSelectedJson) this.pYandexSelectedJson.value = '';
+        this.renderYandexSelectedProduct(null);
+        if (this.pMapEnabled) this.pMapEnabled.checked = false;
+        if (this.pMapUrl) this.pMapUrl.value = '';
+        this.yandexMenuProducts = [];
         this.slugTouched = false;
     }
 
@@ -572,6 +778,15 @@ export class ProductsTab extends BaseTab {
         if (this.leadTimeHours) this.leadTimeHours.value = p.availability?.leadTimeHours || 0;
         if (this.availabilityNote) this.availabilityNote.value = p.availability?.note || '';
         if (this.pSlug) this.pSlug.value = p.slug || this.generateUniqueSlug(getPreferredProductName(p), id);
+        const links = p.externalLinks || {};
+        if (this.pGlovoUrl) this.pGlovoUrl.value = links.glovo?.url || '';
+        if (this.pGlovoEnabled) this.pGlovoEnabled.checked = links.glovo?.enabled === true || Boolean(links.glovo?.url);
+        if (this.pYandexUrl) this.pYandexUrl.value = links.yandex?.restaurantUrl || links.yandex?.url || '';
+        if (this.pYandexEnabled) this.pYandexEnabled.checked = links.yandex?.enabled === true || Boolean(links.yandex?.url);
+        if (this.pYandexSelectedJson) this.pYandexSelectedJson.value = links.yandex?.product ? JSON.stringify(links.yandex.product) : '';
+        this.renderYandexSelectedProduct(links.yandex?.product || null);
+        if (this.pMapUrl) this.pMapUrl.value = links.map?.url || '';
+        if (this.pMapEnabled) this.pMapEnabled.checked = links.map?.enabled === true || Boolean(links.map?.url);
         this.slugTouched = !!p.slug;
 
         // Show Images

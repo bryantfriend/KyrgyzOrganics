@@ -39,6 +39,82 @@ function asTrimmedString(value, maxLength = 500) {
     return String(value || '').trim().slice(0, maxLength);
 }
 
+function normalizeYandexImageUri(uri) {
+    const clean = asTrimmedString(uri, 500);
+    if (!clean) return '';
+    const sized = clean.replace('{w}', '600').replace('{h}', '600');
+    if (sized.startsWith('http://') || sized.startsWith('https://')) return sized;
+    if (sized.startsWith('/')) return `https://eda.yandex${sized}`;
+    return sized;
+}
+
+function parseYandexRestaurantSlug(rawUrl) {
+    const value = asTrimmedString(rawUrl, 500);
+    if (!value) {
+        throw new functions.https.HttpsError('invalid-argument', 'Yandex restaurant URL is required');
+    }
+
+    let url;
+    try {
+        url = new URL(value);
+    } catch (error) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid Yandex restaurant URL');
+    }
+
+    const host = url.hostname.replace(/.$/, '').toLowerCase();
+    if (!['eda.yandex.kg', 'eda.yandex.ru', 'eda.yandex.com'].includes(host)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Use a Yandex Eats restaurant URL');
+    }
+
+    const parts = url.pathname.split('/').filter(Boolean);
+    const restaurantIndex = parts.indexOf('r');
+    const slug = restaurantIndex >= 0 ? parts[restaurantIndex + 1] : '';
+    if (!slug || !/^[a-z0-9_-]{2,140}$/i.test(slug)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Could not find the restaurant slug');
+    }
+
+    return { slug, originalUrl: url.toString() };
+}
+
+function getYandexMenuSlugCandidates(restaurantSlug) {
+    const candidates = [restaurantSlug];
+    const trimmedNumericSuffix = restaurantSlug.replace(/_d+$/, '_');
+    if (trimmedNumericSuffix && trimmedNumericSuffix !== restaurantSlug) candidates.push(trimmedNumericSuffix);
+    const beforeLastUnderscore = restaurantSlug.replace(/_[^_]+$/, '_');
+    if (beforeLastUnderscore && !candidates.includes(beforeLastUnderscore)) candidates.push(beforeLastUnderscore);
+    return candidates;
+}
+
+function flattenYandexMenu(menuJson, restaurantUrl, restaurantSlug, menuSlug) {
+    const categories = Array.isArray(menuJson?.payload?.categories) ? menuJson.payload.categories : [];
+    const products = [];
+
+    categories.forEach((category) => {
+        const items = Array.isArray(category?.items) ? category.items : [];
+        items.forEach((item) => {
+            products.push({
+                provider: 'yandex',
+                restaurantUrl,
+                restaurantSlug,
+                menuSlug,
+                categoryId: String(category.id || ''),
+                categoryName: asTrimmedString(category.name, 160),
+                itemId: String(item.id || ''),
+                publicId: asTrimmedString(item.publicId, 160),
+                name: asTrimmedString(item.name, 180),
+                description: asTrimmedString(item.description, 500),
+                price: Number(item.price || 0) || 0,
+                decimalPrice: asTrimmedString(item.decimalPrice, 80),
+                weight: asTrimmedString(item.weight, 120),
+                available: item.available !== false,
+                imageUrl: normalizeYandexImageUri(item?.picture?.uri)
+            });
+        });
+    });
+
+    return products.filter((product) => product.itemId && product.name);
+}
+
 function normalizeRole(role) {
     return asTrimmedString(role, 80).toLowerCase();
 }
@@ -719,4 +795,49 @@ exports.getOrderStatus = functions.https.onCall(async (data) => {
         items: mapOrderItemsForClient(order.items),
         trackingEvents: getTrackingEvents(order)
     };
+});
+
+exports.importYandexMenu = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Sign in to import a Yandex menu');
+    }
+
+    const { slug: restaurantSlug, originalUrl } = parseYandexRestaurantSlug(data?.restaurantUrl);
+    let lastError = null;
+
+    for (const menuSlug of getYandexMenuSlugCandidates(restaurantSlug)) {
+        const endpoint = `https://eda.yandex.kg/api/v2/menu/retrieve/${encodeURIComponent(menuSlug)}`;
+        try {
+            const response = await fetch(endpoint, {
+                headers: {
+                    accept: 'application/json,text/plain,*/*',
+                    'user-agent': 'Mozilla/5.0 OAKO Product Link Importer'
+                }
+            });
+
+            if (!response.ok) {
+                lastError = `Yandex returned ${response.status}`;
+                continue;
+            }
+
+            const menuJson = await response.json();
+            const products = flattenYandexMenu(menuJson, originalUrl, restaurantSlug, menuSlug);
+            if (products.length) {
+                return {
+                    ok: true,
+                    restaurantUrl: originalUrl,
+                    restaurantSlug,
+                    menuSlug,
+                    productCount: products.length,
+                    products
+                };
+            }
+
+            lastError = 'No products found in Yandex menu response';
+        } catch (error) {
+            lastError = error.message || 'Yandex menu import failed';
+        }
+    }
+
+    throw new functions.https.HttpsError('not-found', lastError || 'Could not import this Yandex menu');
 });

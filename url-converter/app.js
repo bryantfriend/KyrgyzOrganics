@@ -334,7 +334,7 @@
     const glovoLink = glovoParsed ? {
       enabled: true,
       originalUrl: glovoParsed.url.href,
-      convertedUrl: buildSocialShortUrl(glovoParsed, settings),
+      convertedUrl: buildLandingUrl(glovoParsed.canonical, settings, "glovo"),
       buttonLabel: "Order on Glovo",
       helperText: "Open the product on Glovo",
       platformName: "Glovo",
@@ -346,7 +346,7 @@
     const yandexLink = yandexParsed ? {
       enabled: true,
       originalUrl: yandexParsed.url.href,
-      convertedUrl: yandexParsed.route === "external" ? yandexParsed.canonical : buildSocialShortUrl(yandexParsed, settings),
+      convertedUrl: yandexParsed.canonical,
       buttonLabel: "Order on Yandex",
       helperText: "Quick delivery to your door",
       platformName: "Yandex",
@@ -936,7 +936,7 @@
     socialShortUrl.value = publicUrl;
     updateHubPreview(currentHub);
     if (shortUrlStats) {
-      shortUrlStats.textContent = "Hub link length: " + socialShortUrl.value.length + " characters. Use the QR for long rich hubs.";
+      shortUrlStats.textContent = "Landing page length: " + socialShortUrl.value.length + " characters. Use this full OAKO landing page URL for Instagram, TikTok, QR codes, and packaging.";
     }
   }
 
@@ -1023,9 +1023,9 @@
       results.hidden = false;
       drawQrCode(publicUrl);
       if (shortUrlStats) {
-        shortUrlStats.textContent = "Hub link length: " + publicUrl.length + " characters. Use the QR for long rich hubs.";
+        shortUrlStats.textContent = "Landing page length: " + publicUrl.length + " characters. Use this full OAKO landing page URL for Instagram, TikTok, QR codes, and packaging.";
       }
-      setStatus("Product hub ready", false);
+      setStatus("Full OAKO landing page ready", false);
     } catch (error) {
       results.hidden = true;
       currentCanonicalUrl = "";

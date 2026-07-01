@@ -150,6 +150,73 @@ function getStoreHomeUrl() {
     return `/${companyId}/`;
 }
 
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function sanitizeHttpUrl(value, allowedHosts = []) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+
+    try {
+        const url = new URL(raw);
+        if (!['http:', 'https:'].includes(url.protocol)) return '';
+        if (allowedHosts.length) {
+            const host = url.hostname.replace(/\.$/, '').toLowerCase();
+            if (!allowedHosts.includes(host)) return '';
+        }
+        return url.toString();
+    } catch (error) {
+        return '';
+    }
+}
+
+function renderExternalActions(product) {
+    const links = product?.externalLinks || {};
+    const glovoUrl = links.glovo?.enabled ? sanitizeHttpUrl(links.glovo.url, ['glovoapp.com', 'www.glovoapp.com']) : '';
+    const yandexUrl = links.yandex?.enabled ? sanitizeHttpUrl(links.yandex.restaurantUrl || links.yandex.url, ['eda.yandex.kg', 'eda.yandex.ru', 'eda.yandex.com']) : '';
+    const mapUrl = links.map?.enabled ? sanitizeHttpUrl(links.map.url) : '';
+    const yandexProduct = links.yandex?.product || null;
+
+    if (!glovoUrl && !yandexUrl && !mapUrl) return '';
+
+    let html = '<section class="product-external-panel" aria-label="External ordering options">' +
+        '<div class="product-external-heading">' +
+            '<span>Order options</span>' +
+            '<strong>Available from partner apps and nearby stores</strong>' +
+        '</div>' +
+        '<div class="product-external-actions">';
+
+    if (glovoUrl) {
+        html += '<a class="external-action glovo" href="' + escapeHtml(glovoUrl) + '" target="_blank" rel="noopener">' +
+            '<span>G</span><strong>Order on Glovo</strong><small>Fast delivery in minutes</small>' +
+        '</a>';
+    }
+
+    if (yandexUrl) {
+        html += '<a class="external-action yandex" href="' + escapeHtml(yandexUrl) + '" target="_blank" rel="noopener">' +
+            '<span>Y</span><strong>Order on Yandex</strong><small>' + escapeHtml(yandexProduct?.name || 'Open the Yandex restaurant') + '</small>' +
+        '</a>';
+        if (yandexProduct?.name) {
+            html += '<button id="copyYandexProductName" class="external-helper-btn" type="button" data-product-name="' + escapeHtml(yandexProduct.name) + '">Copy Yandex product name</button>';
+        }
+    }
+
+    if (mapUrl) {
+        html += '<a class="external-action map" href="' + escapeHtml(mapUrl) + '" target="_blank" rel="noopener">' +
+            '<span>M</span><strong>View map locations</strong><small>Find stores near you</small>' +
+        '</a>';
+    }
+
+    html += '</div></section>';
+    return html;
+}
+
 function renderMissingState() {
     root.innerHTML = `
         <a href="${getStoreHomeUrl()}" class="text-link-inline">${t('back_to_catalog')}</a>
@@ -174,6 +241,7 @@ function renderProductPage(product) {
     const imageContent = product.imageNoPackagingUrl || imagePack;
     const displayPrice = getDisplayPrice(product, currentUserProfile);
     const priceType = getDisplayPriceType(product, currentUserProfile);
+    const externalActions = renderExternalActions(product);
 
     root.innerHTML = `
         <nav class="product-breadcrumbs">
@@ -211,6 +279,7 @@ function renderProductPage(product) {
                 </div>
                 <p class="product-page-description">${loc(product, 'description') || 'No description available.'}</p>
                 ${product.availability?.note ? `<p class="product-availability-note">${product.availability.note}</p>` : ''}
+                ${externalActions}
 
                 ${isInStock ? `
                 <div class="product-order-panel">
@@ -328,6 +397,19 @@ function bindPageInteractions(product, shareUrl) {
         });
     }
 
+
+
+    if (copyYandexProductNameBtn) {
+        copyYandexProductNameBtn.addEventListener('click', async () => {
+            const productName = copyYandexProductNameBtn.dataset.productName || '';
+            try {
+                await navigator.clipboard.writeText(productName);
+                copyStatus.textContent = 'Yandex product name copied';
+            } catch (error) {
+                copyStatus.textContent = productName;
+            }
+        });
+    }
     if (buyNowBtn) {
         buyNowBtn.addEventListener('click', () => {
             tryAddToCart(true);
@@ -353,3 +435,4 @@ function updateMeta(product) {
 }
 
 init();
+
