@@ -9,6 +9,7 @@ import { BaseTab } from './BaseTab.js';
 
 var GAME_STORE_ID = 'kyrgyz-organics';
 var HAMSTER_GAME_ID = 'hamster-spin';
+var HAMSTER_GAME_PREVIEW_URL = '../hamster_game/index.html?adminPreview=1';
 var STORAGE_PREFIX = 'stores/kyrgyz-organics/media/games/hamster-spin/spin-images';
 var DAILY_BONUS_STORAGE_PREFIX = 'stores/kyrgyz-organics/media/games/hamster-spin/daily-bonuses';
 var MIN_SPIN_MESSAGE = 'Spinning mode must have at least 4 pictures.';
@@ -21,6 +22,9 @@ export class GamesTab extends BaseTab {
     this.activeView = 'dashboard';
     this.activeGameId = HAMSTER_GAME_ID;
     this.activeSection = 'spin';
+    this.dashboardGames = [];
+    this.previewModalOpen = false;
+    this.previewGame = this.getHamsterGameSummary();
     this.images = [];
     this.lastLoadData = null;
     this.payoutModalOpen = false;
@@ -88,6 +92,9 @@ export class GamesTab extends BaseTab {
       return;
     }
 
+    games = games || [];
+    this.dashboardGames = games;
+
     var markup = ''
       + '<div class="games-admin-shell">'
       + '<div class="admin-card games-dashboard-card">'
@@ -116,12 +123,15 @@ export class GamesTab extends BaseTab {
         + '</div>'
         + '<h4>' + escapeHtml(game.title || 'Game') + '</h4>'
         + '<p>' + escapeHtml(game.description || '') + '</p>'
+        + '<div class="games-game-card-actions">'
+        + '<button type="button" class="btn-secondary" data-games-action="preview-game" data-game-id="' + escapeHtml(game.id) + '">Preview Game</button>'
         + '<button type="button" class="btn-primary" data-games-action="open-detail" data-game-id="' + escapeHtml(game.id) + '">Manage Game</button>'
+        + '</div>'
         + '</article>';
       index = index + 1;
     }
 
-    markup += '</div></div></div>';
+    markup += '</div></div>' + this.renderPreviewModal() + '</div>';
     this.root.innerHTML = markup;
     this.bindDashboardEvents();
   }
@@ -140,7 +150,10 @@ export class GamesTab extends BaseTab {
       + '<h3>' + escapeHtml(game.title || 'Hamster Spin Game') + '</h3>'
       + '<p>' + escapeHtml(game.description || 'Manage spin images, payouts, rewards, and game settings.') + '</p>'
       + '</div>'
+      + '<div class="games-detail-actions">'
       + '<span class="status-badge success">' + escapeHtml(game.status || 'Active') + '</span>'
+      + '<button type="button" class="btn-secondary" data-games-action="preview-game" data-game-id="' + escapeHtml(game.id || HAMSTER_GAME_ID) + '">Preview Game</button>'
+      + '</div>'
       + '</div>'
       + '<div class="games-section-tabs" role="tablist" aria-label="Hamster game options">'
       + '<button type="button" class="' + this.getSectionButtonClass('spin') + '" data-games-section="spin">Spin Pictures</button>'
@@ -152,6 +165,7 @@ export class GamesTab extends BaseTab {
       + this.renderActiveSection()
       + '</div>'
       + this.renderPayoutModal()
+      + this.renderPreviewModal()
       + '</div>';
 
     this.captureElements();
@@ -355,6 +369,36 @@ export class GamesTab extends BaseTab {
       + '<div class="games-payout-footer">'
       + '<button type="button" class="btn-secondary" data-games-action="load-payout-rules">Refresh</button>'
       + '<button type="button" class="btn-primary" data-games-action="close-payout-modal">Close</button>'
+      + '</div>'
+      + '</div>'
+      + '</div>';
+  }
+
+  renderPreviewModal() {
+    var openClass = this.previewModalOpen ? '' : ' hidden';
+    var game = this.previewGame || this.getHamsterGameSummary();
+    var title = game.title || 'Hamster Spin Game';
+    var previewUrl = this.getGamePreviewUrl(game.id);
+
+    return ''
+      + '<div id="gamesPreviewModal" class="modal games-preview-modal' + openClass + '" data-games-action="preview-backdrop">'
+      + '<div class="modal-panel games-preview-panel" role="dialog" aria-modal="true" aria-labelledby="gamesPreviewTitle">'
+      + '<div class="modal-header games-preview-header">'
+      + '<div>'
+      + '<div class="eyebrow">Game Preview</div>'
+      + '<h3 id="gamesPreviewTitle">' + escapeHtml(title) + '</h3>'
+      + '</div>'
+      + '<button type="button" class="icon-button" data-games-action="close-preview-modal" aria-label="Close game preview">&times;</button>'
+      + '</div>'
+      + '<div class="games-preview-body">'
+      + '<div class="games-preview-frame" aria-label="' + escapeHtml(title) + ' preview">'
+      + '<iframe src="' + escapeHtml(previewUrl) + '" title="' + escapeHtml(title) + ' admin preview" loading="lazy"></iframe>'
+      + '</div>'
+      + '<div class="games-preview-sidebar">'
+      + '<span class="muted-pill">Live game page</span>'
+      + '<p>Preview the customer game from inside the admin panel. The embedded game uses the same public page and data source.</p>'
+      + '<a class="btn-primary games-preview-link" href="' + escapeHtml(previewUrl) + '" target="_blank" rel="noopener">Open Full Game</a>'
+      + '</div>'
       + '</div>'
       + '</div>'
       + '</div>';
@@ -848,17 +892,27 @@ export class GamesTab extends BaseTab {
 
   bindDashboardEvents() {
     var buttons = this.root.querySelectorAll('[data-games-action="open-detail"]');
+    var previewButtons = this.root.querySelectorAll('[data-games-action="preview-game"]');
     var index = 0;
 
     while (index < buttons.length) {
       buttons[index].addEventListener('click', this.handleOpenDetailClick.bind(this));
       index = index + 1;
     }
+
+    index = 0;
+    while (index < previewButtons.length) {
+      previewButtons[index].addEventListener('click', this.handlePreviewClick.bind(this));
+      index = index + 1;
+    }
+
+    this.bindPreviewModalEvents();
   }
 
   bindDetailEvents() {
     var backButton = this.root.querySelector('[data-games-action="back-dashboard"]');
     var sectionButtons = this.root.querySelectorAll('[data-games-section]');
+    var previewButtons = this.root.querySelectorAll('[data-games-action="preview-game"]');
     var openPayoutButton = this.root.querySelector('[data-games-action="open-payout-modal"]');
     var closeButtons = this.root.querySelectorAll('[data-games-action="close-payout-modal"]');
     var addPayoutButton = this.root.querySelector('[data-games-action="add-payout-rule"]');
@@ -883,6 +937,12 @@ export class GamesTab extends BaseTab {
 
     while (index < sectionButtons.length) {
       sectionButtons[index].addEventListener('click', this.handleSectionClick.bind(this));
+      index = index + 1;
+    }
+
+    index = 0;
+    while (index < previewButtons.length) {
+      previewButtons[index].addEventListener('click', this.handlePreviewClick.bind(this));
       index = index + 1;
     }
 
@@ -963,12 +1023,19 @@ export class GamesTab extends BaseTab {
     if (modal) {
       modal.addEventListener('click', this.handleModalBackdropClick.bind(this));
     }
+
+    this.bindPreviewModalEvents();
   }
 
   async handleOpenDetailClick(event) {
     var gameId = event.currentTarget.getAttribute('data-game-id') || HAMSTER_GAME_ID;
     this.activeSection = 'spin';
     await this.openGameDetail(gameId);
+  }
+
+  handlePreviewClick(event) {
+    var gameId = event.currentTarget.getAttribute('data-game-id') || HAMSTER_GAME_ID;
+    this.openPreviewModal(gameId);
   }
 
   async handleBackClick() {
@@ -1066,11 +1133,56 @@ export class GamesTab extends BaseTab {
     if (event.target && event.target.id === 'gamesPayoutModal') {
       this.closePayoutModal();
     }
+
+    if (event.target && event.target.id === 'gamesPreviewModal') {
+      this.closePreviewModal();
+    }
   }
 
   handleKeyDown(event) {
     if (event.key === 'Escape' && this.payoutModalOpen) {
       this.closePayoutModal();
+    }
+
+    if (event.key === 'Escape' && this.previewModalOpen) {
+      this.closePreviewModal();
+    }
+  }
+
+  openPreviewModal(gameId) {
+    this.previewModalOpen = true;
+    this.previewGame = this.getGameSummary(gameId);
+    this.updatePreviewModal();
+  }
+
+  closePreviewModal() {
+    this.previewModalOpen = false;
+    this.updatePreviewModal();
+  }
+
+  updatePreviewModal() {
+    var modal = document.getElementById('gamesPreviewModal');
+
+    if (!modal) {
+      return;
+    }
+
+    modal.outerHTML = this.renderPreviewModal();
+    this.bindPreviewModalEvents();
+  }
+
+  bindPreviewModalEvents() {
+    var modal = document.getElementById('gamesPreviewModal');
+    var closeButtons = this.root ? this.root.querySelectorAll('[data-games-action="close-preview-modal"]') : [];
+    var index = 0;
+
+    while (index < closeButtons.length) {
+      closeButtons[index].addEventListener('click', this.closePreviewModal.bind(this));
+      index = index + 1;
+    }
+
+    if (modal) {
+      modal.addEventListener('click', this.handleModalBackdropClick.bind(this));
     }
   }
 
@@ -1266,6 +1378,28 @@ export class GamesTab extends BaseTab {
       status: 'Active',
       description: 'Manage spin images, payouts, rewards, and game settings.'
     };
+  }
+
+  getGameSummary(gameId) {
+    var index = 0;
+    var safeGameId = gameId || HAMSTER_GAME_ID;
+
+    while (index < this.dashboardGames.length) {
+      if (this.dashboardGames[index].id === safeGameId) {
+        return this.dashboardGames[index];
+      }
+      index = index + 1;
+    }
+
+    return this.getHamsterGameSummary();
+  }
+
+  getGamePreviewUrl(gameId) {
+    if (gameId === HAMSTER_GAME_ID) {
+      return HAMSTER_GAME_PREVIEW_URL;
+    }
+
+    return HAMSTER_GAME_PREVIEW_URL;
   }
 
   buildPayoutLabel(amount, rewardType) {

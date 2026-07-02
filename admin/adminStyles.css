@@ -3515,6 +3515,91 @@ button[type="submit"]:hover {
   font-weight: 800;
 }
 
+.games-game-card-actions,
+.games-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.games-game-card-actions {
+  margin-top: 0.1rem;
+}
+
+.games-game-card-actions button,
+.games-detail-actions button {
+  min-width: 128px;
+}
+
+.games-preview-modal {
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.games-preview-panel {
+  width: min(1040px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  display: grid;
+  gap: 0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.games-preview-header {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.games-preview-body {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(240px, 1fr);
+  gap: 1.25rem;
+  align-items: center;
+  padding: 1.25rem;
+}
+
+.games-preview-frame {
+  width: min(100%, 390px);
+  justify-self: center;
+  aspect-ratio: 390 / 760;
+  overflow: hidden;
+  border: 10px solid #111827;
+  border-radius: 26px;
+  background: #111827;
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.25);
+}
+
+.games-preview-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #ffffff;
+}
+
+.games-preview-sidebar {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.games-preview-sidebar p {
+  margin: 0;
+  max-width: 38ch;
+  color: var(--admin-muted);
+  line-height: 1.5;
+}
+
+.games-preview-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 @media (max-width: 760px) {
   .games-payout-row,
   .games-payout-row-head {
@@ -3523,6 +3608,24 @@ button[type="submit"]:hover {
 
   .games-payout-row-head {
     display: none;
+  }
+
+  .games-preview-body {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+
+  .games-preview-frame {
+    width: min(100%, 340px);
+    max-height: 70vh;
+  }
+
+  .games-preview-sidebar {
+    justify-items: stretch;
+  }
+
+  .games-preview-link {
+    width: 100%;
   }
 
   .games-daily-bonus-row {
