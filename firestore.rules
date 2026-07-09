@@ -1,0 +1,516 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasUserProfile() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userCompanyId() {
+      return userProfile().data.companyId;
+    }
+
+    function userRole() {
+      return userProfile().data.role;
+    }
+
+    function isLegacyAdmin() {
+      return isSignedIn() && !hasUserProfile();
+    }
+
+    function isSuperAdmin() {
+      return hasUserProfile() && (userRole() == "superadmin" || userRole() == "super_admin");
+    }
+
+    function isStoreStaffRole() {
+      return hasUserProfile() && [
+        "admin",
+        "owner",
+        "manager",
+        "orders",
+        "products",
+        "marketing"
+      ].hasAny([userRole()]);
+    }
+
+    function isPeopleAdmin() {
+      return isSuperAdmin()
+        || (hasUserProfile() && ["admin", "owner", "manager"].hasAny([userRole()]));
+    }
+
+    function isAdmin() {
+      return isLegacyAdmin()
+        || isSuperAdmin()
+        || isStoreStaffRole();
+    }
+
+    function isProfileAdmin() {
+      return isPeopleAdmin();
+    }
+
+    function canReadAnyCompany() {
+      return isLegacyAdmin() || isSuperAdmin();
+    }
+
+    function canReadCompanyData() {
+      return canReadAnyCompany() || (hasUserProfile() && resource.data.companyId == userCompanyId());
+    }
+
+    function canWriteCompanyData() {
+      return canReadAnyCompany()
+        || (isAdmin() && hasUserProfile() && request.resource.data.companyId == userCompanyId());
+    }
+
+    function canDeleteCompanyData() {
+      return canReadAnyCompany()
+        || (isAdmin() && hasUserProfile() && resource.data.companyId == userCompanyId());
+    }
+
+    function canReadStorePath(storeId) {
+      return canReadAnyCompany()
+        || (hasUserProfile() && storeId == userCompanyId());
+    }
+
+    function canWriteStorePath(storeId) {
+      return canReadAnyCompany()
+        || (isAdmin() && hasUserProfile() && storeId == userCompanyId());
+    }
+
+    function isValidCustomerRole(data) {
+      return data.role == "customer";
+    }
+
+    function isValidSelfBusinessStatus(data) {
+      return data.businessStatus == "none" || data.businessStatus == "pending";
+    }
+
+    function isSafeSelfProfileCreate(userId) {
+      return request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && isValidCustomerRole(request.resource.data)
+        && (request.resource.data.accountType == "basic" || request.resource.data.accountType == "business")
+        && isValidSelfBusinessStatus(request.resource.data)
+        && !("approvedAt" in request.resource.data)
+        && !("approvedBy" in request.resource.data);
+    }
+
+    function isSafeSelfProfileUpdate(userId) {
+      return request.auth.uid == userId
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.accountType == resource.data.accountType
+        && request.resource.data.businessStatus == resource.data.businessStatus
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["approvedAt", "approvedBy"]);
+    }
+
+    function isActive() {
+      // Backwards-compatible: treat missing `active` as active to avoid breaking legacy data.
+      return resource.data.active != false;
+    }
+
+    function productExternalLinksFieldIsAllowed() {
+      return !("externalLinks" in request.resource.data)
+        || request.resource.data.externalLinks is list
+        || request.resource.data.externalLinks is map;
+    }
+
+    function canCreateProductData() {
+      return canReadAnyCompany()
+        || (isAdmin() && hasUserProfile() && request.resource.data.companyId == userCompanyId());
+    }
+
+    function canUpdateProductData() {
+      return canReadAnyCompany()
+        || (isAdmin()
+          && hasUserProfile()
+          && resource.data.companyId == userCompanyId()
+          && request.resource.data.companyId == userCompanyId());
+    }
+
+    match /products/{productId} {
+      allow read: if isActive();
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create: if isSignedIn() && canCreateProductData() && productExternalLinksFieldIsAllowed();
+      allow update: if isSignedIn() && canUpdateProductData() && productExternalLinksFieldIsAllowed();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isActive();
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /banners/{bannerId} {
+      allow read: if isActive();
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /payment_methods/{methodId} {
+      allow read: if isActive();
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /product_collections/{collectionId} {
+      allow read: if isActive();
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /inventory/{dateId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /pages/{pageId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /shop_settings/{docId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /storefront_configs/{companyId} {
+      allow read: if true;
+      allow create, update: if isSignedIn()
+        && companyId == request.resource.data.companyId
+        && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /store_media/{assetId} {
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create: if isSignedIn() && canWriteCompanyData();
+      allow update: if isSignedIn() && canDeleteCompanyData() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /campaigns/{campaignId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /campaign_events/{eventId} {
+      allow create: if
+        request.resource.data.companyId is string &&
+        request.resource.data.campaignId is string &&
+        request.resource.data.sessionId is string &&
+        request.resource.data.timestamp != null &&
+        request.resource.data.actionType is string;
+
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow update, delete: if false;
+    }
+
+    match /storefront_events/{eventId} {
+      allow create: if
+        request.resource.data.companyId is string &&
+        request.resource.data.actionType is string &&
+        request.resource.data.sessionId is string &&
+        request.resource.data.path is string;
+
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow update, delete: if false;
+    }
+
+    function isValidHamsterSpinImage(data) {
+      return data.companyId is string
+        && data.id is string
+        && data.imageUrl is string
+        && data.label is string
+        && data.active is bool
+        && data.sortOrder is number
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidHamsterSpinImageUpdate(data) {
+      return data.companyId is string
+        && data.id is string
+        && data.imageUrl is string
+        && data.label is string
+        && data.active is bool
+        && data.sortOrder is number
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidGameSpinImage(data, storeId, gameId) {
+      return data.storeId == storeId
+        && data.gameId == gameId
+        && data.id is string
+        && data.imageUrl is string
+        && data.label is string
+        && data.active is bool
+        && data.sortOrder is number
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidGamePayoutRule(data, storeId, gameId) {
+      return data.storeId == storeId
+        && data.gameId == gameId
+        && data.id is string
+        && data.rewardName is string
+        && data.rewardType is string
+        && data.matchType is string
+        && data.requiredMatches is number
+        && data.requiredMatches > 0
+        && data.payoutAmount is number
+        && data.payoutAmount >= 0
+        && data.payoutLabel is string
+        && data.active is bool
+        && data.sortOrder is number
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /stores/{storeId}/games/{gameId}/spinImages/{imageId} {
+      allow read: if resource.data.active == true;
+      allow read: if isSignedIn() && canReadStorePath(storeId);
+      allow create: if isSignedIn()
+        && canWriteStorePath(storeId)
+        && request.resource.data.id == imageId
+        && isValidGameSpinImage(request.resource.data, storeId, gameId);
+      allow update: if isSignedIn()
+        && canWriteStorePath(storeId)
+        && resource.data.id == request.resource.data.id
+        && resource.data.storeId == request.resource.data.storeId
+        && resource.data.gameId == request.resource.data.gameId
+        && isValidGameSpinImage(request.resource.data, storeId, gameId);
+      allow delete: if false;
+    }
+
+    match /stores/{storeId}/games/{gameId}/settings/{settingsId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && canWriteStorePath(storeId);
+      allow delete: if false;
+    }
+
+    match /stores/{storeId}/games/{gameId}/payouts/{payoutId} {
+      allow read: if resource.data.active == true;
+      allow read: if isSignedIn() && canReadStorePath(storeId);
+      allow create: if isSignedIn()
+        && canWriteStorePath(storeId)
+        && request.resource.data.id == payoutId
+        && isValidGamePayoutRule(request.resource.data, storeId, gameId);
+      allow update: if isSignedIn()
+        && canWriteStorePath(storeId)
+        && resource.data.id == request.resource.data.id
+        && resource.data.storeId == request.resource.data.storeId
+        && resource.data.gameId == request.resource.data.gameId
+        && isValidGamePayoutRule(request.resource.data, storeId, gameId);
+      allow delete: if isSignedIn() && canWriteStorePath(storeId);
+    }
+
+    match /hamster_spin_images/{imageId} {
+      allow read: if resource.data.active == true;
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create: if isSignedIn()
+        && canWriteCompanyData()
+        && isValidHamsterSpinImage(request.resource.data)
+        && request.resource.data.id == imageId;
+      allow update: if isSignedIn()
+        && canWriteCompanyData()
+        && resource.data.companyId == request.resource.data.companyId
+        && resource.data.id == request.resource.data.id
+        && isValidHamsterSpinImageUpdate(request.resource.data);
+      allow delete: if false;
+    }
+
+    match /inventory_templates/{templateId} {
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create, update: if isSignedIn() && canWriteCompanyData();
+      allow delete: if isSignedIn() && canDeleteCompanyData();
+    }
+
+    match /companies/{companyId} {
+      allow read: if isSignedIn() && (canReadAnyCompany() || (hasUserProfile() && companyId == userCompanyId()));
+      allow write: if isSignedIn() && canReadAnyCompany();
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isProfileAdmin());
+      allow create: if isSignedIn() && isSafeSelfProfileCreate(userId);
+      allow update: if isSignedIn() && (isSafeSelfProfileUpdate(userId) || isProfileAdmin());
+      allow delete: if isSignedIn() && isProfileAdmin();
+    }
+
+    match /user_invites/{inviteId} {
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create: if isSignedIn() && isPeopleAdmin() && canWriteCompanyData();
+      allow update: if isSignedIn()
+        && isPeopleAdmin()
+        && resource.data.companyId == request.resource.data.companyId
+        && canWriteCompanyData();
+      allow delete: if isSignedIn() && isPeopleAdmin() && canDeleteCompanyData();
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow create: if isSignedIn() && canWriteCompanyData();
+      allow update, delete: if false;
+    }
+
+    match /qr_links/{linkId} {
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow write: if false;
+    }
+
+    match /qr_link_periods/{periodId} {
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow write: if false;
+    }
+
+    match /qr_click_events/{eventId} {
+      allow read: if isSignedIn() && canReadCompanyData();
+      allow write: if false;
+    }
+
+    // Alpha hamster-game accounts use client-side PIN hashing and no Firebase Auth.
+    // This allows the current flow to work, but it is not strong security.
+    // Production should move account verification and reward writes to Firebase Auth or Cloud Functions.
+    function isValidSeedMap(data) {
+      return data is map
+        && data.poppy is number
+        && data.sesame is number
+        && data.almond is number
+        && data.walnut is number;
+    }
+
+    function isValidSpinMap(data) {
+      return data is map
+        && data.available is number
+        && data.totalEarnedFromTasks is number
+        && (
+          !("dailyFreeUsedDate" in data)
+          || data.dailyFreeUsedDate == null
+          || data.dailyFreeUsedDate is string
+        );
+    }
+
+    function isValidStatsMap(data) {
+      return data is map
+        && data.totalSpins is number
+        && data.totalWins is number
+        && data.biggestWin is string
+        && (
+          !("lastSpinAt" in data)
+          || data.lastSpinAt == null
+          || data.lastSpinAt is string
+        );
+    }
+
+    function isValidTaskMap(data) {
+      return data is map
+        && data.followInstagram is map
+        && data.shareGame is map
+        && data.visitWebsite is map
+        && data.inviteFriend is map
+        && data.scanQr is map
+        && data.enterReceiptCode is map;
+    }
+
+    function isValidAvatarMap(data) {
+      return data is map
+        && data.size is string
+        && data.mood is string
+        && data.furTone is number
+        && data.pattern is number
+        && data.eyeStyle is number
+        && data.earStyle is number
+        && data.hairStyle is number
+        && data.hairColor is string
+        && data.beard is bool
+        && data.glasses is number
+        && data.hat is number
+        && data.outfit is number
+        && data.accessory is number
+        && data.whiskers is number;
+    }
+
+    function isValidLoginBonusMap(data) {
+      return data is map
+        && data.day is number
+        && (
+          !("lastClaimDate" in data)
+          || data.lastClaimDate == null
+          || data.lastClaimDate is string
+        )
+        && (
+          !("lastClaimTimestamp" in data)
+          || data.lastClaimTimestamp == null
+          || data.lastClaimTimestamp is string
+          || data.lastClaimTimestamp is timestamp
+        )
+        && data.longestStreak is number;
+    }
+
+    match /individual_customers/{customerId} {
+      allow read: if true;
+
+      allow create: if
+        request.resource.data.username is string
+        && request.resource.data.usernameIndex is string
+        && request.resource.data.pinHash is string
+        && request.resource.data.category == "free"
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && isValidSeedMap(request.resource.data.seeds)
+        && isValidSpinMap(request.resource.data.spins)
+        && isValidStatsMap(request.resource.data.stats)
+        && isValidLoginBonusMap(request.resource.data.loginBonus)
+        && isValidAvatarMap(request.resource.data.avatar)
+        && request.resource.data.rewards is list
+        && isValidTaskMap(request.resource.data.tasks);
+
+      allow update: if
+        request.resource.data.username == resource.data.username
+        && request.resource.data.usernameIndex == resource.data.usernameIndex
+        && request.resource.data.pinHash == resource.data.pinHash
+        && request.resource.data.category == resource.data.category
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt is timestamp
+        && isValidSeedMap(request.resource.data.seeds)
+        && isValidSpinMap(request.resource.data.spins)
+        && isValidStatsMap(request.resource.data.stats)
+        && isValidLoginBonusMap(request.resource.data.loginBonus)
+        && isValidAvatarMap(request.resource.data.avatar)
+        && request.resource.data.rewards is list
+        && isValidTaskMap(request.resource.data.tasks);
+
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

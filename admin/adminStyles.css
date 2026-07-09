@@ -4716,3 +4716,125 @@ button[type="submit"]:hover {
   color: #64748b;
   font-size: 0.84rem;
 }
+
+.product-link-action-btn {
+  min-width: 42px;
+}
+
+.product-links-panel {
+  width: min(900px, 94vw);
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.24);
+}
+
+.modal-kicker,
+.product-links-subtitle {
+  display: block;
+  color: #64748b;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.product-links-subtitle {
+  margin: 0.25rem 0 0;
+  font-weight: 600;
+}
+
+.product-links-body {
+  display: grid;
+  gap: 1.25rem;
+  max-height: 68vh;
+  overflow: auto;
+  padding: 0 1.25rem 1.25rem;
+}
+
+.product-links-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.product-links-section h4 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.product-links-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.product-links-empty,
+.product-links-error {
+  padding: 0.85rem 1rem;
+}
+
+.product-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.9rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.product-link-row-main {
+  display: grid;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.product-link-type {
+  color: #166534;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.product-link-row-main a,
+.product-link-row-main small {
+  color: #64748b;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.product-link-row-actions,
+.product-link-form-actions,
+.product-link-enabled {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.product-link-row-actions button {
+  white-space: nowrap;
+}
+
+.product-link-form {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.product-link-form select,
+.product-link-form input[type="text"],
+.product-link-form input[type="url"] {
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .product-link-row {
+    grid-template-columns: 1fr;
+  }
+
+  .product-link-row-actions button {
+    flex: 1 1 auto;
+  }
+}

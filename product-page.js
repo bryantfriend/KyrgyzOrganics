@@ -3,6 +3,8 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from "https://w
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl, getDisplayPrice, getDisplayPriceType } from './product-utils.js';
+import { getProductExternalLinks, PRODUCT_LINK_TYPE_LABELS } from './product-external-links.mjs';
+import { trackProductExternalLinkClickIntent } from './product-external-links.service.js';
 import { addCartItem, formatPrice, loadCart, saveCart, saveCartDay } from './shop-utils.js';
 import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
 import { getInventoryDocId } from './firestore-paths.js';
@@ -176,47 +178,46 @@ function sanitizeHttpUrl(value, allowedHosts = []) {
     }
 }
 
-function renderExternalActions(product) {
-    const links = product?.externalLinks || {};
-    const glovoUrl = links.glovo?.enabled ? sanitizeHttpUrl(links.glovo.url, ['glovoapp.com', 'www.glovoapp.com']) : '';
-    const yandexUrl = links.yandex?.enabled ? sanitizeHttpUrl(links.yandex.restaurantUrl || links.yandex.url, ['eda.yandex.kg', 'eda.yandex.ru', 'eda.yandex.com']) : '';
-    const mapUrl = links.map?.enabled ? sanitizeHttpUrl(links.map.url) : '';
-    const yandexProduct = links.yandex?.product || null;
+function getProductLinkIcon(type) {
+    const icons = {
+        whatsapp: 'W',
+        telegram: 'T',
+        glovo: 'G',
+        yandex: 'Y',
+        map: 'M',
+        website: '↗',
+        other: '↗'
+    };
 
-    if (!glovoUrl && !yandexUrl && !mapUrl) return '';
+    return icons[type] || icons.other;
+}
+
+function getProductLinkHelperText(link) {
+    if (link.type === 'map') return 'Open map or location details';
+    if (link.type === 'website') return 'Open the order page';
+    return PRODUCT_LINK_TYPE_LABELS[link.type] || 'External order option';
+}
+
+function renderExternalActions(product) {
+    const links = getProductExternalLinks(product);
+    if (!links.length) return '';
 
     let html = '<section class="product-external-panel" aria-label="External ordering options">' +
         '<div class="product-external-heading">' +
             '<span>Order options</span>' +
-            '<strong>Available from partner apps and nearby stores</strong>' +
+            '<strong>Where to order</strong>' +
         '</div>' +
         '<div class="product-external-actions">';
 
-    if (glovoUrl) {
-        html += '<a class="external-action glovo" href="' + escapeHtml(glovoUrl) + '" target="_blank" rel="noopener">' +
-            '<span>G</span><strong>Order on Glovo</strong><small>Fast delivery in minutes</small>' +
+    links.forEach((link) => {
+        html += '<a class="external-action ' + escapeHtml(link.type) + '" href="' + escapeHtml(link.url) + '" target="_blank" rel="noopener noreferrer" data-product-external-link-id="' + escapeHtml(link.id) + '">' +
+            '<span>' + escapeHtml(getProductLinkIcon(link.type)) + '</span><strong>' + escapeHtml(link.label) + '</strong><small>' + escapeHtml(getProductLinkHelperText(link)) + '</small>' +
         '</a>';
-    }
-
-    if (yandexUrl) {
-        html += '<a class="external-action yandex" href="' + escapeHtml(yandexUrl) + '" target="_blank" rel="noopener">' +
-            '<span>Y</span><strong>Order on Yandex</strong><small>' + escapeHtml(yandexProduct?.name || 'Open the Yandex restaurant') + '</small>' +
-        '</a>';
-        if (yandexProduct?.name) {
-            html += '<button id="copyYandexProductName" class="external-helper-btn" type="button" data-product-name="' + escapeHtml(yandexProduct.name) + '">Copy Yandex product name</button>';
-        }
-    }
-
-    if (mapUrl) {
-        html += '<a class="external-action map" href="' + escapeHtml(mapUrl) + '" target="_blank" rel="noopener">' +
-            '<span>M</span><strong>View map locations</strong><small>Find stores near you</small>' +
-        '</a>';
-    }
+    });
 
     html += '</div></section>';
     return html;
 }
-
 function renderMissingState() {
     root.innerHTML = `
         <a href="${getStoreHomeUrl()}" class="text-link-inline">${t('back_to_catalog')}</a>
@@ -340,6 +341,7 @@ function bindPageInteractions(product, shareUrl) {
     const copyStatus = document.getElementById('copyStatus');
     const buyNowBtn = document.getElementById('detailBuyNow');
     const addToCartBtn = document.getElementById('detailAddToCart');
+    const copyYandexProductNameBtn = document.getElementById('copyYandexProductName');
     const quantityInput = document.getElementById('detailQuantity');
     const imageButtons = root.querySelectorAll('.thumb-btn');
     const mainImage = document.getElementById('detailMainImage');
@@ -397,7 +399,7 @@ function bindPageInteractions(product, shareUrl) {
         });
     }
 
-
+    bindProductExternalLinkTracking(product);
 
     if (copyYandexProductNameBtn) {
         copyYandexProductNameBtn.addEventListener('click', async () => {
@@ -423,6 +425,34 @@ function bindPageInteractions(product, shareUrl) {
     }
 }
 
+function bindProductExternalLinkTracking(product) {
+    const links = getProductExternalLinks(product);
+    const linkById = new Map(links.map((link) => [link.id, link]));
+    const params = new URLSearchParams(window.location.search);
+
+    root.querySelectorAll('[data-product-external-link-id]').forEach((anchor) => {
+        anchor.addEventListener('click', () => {
+            const link = linkById.get(anchor.dataset.productExternalLinkId);
+            if (!link) return;
+
+            trackProductExternalLinkClickIntent({
+                productId: product.id || '',
+                productName: loc(product, 'name') || product.name_en || product.name_ru || '',
+                companyId: product.companyId || getCurrentCompanyId(),
+                linkId: link.id,
+                linkType: link.type,
+                linkLabel: link.label,
+                destinationUrl: link.url,
+                trackingSlug: params.get('trackingSlug') || '',
+                campaignId: params.get('campaignId') || params.get('campaign') || '',
+                influencerId: params.get('influencerId') || '',
+                source: 'product_page'
+            }).catch((error) => {
+                console.warn('Product external link click tracking failed', error);
+            });
+        });
+    });
+}
 function updateMeta(product) {
     const name = loc(product, 'name');
     const description = loc(product, 'description') || `Product from ${activeStoreName}.`;

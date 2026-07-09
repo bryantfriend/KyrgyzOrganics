@@ -2,6 +2,19 @@ import { BaseTab } from './BaseTab.js';
 import { db, functions, httpsCallable } from '../../firebase-config.js';
 import { uploadImage, logAudit } from '../utils.js';
 import { buildProductPageUrl, getBusinessPrice, getPreferredProductName, getRetailPrice, slugifyProductName } from '../../product-utils.js';
+import {
+    PRODUCT_EXTERNAL_LINK_TYPES,
+    PRODUCT_LINK_TYPE_LABELS,
+    getDefaultProductLinkLabel,
+    normalizeProductExternalLinks
+} from '../../product-external-links.mjs';
+import {
+    addProductExternalLinkIntent,
+    deleteProductExternalLinkIntent,
+    reorderProductExternalLinksIntent,
+    toggleProductExternalLinkIntent,
+    updateProductExternalLinkIntent
+} from '../../product-external-links.service.js';
 import { getSelectedCompanyId, matchesSelectedCompany } from '../../store-context.js';
 import {
     collection, addDoc, updateDoc, deleteDoc, doc, query, onSnapshot, getDoc, getDocs, serverTimestamp, where, orderBy
@@ -73,6 +86,10 @@ export class ProductsTab extends BaseTab {
         this.pMapEnabled = document.getElementById('pMapEnabled');
         this.pMapUrl = document.getElementById('pMapUrl');
         this.yandexMenuProducts = [];
+        this.productLinksModal = null;
+        this.productLinksProduct = null;
+        this.productLinksEditingId = '';
+        this.productLinksAutoLabel = '';
     }
 
     async init() {
@@ -301,21 +318,24 @@ export class ProductsTab extends BaseTab {
 
         filtered.forEach(p => {
             const pageUrl = buildProductPageUrl(p);
+            const productName = this.escapeHtml(getPreferredProductName(p) || p.name_ru || 'Product');
             const el = document.createElement('div');
             el.className = 'list-item';
             el.innerHTML = `
                 <img src="${p.imageUrl}" class="preview-img">
                 <div style="flex:1; margin-left:1rem;">
-                    <strong>${p.name_ru || 'No Name'}</strong><br>
+                    <strong>${productName}</strong><br>
                     Retail: ${getRetailPrice(p)} som | Business: ${getBusinessPrice(p)} som | ${p.weight}<br>
                     <span class="external-link-count">${this.getExternalLinkSummary(p)}</span><br>
                     <a href="${pageUrl}" target="_blank" rel="noopener" style="font-size:0.85rem; color:#2e7d32;">${pageUrl}</a>
                 </div>
                 <div style="display:flex; gap:0.5rem;">
+                    <button class="btn-secondary product-link-action-btn" type="button" title="Product Links" aria-label="Manage product links" data-action="manage-product-links" data-id="${p.id}">🔗</button>
                     <button class="btn-secondary" title="Edit" onclick="editProduct('${p.id}')">✏️</button>
                     <button class="btn-danger" title="Delete" onclick="deleteProduct('${p.id}')">🗑️</button>
                 </div>
             `;
+            el.querySelector('[data-action="manage-product-links"]')?.addEventListener('click', () => this.openProductLinksModal(p.id));
             this.list.appendChild(el);
         });
         this.renderCollectionProductPicker();
@@ -530,9 +550,345 @@ export class ProductsTab extends BaseTab {
     }
 
     getExternalLinkSummary(product) {
-        const links = product?.externalLinks || {};
-        const active = ['glovo', 'yandex', 'map'].filter((key) => links[key]?.enabled && links[key]?.url);
-        return active.length ? 'External links: ' + active.join(', ') : 'External links: none';
+        const links = normalizeProductExternalLinks(product);
+        const active = links.filter((link) => link.isEnabled === true);
+        return active.length
+            ? 'Product links: ' + active.length + ' enabled / ' + links.length + ' total'
+            : 'Product links: none';
+    }
+
+    ensureProductLinksModal() {
+        if (this.productLinksModal) return this.productLinksModal;
+
+        const modal = document.createElement('div');
+        modal.id = 'productLinksModal';
+        modal.className = 'modal hidden';
+        modal.setAttribute('aria-hidden', 'true');
+        modal.innerHTML = `
+            <div class="modal-panel product-links-panel" role="dialog" aria-modal="true" aria-labelledby="productLinksTitle">
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-kicker">Product Links</span>
+                        <h3 id="productLinksTitle">Product Links</h3>
+                        <p id="productLinksSubtitle" class="product-links-subtitle"></p>
+                    </div>
+                    <button type="button" class="icon-button" data-action="close-product-links" aria-label="Close product links modal">&times;</button>
+                </div>
+                <div class="product-links-body">
+                    <div id="productLinksError" class="inline-alert error product-links-error" hidden></div>
+                    <section class="product-links-section">
+                        <h4>Existing Links</h4>
+                        <div id="productLinksExisting" class="product-links-list"></div>
+                    </section>
+                    <section class="product-links-section">
+                        <h4 id="productLinkFormTitle">Add New Link</h4>
+                        <form id="productLinkForm" class="product-link-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="productLinkType">Link Type</label>
+                                    <select id="productLinkType"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="productLinkLabel">Label</label>
+                                    <input type="text" id="productLinkLabel" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="productLinkUrl">URL</label>
+                                <input type="url" id="productLinkUrl" placeholder="https://..." required>
+                            </div>
+                            <label class="product-link-enabled">
+                                <input type="checkbox" id="productLinkEnabled" checked>
+                                Enabled
+                            </label>
+                            <div class="product-link-form-actions">
+                                <button type="submit" id="productLinkSaveBtn">Save Link</button>
+                                <button type="button" class="btn-secondary" id="productLinkCancelBtn">Cancel</button>
+                            </div>
+                        </form>
+                    </section>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        this.productLinksModal = modal;
+
+        modal.querySelector('[data-action="close-product-links"]')?.addEventListener('click', () => this.closeProductLinksModal());
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) this.closeProductLinksModal();
+        });
+        modal.querySelector('#productLinkForm')?.addEventListener('submit', (event) => this.saveProductLink(event));
+        modal.querySelector('#productLinkCancelBtn')?.addEventListener('click', () => this.resetProductLinkForm());
+
+        const typeSelect = modal.querySelector('#productLinkType');
+        if (typeSelect) {
+            typeSelect.innerHTML = PRODUCT_EXTERNAL_LINK_TYPES.map((type) => {
+                return '<option value="' + type + '">' + this.escapeHtml(PRODUCT_LINK_TYPE_LABELS[type] || type) + '</option>';
+            }).join('');
+            typeSelect.addEventListener('change', () => this.applyDefaultProductLinkLabel());
+        }
+
+        const labelInput = modal.querySelector('#productLinkLabel');
+        if (labelInput) {
+            labelInput.addEventListener('input', () => {
+                if (labelInput.value !== this.productLinksAutoLabel) {
+                    this.productLinksAutoLabel = '';
+                }
+            });
+        }
+
+        return modal;
+    }
+
+    openProductLinksModal(productId) {
+        const product = this.allProductsCache.find((item) => item.id === productId);
+        if (!product) {
+            alert('This product is not available for your company.');
+            return;
+        }
+
+        const modal = this.ensureProductLinksModal();
+        this.productLinksProduct = product;
+        this.productLinksEditingId = '';
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        this.renderProductLinksModal();
+        this.resetProductLinkForm();
+    }
+
+    closeProductLinksModal() {
+        if (!this.productLinksModal) return;
+        this.productLinksModal.classList.add('hidden');
+        this.productLinksModal.setAttribute('aria-hidden', 'true');
+        this.productLinksProduct = null;
+        this.productLinksEditingId = '';
+        this.productLinksAutoLabel = '';
+    }
+
+    renderProductLinksModal() {
+        const modal = this.ensureProductLinksModal();
+        const product = this.productLinksProduct;
+        if (!product) return;
+
+        const subtitle = modal.querySelector('#productLinksSubtitle');
+        if (subtitle) subtitle.textContent = getPreferredProductName(product) || product.name_ru || product.id;
+
+        const existing = modal.querySelector('#productLinksExisting');
+        if (!existing) return;
+
+        const links = normalizeProductExternalLinks(product);
+        if (!links.length) {
+            existing.innerHTML = '<div class="product-links-empty">No product links yet.</div>';
+            return;
+        }
+
+        existing.innerHTML = links.map((link, index) => {
+            return `
+                <article class="product-link-row" data-id="${this.escapeHtml(link.id)}">
+                    <div class="product-link-row-main">
+                        <span class="product-link-type">${this.escapeHtml(PRODUCT_LINK_TYPE_LABELS[link.type] || link.type)}</span>
+                        <strong>${this.escapeHtml(link.label)}</strong>
+                        <a href="${this.escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(link.url)}</a>
+                        <small>${link.isEnabled ? 'Enabled' : 'Disabled'}</small>
+                    </div>
+                    <div class="product-link-row-actions">
+                        <button type="button" class="btn-secondary" data-action="move-up" ${index === 0 ? 'disabled' : ''}>Up</button>
+                        <button type="button" class="btn-secondary" data-action="move-down" ${index === links.length - 1 ? 'disabled' : ''}>Down</button>
+                        <button type="button" class="btn-secondary" data-action="toggle-link">${link.isEnabled ? 'Disable' : 'Enable'}</button>
+                        <button type="button" class="btn-secondary" data-action="edit-link">Edit</button>
+                        <button type="button" class="btn-danger" data-action="delete-link">Delete</button>
+                    </div>
+                </article>
+            `;
+        }).join('');
+
+        existing.querySelectorAll('.product-link-row').forEach((row) => {
+            const id = row.dataset.id;
+            row.querySelector('[data-action="edit-link"]')?.addEventListener('click', () => this.editProductLink(id));
+            row.querySelector('[data-action="delete-link"]')?.addEventListener('click', () => this.deleteProductLink(id));
+            row.querySelector('[data-action="toggle-link"]')?.addEventListener('click', () => this.toggleProductLink(id));
+            row.querySelector('[data-action="move-up"]')?.addEventListener('click', () => this.moveProductLink(id, -1));
+            row.querySelector('[data-action="move-down"]')?.addEventListener('click', () => this.moveProductLink(id, 1));
+        });
+    }
+
+    applyDefaultProductLinkLabel() {
+        const modal = this.ensureProductLinksModal();
+        const type = modal.querySelector('#productLinkType')?.value || 'other';
+        const labelInput = modal.querySelector('#productLinkLabel');
+        if (!labelInput) return;
+
+        const nextLabel = getDefaultProductLinkLabel(type);
+        if (!String(labelInput.value || '').trim() || labelInput.value === this.productLinksAutoLabel) {
+            labelInput.value = nextLabel;
+            this.productLinksAutoLabel = nextLabel;
+        }
+    }
+
+    resetProductLinkForm() {
+        const modal = this.ensureProductLinksModal();
+        const formTitle = modal.querySelector('#productLinkFormTitle');
+        const typeSelect = modal.querySelector('#productLinkType');
+        const labelInput = modal.querySelector('#productLinkLabel');
+        const urlInput = modal.querySelector('#productLinkUrl');
+        const enabledInput = modal.querySelector('#productLinkEnabled');
+        const cancelBtn = modal.querySelector('#productLinkCancelBtn');
+
+        this.productLinksEditingId = '';
+        this.setProductLinksError('');
+        if (formTitle) formTitle.textContent = 'Add New Link';
+        if (typeSelect) typeSelect.value = 'whatsapp';
+        if (labelInput) labelInput.value = '';
+        if (urlInput) urlInput.value = '';
+        if (enabledInput) enabledInput.checked = true;
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        this.productLinksAutoLabel = '';
+        this.applyDefaultProductLinkLabel();
+    }
+
+    editProductLink(linkId) {
+        const modal = this.ensureProductLinksModal();
+        const link = normalizeProductExternalLinks(this.productLinksProduct).find((item) => item.id === linkId);
+        if (!link) return;
+
+        this.productLinksEditingId = linkId;
+        this.setProductLinksError('');
+        modal.querySelector('#productLinkFormTitle').textContent = 'Edit Link';
+        modal.querySelector('#productLinkType').value = link.type;
+        modal.querySelector('#productLinkLabel').value = link.label;
+        modal.querySelector('#productLinkUrl').value = link.url;
+        modal.querySelector('#productLinkEnabled').checked = link.isEnabled === true;
+        modal.querySelector('#productLinkCancelBtn').style.display = 'inline-block';
+        this.productLinksAutoLabel = getDefaultProductLinkLabel(link.type) === link.label ? link.label : '';
+    }
+
+    async saveProductLink(event) {
+        event.preventDefault();
+        const modal = this.ensureProductLinksModal();
+        const product = this.productLinksProduct;
+        if (!product) return;
+
+        const saveBtn = modal.querySelector('#productLinkSaveBtn');
+        const originalText = saveBtn ? saveBtn.textContent : '';
+        const payload = {
+            productId: product.id,
+            companyId: getSelectedCompanyId(),
+            linkId: this.productLinksEditingId,
+            link: {
+                type: modal.querySelector('#productLinkType')?.value || 'other',
+                label: modal.querySelector('#productLinkLabel')?.value || '',
+                url: modal.querySelector('#productLinkUrl')?.value || '',
+                isEnabled: modal.querySelector('#productLinkEnabled')?.checked === true
+            }
+        };
+
+        try {
+            this.setProductLinksError('');
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.textContent = 'Saving...';
+            }
+
+            const result = this.productLinksEditingId
+                ? await updateProductExternalLinkIntent(payload)
+                : await addProductExternalLinkIntent(payload);
+            this.productLinksProduct.externalLinks = result.data.externalLinks;
+            await logAudit(this.productLinksEditingId ? 'Product Link Updated' : 'Product Link Added', product.id);
+            this.renderProductLinksModal();
+            this.renderProductList();
+            this.resetProductLinkForm();
+        } catch (error) {
+            console.error(error);
+            this.setProductLinksError(error.message || 'Could not save product link.');
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText || 'Save Link';
+            }
+        }
+    }
+
+    async deleteProductLink(linkId) {
+        const product = this.productLinksProduct;
+        if (!product) return;
+        if (!confirm('Delete this product link?')) return;
+
+        try {
+            const result = await deleteProductExternalLinkIntent({
+                productId: product.id,
+                companyId: getSelectedCompanyId(),
+                linkId: linkId
+            });
+            this.productLinksProduct.externalLinks = result.data.externalLinks;
+            await logAudit('Product Link Deleted', product.id);
+            this.renderProductLinksModal();
+            this.renderProductList();
+            this.resetProductLinkForm();
+        } catch (error) {
+            console.error(error);
+            this.setProductLinksError(error.message || 'Could not delete product link.');
+        }
+    }
+
+    async toggleProductLink(linkId) {
+        const product = this.productLinksProduct;
+        if (!product) return;
+        const link = normalizeProductExternalLinks(product).find((item) => item.id === linkId);
+        if (!link) return;
+
+        try {
+            const result = await toggleProductExternalLinkIntent({
+                productId: product.id,
+                companyId: getSelectedCompanyId(),
+                linkId: linkId,
+                isEnabled: link.isEnabled !== true
+            });
+            this.productLinksProduct.externalLinks = result.data.externalLinks;
+            await logAudit('Product Link Toggled', product.id);
+            this.renderProductLinksModal();
+            this.renderProductList();
+        } catch (error) {
+            console.error(error);
+            this.setProductLinksError(error.message || 'Could not update product link.');
+        }
+    }
+
+    async moveProductLink(linkId, direction) {
+        const product = this.productLinksProduct;
+        if (!product) return;
+        const links = normalizeProductExternalLinks(product);
+        const index = links.findIndex((item) => item.id === linkId);
+        const nextIndex = index + direction;
+        if (index < 0 || nextIndex < 0 || nextIndex >= links.length) return;
+
+        const ordered = links.slice();
+        const moved = ordered[index];
+        ordered[index] = ordered[nextIndex];
+        ordered[nextIndex] = moved;
+
+        try {
+            const result = await reorderProductExternalLinksIntent({
+                productId: product.id,
+                companyId: getSelectedCompanyId(),
+                linkIds: ordered.map((item) => item.id)
+            });
+            this.productLinksProduct.externalLinks = result.data.externalLinks;
+            await logAudit('Product Links Reordered', product.id);
+            this.renderProductLinksModal();
+            this.renderProductList();
+        } catch (error) {
+            console.error(error);
+            this.setProductLinksError(error.message || 'Could not reorder product links.');
+        }
+    }
+
+    setProductLinksError(message) {
+        const modal = this.ensureProductLinksModal();
+        const errorBox = modal.querySelector('#productLinksError');
+        if (!errorBox) return;
+        errorBox.textContent = message || '';
+        errorBox.hidden = !message;
     }
 
     setYandexSelection(product) {
@@ -643,7 +999,8 @@ export class ProductsTab extends BaseTab {
         const isEdit = !!this.pId.value;
 
         if (!isEdit && !filePack) { alert('Packaging image required for new product'); return; }
-        if (isEdit && !this.allProductsCache.some(product => product.id === this.pId.value)) {
+        const existingProduct = isEdit ? this.allProductsCache.find(product => product.id === this.pId.value) : null;
+        if (isEdit && !existingProduct) {
             alert('This product is not available for your company.');
             return;
         }
@@ -683,7 +1040,7 @@ export class ProductsTab extends BaseTab {
                     leadTimeHours: Math.max(0, Number(this.leadTimeHours?.value || 0) || 0),
                     note: String(this.availabilityNote?.value || '').trim()
                 },
-                externalLinks: this.readExternalLinksFromForm(),
+                externalLinks: existingProduct ? normalizeProductExternalLinks(existingProduct) : [],
                 slug: this.generateUniqueSlug(
                     this.pSlug.value || getPreferredProductName({
                         name_en: document.getElementById('pNameEN').value,

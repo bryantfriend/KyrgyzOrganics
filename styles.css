@@ -2523,3 +2523,19 @@ body.has-sticky-cart .footer {
     font-weight: 800;
     padding: 0.72rem 1rem;
 }
+
+.external-action.whatsapp span {
+    background: #25d366;
+    color: #ffffff;
+}
+
+.external-action.telegram span {
+    background: #229ed9;
+    color: #ffffff;
+}
+
+.external-action.website span,
+.external-action.other span {
+    background: #e0f2fe;
+    color: #075985;
+}
