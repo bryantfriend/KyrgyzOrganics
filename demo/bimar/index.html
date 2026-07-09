@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bimar 2.0 powered by Oako</title>
+  <link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <link rel="stylesheet" href="./bimar-demo.css">
+</head>
+
+<body>
+  <header class="demo-header slide-down">
+    <a class="brand-lockup" href="#home" aria-label="Bimar 2.0 home">
+      <span class="brand-mark"><i class="ph-fill ph-shopping-bag"></i></span>
+      <span>
+        <strong>Bimar 2.0</strong>
+        <small>powered by Oako</small>
+      </span>
+    </a>
+
+    <nav class="demo-nav" aria-label="Demo sections">
+      <a href="#home">Home</a>
+      <a href="#products">Products</a>
+      <a href="#campaigns">Campaigns</a>
+      <a href="#loyalty">Loyalty</a>
+      <a href="#qr-demo">QR Demo</a>
+      <a href="#dashboard">Dashboard</a>
+    </nav>
+
+    <div class="branch-control">
+      <span><i class="ph-bold ph-map-pin"></i> Select Branch</span>
+      <div class="select-wrapper">
+        <select id="branchSelector" aria-label="Select branch"></select>
+        <i class="ph-bold ph-caret-down"></i>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="home" class="hero-section">
+      <div class="hero-background"></div>
+      <div class="hero-copy">
+        <p class="eyebrow fade-in-up" style="animation-delay: 0.1s;"><i class="ph-fill ph-sparkle"></i> Bimar commerce engine demo</p>
+        <h1 class="fade-in-up" style="animation-delay: 0.2s;">Bimar 2.0 powered by Oako</h1>
+        <p class="hero-subtitle fade-in-up" style="animation-delay: 0.3s;">Turn every website visit, QR code, campaign, and product into a measurable sales channel.</p>
+        <div class="hero-actions fade-in-up" style="animation-delay: 0.4s;" aria-label="Primary demo actions">
+          <a class="button button-primary button-lg" href="#products">Shop Online <i class="ph-bold ph-arrow-right"></i></a>
+          <a class="button button-secondary button-lg" href="#campaigns"><i class="ph-bold ph-tag"></i> View Weekly Deals</a>
+          <a class="button button-ghost button-lg" href="#dashboard"><i class="ph-bold ph-chart-line-up"></i> Explore Dashboard</a>
+        </div>
+      </div>
+
+      <div class="hero-commerce-panel fade-in-up" style="animation-delay: 0.5s;" aria-label="Demo commerce summary">
+        <div class="receipt-card">
+          <div class="receipt-head">
+            <span><i class="ph-bold ph-tag"></i> Local offer</span>
+            <strong id="localOfferTitle">Loading...</strong>
+          </div>
+          <div class="receipt-row">
+            <span><i class="ph-bold ph-storefront"></i> Pickup</span>
+            <strong id="pickupLocation">Loading...</strong>
+          </div>
+          <div class="receipt-row">
+            <span><i class="ph-bold ph-package"></i> Available items</span>
+            <strong id="availableCount">0</strong>
+          </div>
+          <div class="receipt-total">
+            <span><i class="ph-bold ph-shopping-cart"></i> Demo cart value</span>
+            <strong>2,740 KGS</strong>
+          </div>
+        </div>
+        <div class="channel-strip">
+          <span class="channel-chip channel-web"><i class="ph-fill ph-globe"></i> Website</span>
+          <span class="channel-chip channel-whatsapp"><i class="ph-fill ph-whatsapp-logo"></i> WhatsApp</span>
+          <span class="channel-chip channel-telegram"><i class="ph-fill ph-telegram-logo"></i> Telegram</span>
+          <span class="channel-chip channel-glovo"><i class="ph-bold ph-moped"></i> Glovo</span>
+          <span class="channel-chip channel-yandex"><i class="ph-fill ph-car"></i> Yandex</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="story-band" aria-label="Presentation story">
+      <p>Bimar already has the stores, products, brand trust, and customer traffic. Oako turns those assets into measurable online sales.</p>
+    </section>
+
+    <section id="products" class="content-section">
+      <div class="section-heading">
+        <p class="eyebrow">Branch-aware catalog</p>
+        <h2>Products customers can order from any channel</h2>
+        <p>Static sample data shows how Bimar can expose availability, points, pickup, and external order paths without replacing existing systems.</p>
+      </div>
+
+      <div class="category-tabs" id="categoryTabs" aria-label="Product categories"></div>
+      <div class="product-grid" id="productGrid" aria-live="polite"></div>
+      <p class="empty-state" id="emptyProducts" hidden>No products are available for this category at the selected branch.</p>
+    </section>
+
+    <section id="campaigns" class="content-section campaign-section">
+      <div class="section-heading">
+        <p class="eyebrow">Weekly Campaigns</p>
+        <h2>Campaign landing pages with trackable action</h2>
+        <p>Each promotion can collect traffic, clicks, orders, and conversion data from QR, social, and web traffic.</p>
+      </div>
+      <div class="campaign-grid" id="campaignGrid"></div>
+    </section>
+
+    <section id="loyalty" class="content-section loyalty-section">
+      <div class="loyalty-panel">
+        <div class="loyalty-content">
+          <p class="eyebrow"><i class="ph-fill ph-star"></i> Bimar Loyalty</p>
+          <h2>You are 120 points away from a free meal.</h2>
+          <p>Every product card and order path can show the reward customers earn before they commit.</p>
+          <button class="button button-primary" type="button" id="usePointsButton"><i class="ph-bold ph-gift"></i> Use points on next order</button>
+        </div>
+        <div class="points-card glow">
+          <div class="points-header">
+            <span><i class="ph-bold ph-wallet"></i> Current balance</span>
+            <i class="ph-fill ph-medal gold-icon"></i>
+          </div>
+          <strong id="loyaltyBalance">880 pts</strong>
+          <div class="progress-track" aria-label="Loyalty progress">
+            <div class="progress-fill" id="loyaltyProgress"><div class="progress-glow"></div></div>
+          </div>
+          <p id="earnedPointsText"><i class="ph-bold ph-info"></i> Add a product to preview earned points.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="qr-demo" class="content-section qr-section">
+      <div class="qr-copy">
+        <p class="eyebrow">QR and shelf demo</p>
+        <h2>Every shelf tag becomes a sales channel</h2>
+        <p>Oako product links can sit on shelf tags, receipts, Instagram posts, TikTok ads, posters, and in-store displays.</p>
+        <div class="deep-link-box">
+          <span>Product deep link example</span>
+          <code>oako.kg/bimar/p/fresh-bread?branch=bishkek-south</code>
+        </div>
+      </div>
+      <div class="qr-visual" aria-label="QR code placeholder">
+        <div class="qr-wrapper">
+          <div class="qr-scanner-line"></div>
+          <div class="qr-code" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="use-case-grid">
+          <span><i class="ph-bold ph-tag"></i> Shelf tags</span>
+          <span><i class="ph-bold ph-receipt"></i> Receipts</span>
+          <span><i class="ph-bold ph-instagram-logo"></i> Instagram posts</span>
+          <span><i class="ph-bold ph-tiktok-logo"></i> TikTok ads</span>
+          <span><i class="ph-bold ph-image"></i> Posters</span>
+          <span><i class="ph-bold ph-monitor"></i> In-store displays</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="dashboard" class="content-section dashboard-section">
+      <div class="section-heading">
+        <p class="eyebrow">Analytics preview</p>
+        <h2>Commerce activity Bimar can measure daily</h2>
+        <p>Demo numbers only. The dashboard preview shows what Oako can report when products, links, campaigns, and branches are connected.</p>
+      </div>
+      <div class="metric-grid" id="metricGrid"></div>
+      <div class="dashboard-grid">
+        <div class="chart-card">
+          <div class="chart-heading">
+            <strong>Revenue by channel</strong>
+            <span>Today</span>
+          </div>
+          <div class="bar-chart" id="channelChart"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-heading">
+            <strong>Campaign funnel</strong>
+            <span>Live preview</span>
+          </div>
+          <div class="funnel-chart" id="funnelChart"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="productModal" hidden>
+    <article class="modal-card product-modal-card" role="dialog" aria-modal="true" aria-labelledby="productModalTitle">
+      <button class="modal-close" type="button" data-close-modal aria-label="Close product details">&times;</button>
+      <div id="productModalContent"></div>
+    </article>
+  </div>
+
+  <div class="modal-backdrop" id="campaignModal" hidden>
+    <article class="modal-card campaign-modal-card" role="dialog" aria-modal="true" aria-labelledby="campaignModalTitle">
+      <button class="modal-close" type="button" data-close-modal aria-label="Close campaign details">&times;</button>
+      <div id="campaignModalContent"></div>
+    </article>
+  </div>
+
+  <script src="./bimar-demo-data.js"></script>
+  <script src="./bimar-demo.js"></script>
+</body>
+
+</html>
