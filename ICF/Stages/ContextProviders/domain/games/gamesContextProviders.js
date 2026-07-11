@@ -41,7 +41,6 @@ async function addLoadGameSettingsContext(intent) {
   addGameRefs(intent);
   intent.context.game = findGame(intent.context.availableGames, intent.payload.gameId);
   intent.context.settingsSnapshot = await getDoc(intent.context.settingsRef);
-  intent.context.spinImages = await loadSpinImageRecords(intent.context.spinImagesCollectionRef, false);
   return resultHelpers.success(intent);
 }
 
@@ -49,7 +48,6 @@ async function addSaveDailyLoginBonusesContext(intent) {
   addGameRefs(intent);
   intent.context.game = findGame(intent.context.availableGames, intent.payload.gameId);
   intent.context.settingsSnapshot = await getDoc(intent.context.settingsRef);
-  intent.context.spinImages = await loadSpinImageRecords(intent.context.spinImagesCollectionRef, false);
   return resultHelpers.success(intent);
 }
 

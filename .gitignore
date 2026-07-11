@@ -2,4 +2,5 @@
 # Do not commit rules to the repository.
 firestore.rules
 storage.rules
-
+output/
+test-results/

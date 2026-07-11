@@ -210,6 +210,8 @@ export class StoresTab extends BaseTab {
     this.newStoreSlugHint = document.getElementById('newStoreSlugHint');
     this.createStoreIntro = document.getElementById('createStoreIntro');
     this.createStoreNextSteps = document.getElementById('createStoreNextSteps');
+    this.createStoreProgress = document.getElementById('createStoreProgress');
+    this.createStorePreview = document.getElementById('createStorePreview');
     this.createStoreError = document.getElementById('createStoreError');
     this.confirmCreateStoreBtn = document.getElementById('confirmCreateStoreBtn');
     this.cancelCreateStoreBtn = document.getElementById('cancelCreateStoreBtn');
@@ -235,6 +237,7 @@ export class StoresTab extends BaseTab {
 
     this.formTitle = document.getElementById('storeFormTitle');
     this.formCard = document.getElementById('storeFormCard');
+    this.setupSummary = document.getElementById('storeSetupSummary');
     this.form = document.getElementById('storeForm');
     this.editId = document.getElementById('storeEditId');
     this.companyId = document.getElementById('storeCompanyId');
@@ -262,6 +265,7 @@ export class StoresTab extends BaseTab {
     this.tags = document.getElementById('storeTags');
     this.notes = document.getElementById('storeNotes');
     this.active = document.getElementById('storeActive');
+    this.saveBtn = document.getElementById('storeSaveBtn');
     this.cancelBtn = document.getElementById('storeCancelBtn');
     this.themePreset = document.getElementById('storeThemePreset');
     this.applyPresetBtn = document.getElementById('storeApplyPresetBtn');
@@ -468,7 +472,10 @@ export class StoresTab extends BaseTab {
     }
 
     if (this.newStoreNameInput) {
-      this.newStoreNameInput.addEventListener('input', () => this.updateCreateStoreSlugHint());
+      this.newStoreNameInput.addEventListener('input', () => {
+        this.updateCreateStoreSlugHint();
+        this.updateCreateStorePreview();
+      });
       this.newStoreNameInput.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') this.closeCreateStoreModal();
       });
@@ -1546,8 +1553,9 @@ export class StoresTab extends BaseTab {
     this.clearCreateStoreError();
     this.createStoreForm?.reset?.();
     this.setCreateStoreStarter(starter);
+    this.setCreateStoreProgress('starter');
     this.updateCreateStoreModalState();
-    this.createStoreModal.classList.remove('hidden');
+    this.createStoreModal.classList.remove('hidden', 'is-creating', 'is-complete');
     this.createStoreModal.setAttribute('aria-hidden', 'false');
     window.setTimeout(() => this.newStoreNameInput?.focus(), 30);
   }
@@ -1555,8 +1563,10 @@ export class StoresTab extends BaseTab {
   closeCreateStoreModal() {
     if (!this.createStoreModal) return;
     this.createStoreModal.classList.add('hidden');
+    this.createStoreModal.classList.remove('is-creating', 'is-complete');
     this.createStoreModal.setAttribute('aria-hidden', 'true');
     this.clearCreateStoreError();
+    this.setCreateStoreProgress('starter');
     if (this.confirmCreateStoreBtn) this.confirmCreateStoreBtn.disabled = false;
   }
 
@@ -1611,6 +1621,15 @@ export class StoresTab extends BaseTab {
     if (!this.createStoreError) return;
     this.createStoreError.hidden = false;
     this.createStoreError.textContent = message;
+    this.createStoreError.classList.add('is-shaking');
+    window.setTimeout(() => this.createStoreError?.classList.remove('is-shaking'), 360);
+    this.showToast(message, 'error');
+  }
+
+  showToast(message, type = 'success') {
+    if (window.adminApp?.showToast) {
+      window.adminApp.showToast(message, type);
+    }
   }
 
   getUniqueCompanyId(name) {
@@ -1634,6 +1653,41 @@ export class StoresTab extends BaseTab {
       : 'Store ID will be generated automatically.';
   }
 
+  updateCreateStorePreview(statusText = '') {
+    if (!this.createStorePreview) return;
+    const starter = this.getCreateStoreStarter();
+    const meta = this.getStarterMeta(starter);
+    const name = String(this.newStoreNameInput?.value || '').trim() || meta.placeholder || 'New Store';
+    const companyId = this.getUniqueCompanyId(name);
+    const initials = name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || '')
+      .join('') || 'NS';
+    const starterLabel = starter === 'blank' ? 'Clean draft' : `${starter.charAt(0).toUpperCase()}${starter.slice(1)} starter`;
+    this.createStorePreview.dataset.starter = starter;
+    this.createStorePreview.innerHTML = `
+      <div class="preview-store-mark">${escapeHtml(initials.slice(0, 2))}</div>
+      <div>
+        <span>${escapeHtml(starterLabel)}</span>
+        <strong>${escapeHtml(name)}</strong>
+        <small>${escapeHtml(statusText || `Draft ID: ${companyId}`)}</small>
+      </div>
+    `;
+  }
+
+  setCreateStoreProgress(activeStep = 'starter', statusText = '') {
+    const steps = ['starter', 'identity', 'workspace', 'review'];
+    const activeIndex = Math.max(0, steps.indexOf(activeStep));
+    this.createStoreProgress?.querySelectorAll('[data-step]')?.forEach((item) => {
+      const stepIndex = steps.indexOf(item.dataset.step || '');
+      item.classList.toggle('is-complete', stepIndex >= 0 && stepIndex < activeIndex);
+      item.classList.toggle('is-active', stepIndex === activeIndex);
+    });
+    this.updateCreateStorePreview(statusText);
+  }
+
   updateCreateStoreModalState() {
     const starter = this.getCreateStoreStarter();
     const meta = this.getStarterMeta(starter);
@@ -1644,6 +1698,7 @@ export class StoresTab extends BaseTab {
       this.confirmCreateStoreBtn.textContent = meta.submitLabel;
     }
     this.updateCreateStoreSlugHint();
+    this.updateCreateStorePreview();
   }
 
   buildQuickStoreRecord(companyId, name, starter = 'blank') {
@@ -1745,6 +1800,7 @@ export class StoresTab extends BaseTab {
     e.preventDefault();
     const name = String(this.newStoreNameInput?.value || '').trim();
     if (!name) {
+      this.setCreateStoreProgress('identity', 'Store name is required.');
       this.showCreateStoreError('Enter the store name first.');
       this.newStoreNameInput?.focus();
       return;
@@ -1755,10 +1811,12 @@ export class StoresTab extends BaseTab {
     const storeData = this.buildQuickStoreRecord(companyId, name, starter);
 
     this.clearCreateStoreError();
+    this.createStoreModal?.classList.add('is-creating');
     if (this.confirmCreateStoreBtn) {
       this.confirmCreateStoreBtn.disabled = true;
-      this.confirmCreateStoreBtn.textContent = 'Creating...';
+      this.confirmCreateStoreBtn.textContent = 'Checking store ID...';
     }
+    this.setCreateStoreProgress('identity', `Checking ${companyId}...`);
 
     try {
       const companyRef = doc(db, 'companies', companyId);
@@ -1767,6 +1825,8 @@ export class StoresTab extends BaseTab {
         throw new Error(`A store with the ID "${companyId}" already exists. Try a slightly different name.`);
       }
 
+      if (this.confirmCreateStoreBtn) this.confirmCreateStoreBtn.textContent = 'Creating workspace...';
+      this.setCreateStoreProgress('workspace', 'Creating company workspace...');
       await setDoc(companyRef, {
         ...storeData,
         createdAt: serverTimestamp()
@@ -1774,6 +1834,8 @@ export class StoresTab extends BaseTab {
 
       let storefrontSaved = true;
       try {
+        if (this.confirmCreateStoreBtn) this.confirmCreateStoreBtn.textContent = 'Building storefront...';
+        this.setCreateStoreProgress('workspace', 'Building draft storefront...');
         await setDoc(doc(db, 'storefront_configs', companyId), this.buildQuickStorefrontConfig(companyId, name, starter), { merge: true });
       } catch (storefrontErr) {
         storefrontSaved = false;
@@ -1785,16 +1847,20 @@ export class StoresTab extends BaseTab {
 
       setSelectedCompany(companyId);
       this.render();
-      this.closeCreateStoreModal();
       await logAudit('Store Created', `${name} (${starter} draft)`);
-      if (!storefrontSaved) {
-        alert('Store created, but storefront customization did not save. Check Firestore rules for storefront_configs.');
-      }
+      this.setCreateStoreProgress('review', storefrontSaved ? 'Workspace ready. Opening editor...' : 'Workspace ready. Storefront needs rule review.');
+      this.createStoreModal?.classList.add('is-complete');
+      this.showToast(storefrontSaved ? `${name} workspace created.` : `${name} created, but storefront customization needs Firestore rule review.`, storefrontSaved ? 'success' : 'warning');
+      await new Promise((resolve) => window.setTimeout(resolve, 520));
+      this.closeCreateStoreModal();
       await this.editStore(companyId);
     } catch (err) {
       console.error(err);
+      this.createStoreModal?.classList.remove('is-complete');
+      this.setCreateStoreProgress('identity', err.message || 'Creation failed.');
       this.showCreateStoreError(err.message || 'Failed to create store.');
     } finally {
+      this.createStoreModal?.classList.remove('is-creating');
       if (this.confirmCreateStoreBtn) {
         this.confirmCreateStoreBtn.disabled = false;
         this.updateCreateStoreModalState();
@@ -1984,7 +2050,9 @@ export class StoresTab extends BaseTab {
     const companyId = String(this.companyId?.value || '').trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
     if (!companyId) {
       this.logoUpload.value = '';
-      return alert('Enter a Company ID before uploading a logo.');
+      this.showToast('Enter a Company ID before uploading a logo.', 'warning');
+      this.companyId?.focus();
+      return;
     }
 
     try {
@@ -1994,10 +2062,10 @@ export class StoresTab extends BaseTab {
       const url = await getDownloadURL(logoRef);
       if (this.logoUrl) this.logoUrl.value = url;
       this.renderLaunchChecklist();
-      alert('Logo uploaded. Save the store to publish it.');
+      this.showToast('Logo uploaded. Save the store to publish it.', 'success');
     } catch (err) {
       console.error(err);
-      alert('Logo upload failed: ' + err.message);
+      this.showToast('Logo upload failed: ' + err.message, 'error');
     }
   }
 
@@ -2046,6 +2114,7 @@ export class StoresTab extends BaseTab {
       : 'bread, bakery, Bishkek, daily bread';
     this.renderLaunchChecklist();
     this.renderHomepageBuilderPreview();
+    this.showToast(`${type === 'organic' ? 'Organic' : 'Bakery'} starter applied.`, 'success');
   }
 
   startOnboarding(type) {
@@ -2075,29 +2144,65 @@ export class StoresTab extends BaseTab {
   }
 
   renderLaunchChecklist() {
-    if (!this.launchChecklist) return;
-
     const checks = this.getLaunchChecklistItems();
     const complete = checks.filter(([, ok]) => ok).length;
     const score = Math.round((complete / Math.max(1, checks.length)) * 100);
     const missing = checks.filter(([, ok]) => !ok).slice(0, 3).map(([label]) => label);
 
+    this.renderSetupSummary(checks, score, missing);
+    if (!this.launchChecklist) return;
+
+    const tone = score >= 85 ? 'ready' : score >= 55 ? 'review' : 'draft';
+    this.launchChecklist.dataset.tone = tone;
     this.launchChecklist.innerHTML = `
       <div class="launch-score-card">
         <div>
           <strong>Launch Readiness</strong>
-          <span>${complete}/${checks.length} complete${missing.length ? ` • Next: ${missing.join(', ')}` : ''}</span>
+          <span>${complete}/${checks.length} complete${missing.length ? ` Next: ${missing.join(', ')}` : ' Ready for final review.'}</span>
         </div>
         <div class="launch-score-number">${score}%</div>
       </div>
       <div class="launch-progress"><span style="width:${score}%;"></span></div>
-      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:0.4rem; margin-top:0.75rem;">
+      <div class="launch-check-grid">
         ${checks.map(([label, ok]) => `
-          <div style="color:${ok ? '#2e7d32' : '#777'}; font-weight:${ok ? '700' : '500'};">
-            ${ok ? '&check;' : '&cir;'} ${label}
+          <div class="launch-check-item ${ok ? 'is-complete' : ''}">
+            <span>${ok ? '&check;' : '&cir;'}</span>
+            <strong>${escapeHtml(label)}</strong>
           </div>
         `).join('')}
       </div>
+    `;
+  }
+
+  renderSetupSummary(checks = [], score = 0, missing = []) {
+    if (!this.setupSummary) return;
+    const companyId = String(this.companyId?.value || '').trim() || 'Store ID pending';
+    const storeName = String(this.name?.value || '').trim() || 'Unnamed store';
+    const launchStatus = String(this.launchStatus?.value || 'draft');
+    const statusLabel = score >= 85 ? 'Ready for final review' : score >= 55 ? 'Needs a few details' : 'Draft setup';
+    const essentials = [
+      ['Identity', checks[0]?.[1] && checks[1]?.[1]],
+      ['Contact', checks[2]?.[1]],
+      ['Storefront', checks[3]?.[1] && checks[4]?.[1] && checks[12]?.[1]],
+      ['Launch', checks[11]?.[1] && launchStatus !== 'draft']
+    ];
+
+    this.setupSummary.dataset.tone = score >= 85 ? 'ready' : score >= 55 ? 'review' : 'draft';
+    this.setupSummary.innerHTML = `
+      <div class="setup-summary-main">
+        <span class="setup-summary-kicker">${escapeHtml(statusLabel)}</span>
+        <strong>${escapeHtml(storeName)}</strong>
+        <small>${escapeHtml(companyId)} - ${escapeHtml(launchStatus)}</small>
+      </div>
+      <div class="setup-summary-meter" aria-label="${score}% launch readiness">
+        <span style="width:${score}%;"></span>
+      </div>
+      <div class="setup-summary-steps">
+        ${essentials.map(([label, ok]) => `
+          <span class="${ok ? 'is-complete' : ''}">${ok ? '&check;' : '&cir;'} ${escapeHtml(label)}</span>
+        `).join('')}
+      </div>
+      <p>${missing.length ? `Next: ${escapeHtml(missing.join(', '))}` : 'All core setup checks are complete.'}</p>
     `;
   }
 
@@ -2302,10 +2407,18 @@ export class StoresTab extends BaseTab {
   async saveStore(e) {
     e.preventDefault();
     const companyIdRaw = String(this.companyId?.value || '').trim();
-    if (!companyIdRaw) return alert('Company ID is required.');
+    if (!companyIdRaw) {
+      this.showToast('Company ID is required.', 'error');
+      this.companyId?.focus();
+      return;
+    }
 
     const companyId = companyIdRaw.toLowerCase().replace(/[^a-z0-9-_]/g, '');
-    if (!companyId) return alert('Company ID is invalid.');
+    if (!companyId) {
+      this.showToast('Company ID is invalid.', 'error');
+      this.companyId?.focus();
+      return;
+    }
 
     const isEdit = !!(this.editId?.value);
 
@@ -2355,6 +2468,12 @@ export class StoresTab extends BaseTab {
       updatedAt: serverTimestamp()
     };
 
+    const previousSaveLabel = this.saveBtn?.textContent || 'Save Store';
+    if (this.saveBtn) {
+      this.saveBtn.disabled = true;
+      this.saveBtn.textContent = 'Saving store...';
+    }
+
     try {
       const ref = doc(db, 'companies', companyId);
       const existing = await getDoc(ref);
@@ -2371,14 +2490,19 @@ export class StoresTab extends BaseTab {
         console.warn('Store saved, but storefront config save failed:', storefrontErr);
       }
 
-      alert(storefrontSaved
+      this.showToast(storefrontSaved
         ? 'Store saved.'
-        : 'Store saved, but storefront customization did not save. Check Firestore rules for storefront_configs.');
+        : 'Store saved, but storefront customization did not save. Check Firestore rules for storefront_configs.', storefrontSaved ? 'success' : 'warning');
       await logAudit(existing.exists() || isEdit ? 'Store Updated' : 'Store Created', `${storeData.name || companyId} (${storeData.launchStatus})`);
       this.resetForm();
     } catch (err) {
       console.error(err);
-      alert('Failed to save store: ' + err.message);
+      this.showToast('Failed to save store: ' + err.message, 'error');
+    } finally {
+      if (this.saveBtn) {
+        this.saveBtn.disabled = false;
+        this.saveBtn.textContent = previousSaveLabel;
+      }
     }
   }
 

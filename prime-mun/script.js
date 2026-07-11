@@ -32,6 +32,16 @@ const langParam = urlParams.get('lang') || localStorage.getItem('selectedLang') 
 let countdownTimer = null;
 let campaignUnsubscribe = null;
 
+function escapeHtml(value = '') {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
 async function logEvent(actionType, actionValue = '') {
     try {
         await addDoc(collection(db, 'campaign_events'), {
@@ -153,6 +163,7 @@ function renderLogos(config, styles = {}) {
 }
 
 function buildCampaignSilhouette(title = 'Coming Soon') {
+    const safeTitle = escapeHtml(title);
     return `
         <div class="timeline-silhouette">
             <div class="silhouette-arch"></div>
@@ -161,8 +172,69 @@ function buildCampaignSilhouette(title = 'Coming Soon') {
                 <span></span>
             </div>
         </div>
-        <span>${title}</span>
+        <span>${safeTitle}</span>
     `;
+}
+
+function ensureImageLightbox() {
+    let lightbox = document.getElementById('campaignImageLightbox');
+    if (lightbox) return lightbox;
+
+    lightbox = document.createElement('div');
+    lightbox.id = 'campaignImageLightbox';
+    lightbox.className = 'image-lightbox';
+    lightbox.hidden = true;
+    lightbox.innerHTML = `
+        <button type="button" class="image-lightbox-close" aria-label="Close full screen image">x</button>
+        <img class="image-lightbox-img" alt="">
+    `;
+    document.body.appendChild(lightbox);
+    return lightbox;
+}
+
+function closeImageLightbox() {
+    const lightbox = document.getElementById('campaignImageLightbox');
+    if (!lightbox) return;
+    lightbox.hidden = true;
+    lightbox.classList.remove('is-open');
+    document.body.classList.remove('lightbox-open');
+}
+
+function openImageLightbox(src, alt = 'Campaign image') {
+    if (!src) return;
+    const lightbox = ensureImageLightbox();
+    const image = lightbox.querySelector('.image-lightbox-img');
+    if (!image) return;
+
+    image.src = src;
+    image.alt = alt || 'Campaign image';
+    lightbox.hidden = false;
+    requestAnimationFrame(() => lightbox.classList.add('is-open'));
+    document.body.classList.add('lightbox-open');
+    logEvent('image_fullscreen', alt).catch(() => {});
+}
+
+function initImageLightbox() {
+    ensureImageLightbox();
+
+    document.addEventListener('click', (event) => {
+        const trigger = event.target.closest('[data-fullscreen-image]');
+        const lightbox = event.target.closest('#campaignImageLightbox');
+
+        if (trigger) {
+            event.preventDefault();
+            openImageLightbox(trigger.dataset.fullscreenImage || trigger.currentSrc || trigger.src, trigger.dataset.fullscreenTitle || trigger.alt);
+            return;
+        }
+
+        if (lightbox && (event.target === lightbox || event.target.closest('.image-lightbox-close'))) {
+            closeImageLightbox();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeImageLightbox();
+    });
 }
 
 function toCampaignDate(value) {
@@ -290,15 +362,17 @@ async function renderCampaignTimeline(config, headlineText) {
                 const status = item.status || 'future';
                 const title = item.title || (status === 'future' ? 'Coming Soon' : 'Campaign');
                 const imageUrl = item.imageUrl || '';
+                const safeTitle = escapeHtml(title);
+                const safeImageUrl = escapeHtml(imageUrl);
                 const imageMarkup = imageUrl
-                    ? `<img src="${imageUrl}" alt="${title}">`
+                    ? `<img src="${safeImageUrl}" alt="${safeTitle}" data-fullscreen-image="${safeImageUrl}" data-fullscreen-title="${safeTitle}">`
                     : buildCampaignSilhouette(title);
 
                 return `
                     <article class="timeline-card ${status === 'current' ? 'is-current' : ''} ${status === 'future' ? 'is-future' : ''}">
                         <div class="timeline-image">${imageMarkup}</div>
                         <div class="timeline-label">${status === 'current' ? 'Now' : status === 'future' ? 'Soon' : 'Past'}</div>
-                        <h3>${title}</h3>
+                        <h3>${safeTitle}</h3>
                     </article>
                 `;
             }).join('')}
@@ -490,6 +564,9 @@ async function initCampaign() {
             const productImage = document.getElementById('productImage');
             if (productImage) {
                 productImage.src = config.imageUrl;
+                productImage.alt = headlineText || 'Campaign product';
+                productImage.dataset.fullscreenImage = config.imageUrl || '';
+                productImage.dataset.fullscreenTitle = headlineText || 'Campaign product';
                 productImage.style.transform = `scale(${(s.imgScale || 100) / 100})`;
             }
 
@@ -550,4 +627,7 @@ async function initCampaign() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', initCampaign);
+document.addEventListener('DOMContentLoaded', () => {
+    initImageLightbox();
+    initCampaign();
+});

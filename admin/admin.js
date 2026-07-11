@@ -6,7 +6,7 @@ import { getSelectedCompanyId, loadSelectedCompany, setSelectedCompany } from '.
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { CategoriesTab } from './tabs/CategoriesTab.js';
 import { OverviewTab } from './tabs/OverviewTab.js';
-import { ProductsTab } from './tabs/ProductsTab.js?v=3.11';
+import { ProductsTab } from './tabs/ProductsTab.js?v=3.12';
 import { BannersTab } from './tabs/BannersTab.js';
 import { ContentTab } from './tabs/ContentTab.js';
 import { InventoryTab } from './tabs/InventoryTab.js';
@@ -19,7 +19,7 @@ import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js';
 import { GamesTab } from './tabs/GamesTab.js';
 
-const ADMIN_VERSION = '3.11';
+const ADMIN_VERSION = '3.12';
 const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
 const PLATFORM_TABS = new Set(['stores', 'analytics', 'audit']);
 

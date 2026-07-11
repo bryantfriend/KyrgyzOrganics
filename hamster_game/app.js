@@ -21,11 +21,13 @@ const CUSTOMER_COLLECTION = "individual_customers";
 const SESSION_KEY = "hg_current_customer_id";
 const GUEST_SESSION_KEY = "hg_guest_trial";
 const SHARE_URL = "https://oako.kg/hamster_game/";
-const APP_VERSION = "1.14";
+const APP_VERSION = "1.15";
 const GUEST_SPINS = 5;
 const TEST_INFINITE_SPINS = true;
 const NOTIFICATION_LAST_BONUS_KEY = "hg_bonus_notification_date";
+const DAILY_REWARD_INTERVAL_MS = 24 * 60 * 60 * 1000;
 let loginBonusSchedule = normalizeDailyBonusSchedule(HAMSTER_DEFAULT_DAILY_BONUSES);
+let dailyRewardCountdownTimer = null;
 const avatarOptions = {
   sizes: [
     { key: "tiny", label: "Кроха" },
@@ -528,6 +530,7 @@ function render() {
     </div>
   `;
   bindEvents();
+  syncDailyRewardCountdown();
 }
 
 function renderLoading() {
@@ -656,9 +659,9 @@ function renderRepeatedWinSymbols(symbolKey, count) {
 
 function renderDailyCalendar() {
   const bonusState = state.user?.loginBonus || defaultLoginBonus();
-  const todayClaimed = bonusState.lastClaimDate === todayKey();
-  const currentDay = state.dailyCalendarDay || (todayClaimed ? Math.max(1, bonusState.day || 1) : nextLoginBonusDay(bonusState));
-  const claimedCount = todayClaimed ? Math.max(0, bonusState.day || 0) : Math.max(0, (bonusState.day || 0) - 1);
+  const rewardStatus = getDailyRewardStatus(bonusState);
+  const currentDay = state.dailyCalendarDay || getCurrentLoginBonusDay(bonusState, rewardStatus);
+  const claimedCount = getClaimedLoginBonusCount(bonusState, rewardStatus, currentDay);
   return `
     <div class="hg-daily-calendar">
       <div class="hg-modal-head">
@@ -672,7 +675,8 @@ function renderDailyCalendar() {
         <span class="hg-daily-current-day">День ${currentDay}</span>
         ${loginBonusSchedule[currentDay - 1] && loginBonusSchedule[currentDay - 1].imageUrl ? renderAssetImage(loginBonusSchedule[currentDay - 1].imageUrl, loginBonusSchedule[currentDay - 1].title, "hg-daily-current-img", "🎁") : ""}
         <strong>${escapeHtml(loginBonusSchedule[currentDay - 1]?.title || "Подарок")}</strong>
-        <small>${todayClaimed ? "Сегодняшний приз уже добавлен в аккаунт." : "Этот приз ждёт вас сегодня."}</small>
+        <small data-daily-reward-status>${rewardStatus.eligible ? "🎁 Reward Ready!" : "Next reward available in: " + formatCountdown(rewardStatus.remainingMs)}</small>
+        ${renderDailyRewardTimestamps(rewardStatus)}
       </div>
       <div class="hg-daily-calendar-grid">
         ${loginBonusSchedule.map((entry) => {
@@ -818,13 +822,13 @@ function renderLoggedOutPrompt() {
 }
 
 function renderGame() {
-  const dailyAvailable = state.user && canClaimDailySpin();
+  const dailyRewardStatus = state.user ? getDailyRewardStatus(state.user.loginBonus) : null;
   const spins = getActiveSpins();
   const resultSeedKey = state.lastRewardKeys?.[0] || (state.resultMessage.includes("ДЖЕКПОТ") ? "walnut" : "poppy");
   return `
     <section class="hg-screen hg-game-screen">
       ${renderBalanceSummary()}
-      ${state.user ? renderGameRewardStrip(dailyAvailable) : renderGuestNotice()}
+      ${state.user ? renderGameRewardStrip(dailyRewardStatus) : renderGuestNotice()}
       <div class="hg-slot-wrap ${state.spinning ? "hg-is-spinning" : ""}">
         <div id="hgConfetti"></div>
         <div class="hg-slot-glow" aria-hidden="true"></div>
@@ -940,17 +944,22 @@ function renderGuestNotice() {
   `;
 }
 
-function renderGameRewardStrip(dailyAvailable) {
+function renderGameRewardStrip(rewardStatus) {
   const bonusState = state.user?.loginBonus || defaultLoginBonus();
-  const todayClaimed = bonusState.lastClaimDate === todayKey();
-  const currentDay = todayClaimed ? Math.max(1, bonusState.day || 1) : nextLoginBonusDay(bonusState);
+  const status = rewardStatus || getDailyRewardStatus(bonusState);
+  const currentDay = getCurrentLoginBonusDay(bonusState, status);
+  const statusText = status.eligible ? "🎁 Reward Ready!" : "Next reward available in: " + formatCountdown(status.remainingMs);
   return `
     <div class="hg-reward-strip hg-reward-strip--daily">
       <div class="hg-reward-strip-item">
         <span class="hg-reward-strip-icon">🎁</span>
-        <span><strong>Ежедневный подарок</strong><small>${dailyAvailable ? "Готов к получению" : "Уже получен"}</small></span>
+        <span>
+          <strong>Ежедневный подарок</strong>
+          <small data-daily-reward-status>${statusText}</small>
+          ${renderDailyRewardTimestamps(status)}
+        </span>
       </div>
-      <button class="hg-button hg-strip-button" data-action="daily" ${dailyAvailable && !state.busy ? "" : "disabled"} type="button">Получить</button>
+      <button class="hg-button hg-strip-button" data-action="daily-login-bonus" ${status.eligible && !state.busy ? "" : "disabled"} type="button">Получить</button>
       <button class="hg-reward-strip-item hg-reward-strip-item--streak hg-strip-calendar" data-action="open-daily-calendar" type="button">
         <span class="hg-reward-strip-icon">🔥</span>
         <span><strong>Серия входов</strong><small>День ${currentDay}/${maxLoginBonusDays()}</small></span>
@@ -971,9 +980,9 @@ function renderGuestFinishedCard() {
 
 function renderLoginBonusCard() {
   const bonusState = state.user?.loginBonus || defaultLoginBonus();
-  const todayClaimed = bonusState.lastClaimDate === todayKey();
-  const currentDay = todayClaimed ? Math.max(1, bonusState.day || 1) : nextLoginBonusDay(bonusState);
-  const claimedCount = !todayClaimed && currentDay === 1 ? 0 : bonusState.day;
+  const rewardStatus = getDailyRewardStatus(bonusState);
+  const currentDay = getCurrentLoginBonusDay(bonusState, rewardStatus);
+  const claimedCount = getClaimedLoginBonusCount(bonusState, rewardStatus, currentDay);
   const currentReward = loginBonusSchedule[currentDay - 1];
   const notificationPermission = getNotificationPermission();
   const notificationCopy = notificationPermission === "granted"
@@ -988,9 +997,12 @@ function renderLoginBonusCard() {
       <div class="hg-row">
         <div>
           <strong>Бонус входа ${maxLoginBonusDays()} дней</strong>
-        <div class="hg-muted">${todayClaimed ? "Сегодняшний подарок уже у вас." : "Новый подарок ждёт вас прямо сейчас."}</div>
+        <div class="hg-muted" data-daily-reward-status>${rewardStatus.eligible ? "🎁 Reward Ready!" : "Next reward available in: " + formatCountdown(rewardStatus.remainingMs)}</div>
       </div>
         <span class="hg-status">День ${currentDay} / ${maxLoginBonusDays()}</span>
+      </div>
+      <div class="hg-login-bonus-timestamps">
+        ${renderDailyRewardTimestamps(rewardStatus)}
       </div>
       <div class="hg-login-bonus-track">
         ${loginBonusSchedule.map((entry) => {
@@ -1002,10 +1014,13 @@ function renderLoginBonusCard() {
       <div class="hg-login-bonus-reward">
         <div>
           <div class="hg-kicker">Сегодняшний подарок</div>
-          <div class="hg-login-bonus-title">${currentReward.title}</div>
+          <div class="hg-login-bonus-title">${escapeHtml(currentReward?.title || "Подарок")}</div>
         </div>
-        ${currentReward.day === maxLoginBonusDays() ? '<span class="hg-status">Большой бонус</span>' : ""}
+        ${currentReward?.day === maxLoginBonusDays() ? '<span class="hg-status">Большой бонус</span>' : ""}
       </div>
+      <button class="hg-button" data-action="daily-login-bonus" ${rewardStatus.eligible && !state.busy ? "" : "disabled"} type="button">
+        ${rewardStatus.eligible ? "Получить подарок" : "Подарок скоро"}
+      </button>
       <div class="hg-login-bonus-notify">
         <div class="hg-muted">${notificationCopy}</div>
         ${notificationPermission === "default"
@@ -1185,6 +1200,7 @@ function renderAccount() {
         </div>
         <p class="hg-muted">Premium появится позже.</p>
       </div>
+      ${renderLoginBonusCard()}
       <div class="hg-card hg-card-wood">
         <div class="hg-row">
           <div>
@@ -1438,6 +1454,7 @@ async function handleAction(button) {
   if (action === "toggle-header-menu") return toggleHeaderMenu();
   if (action === "spin") return spin();
   if (action === "daily") return claimDailySpin();
+  if (action === "daily-login-bonus") return claimDailyLoginBonus();
   if (action === "open-win-ladder") return openWinLadder();
   if (action === "open-daily-calendar") return openDailyCalendar();
   if (action === "close-modal") return closeModal();
@@ -1588,29 +1605,42 @@ async function claimDailySpin() {
 async function ensureDailyLoginBonus() {
   if (!state.user) return;
   const bonusState = normalizeLoginBonus(state.user.loginBonus);
-  const today = todayKey();
-  if (bonusState.lastClaimDate === today) {
-    maybeNotifyBonusReady();
+  const rewardStatus = getDailyRewardStatus(bonusState);
+  logDailyRewardStatus(rewardStatus);
+  maybeNotifyBonusReady();
+}
+
+async function claimDailyLoginBonus() {
+  if (!state.user) return;
+  const bonusState = normalizeLoginBonus(state.user.loginBonus);
+  const rewardStatus = getDailyRewardStatus(bonusState);
+  logDailyRewardStatus(rewardStatus);
+  if (!rewardStatus.eligible) {
+    showToast("Next reward available in: " + formatCountdown(rewardStatus.remainingMs));
     return;
   }
-  const day = nextLoginBonusDay(bonusState);
-  const reward = loginBonusSchedule[day - 1];
-  const loginBonus = {
-    day,
-    lastClaimDate: today,
-    longestStreak: Math.max(day, bonusState.longestStreak || 0)
-  };
-  const seeds = addSeeds(state.user.seeds, reward.seeds || {});
-  const spins = {
-    ...state.user.spins,
-    available: (state.user.spins?.available || 0) + (reward.spins || 0)
-  };
-  await saveUserData({ seeds, spins, loginBonus });
-  state.dailyCalendarDay = day;
-  state.dailyCalendarOpen = true;
-  state.winLadderOpen = false;
-  state.message = `Бонус входа: день ${day}. Хомяк принёс ${reward.title}.`;
-  showToast(`Бонус входа получен: ${reward.title}`);
+  await withBusy(async () => {
+    const day = nextLoginBonusDay(bonusState);
+    const reward = loginBonusSchedule[day - 1] || loginBonusSchedule[0] || { title: "Подарок", seeds: {}, spins: 0 };
+    const now = new Date();
+    const loginBonus = {
+      day,
+      lastClaimDate: formatDateKey(now),
+      lastClaimTimestamp: now.toISOString(),
+      longestStreak: Math.max(day, bonusState.longestStreak || 0)
+    };
+    const seeds = addSeeds(state.user.seeds, reward.seeds || {});
+    const spins = {
+      ...state.user.spins,
+      available: (state.user.spins?.available || 0) + (reward.spins || 0)
+    };
+    await saveUserData({ seeds, spins, loginBonus });
+    state.dailyCalendarDay = day;
+    state.dailyCalendarOpen = true;
+    state.winLadderOpen = false;
+    state.message = `Бонус входа: день ${day}. Хомяк принёс ${reward.title}.`;
+    showToast(`Бонус входа получен: ${reward.title}`);
+  });
 }
 
 async function spin() {
@@ -1822,9 +1852,7 @@ function openWinLadder() {
 
 function openDailyCalendar() {
   const bonusState = state.user?.loginBonus || defaultLoginBonus();
-  state.dailyCalendarDay = bonusState.lastClaimDate === todayKey()
-    ? Math.max(1, bonusState.day || 1)
-    : nextLoginBonusDay(bonusState);
+  state.dailyCalendarDay = getCurrentLoginBonusDay(bonusState);
   state.dailyCalendarOpen = true;
   state.winLadderOpen = false;
   render();
@@ -1894,6 +1922,7 @@ function defaultLoginBonus() {
   return {
     day: 0,
     lastClaimDate: null,
+    lastClaimTimestamp: null,
     longestStreak: 0
   };
 }
@@ -1901,9 +1930,11 @@ function defaultLoginBonus() {
 function normalizeLoginBonus(data) {
   const base = defaultLoginBonus();
   const source = data || {};
+  const timestamp = normalizeClaimTimestamp(source.lastClaimTimestamp);
   return {
     day: Number.isInteger(source.day) && source.day >= 0 && source.day <= maxLoginBonusDays() ? source.day : base.day,
     lastClaimDate: typeof source.lastClaimDate === "string" ? source.lastClaimDate : base.lastClaimDate,
+    lastClaimTimestamp: timestamp,
     longestStreak: Number.isInteger(source.longestStreak) && source.longestStreak >= 0 ? source.longestStreak : base.longestStreak
   };
 }
@@ -2509,15 +2540,90 @@ function canClaimDailySpin() {
   return Boolean(state.user && state.user.spins?.dailyFreeUsedDate !== todayKey());
 }
 
+function getDailyRewardStatus(loginBonus, nowMs = Date.now()) {
+  const normalized = normalizeLoginBonus(loginBonus);
+  const lastClaimMs = getLastClaimMs(normalized);
+  const nextClaimMs = lastClaimMs ? lastClaimMs + DAILY_REWARD_INTERVAL_MS : nowMs;
+  const eligible = !lastClaimMs || nowMs >= nextClaimMs;
+  return {
+    lastClaimMs,
+    nextClaimMs,
+    currentMs: nowMs,
+    remainingMs: eligible ? 0 : Math.max(0, nextClaimMs - nowMs),
+    eligible
+  };
+}
+
+function getLastClaimMs(loginBonus) {
+  const timestampMs = parseClaimTimestampMs(loginBonus?.lastClaimTimestamp);
+  if (timestampMs) return timestampMs;
+  return parseDateKeyMs(loginBonus?.lastClaimDate);
+}
+
+function parseClaimTimestampMs(value) {
+  if (!value) return null;
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  if (typeof value.toMillis === "function") {
+    const millis = value.toMillis();
+    return Number.isFinite(millis) && millis > 0 ? millis : null;
+  }
+  if (Number.isFinite(value.seconds)) {
+    return (value.seconds * 1000) + Math.floor((value.nanoseconds || 0) / 1000000);
+  }
+  return null;
+}
+
+function parseDateKeyMs(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parts = value.split("-").map(Number);
+  const date = new Date(parts[0], parts[1] - 1, parts[2]);
+  const millis = date.getTime();
+  return Number.isFinite(millis) ? millis : null;
+}
+
+function normalizeClaimTimestamp(value) {
+  const millis = parseClaimTimestampMs(value);
+  return millis ? new Date(millis).toISOString() : null;
+}
+
+function getCurrentLoginBonusDay(loginBonus, rewardStatus = getDailyRewardStatus(loginBonus)) {
+  const normalized = normalizeLoginBonus(loginBonus);
+  return rewardStatus.eligible ? nextLoginBonusDay(normalized) : Math.max(1, normalized.day || 1);
+}
+
+function getClaimedLoginBonusCount(loginBonus, rewardStatus, currentDay) {
+  const normalized = normalizeLoginBonus(loginBonus);
+  if (!rewardStatus.eligible) return Math.max(0, normalized.day || 0);
+  if (currentDay === 1 && !isPreviousClaimFromYesterday(normalized)) return 0;
+  return Math.max(0, normalized.day || 0);
+}
+
 function nextLoginBonusDay(loginBonus) {
   const today = todayKey();
   const yesterday = offsetDayKey(-1);
-  if (!loginBonus?.lastClaimDate) return 1;
-  if (loginBonus.lastClaimDate === today) return Math.max(1, loginBonus.day || 1);
-  if (loginBonus.lastClaimDate === yesterday) {
+  const lastClaimDate = getLoginBonusDateKey(loginBonus);
+  if (!lastClaimDate) return 1;
+  if (lastClaimDate === today) return Math.max(1, loginBonus.day || 1);
+  if (lastClaimDate === yesterday) {
     return (loginBonus.day || 0) >= maxLoginBonusDays() ? 1 : (loginBonus.day || 0) + 1;
   }
   return 1;
+}
+
+function isPreviousClaimFromYesterday(loginBonus) {
+  return getLoginBonusDateKey(loginBonus) === offsetDayKey(-1);
+}
+
+function getLoginBonusDateKey(loginBonus) {
+  if (typeof loginBonus?.lastClaimDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(loginBonus.lastClaimDate)) {
+    return loginBonus.lastClaimDate;
+  }
+  const lastClaimMs = parseClaimTimestampMs(loginBonus?.lastClaimTimestamp);
+  return lastClaimMs ? formatDateKey(new Date(lastClaimMs)) : null;
 }
 
 function offsetDayKey(days) {
@@ -2533,6 +2639,77 @@ function formatDateKey(date) {
   return `${year}-${month}-${day}`;
 }
 
+function formatCountdown(milliseconds) {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function formatRewardTimestamp(milliseconds) {
+  if (!milliseconds) return "Never";
+  try {
+    return new Date(milliseconds).toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+  } catch (error) {
+    return new Date(milliseconds).toISOString();
+  }
+}
+
+function renderDailyRewardTimestamps(status) {
+  const lastClaim = formatRewardTimestamp(status.lastClaimMs);
+  const nextClaim = status.lastClaimMs ? formatRewardTimestamp(status.nextClaimMs) : "Now";
+  return `
+    <span class="hg-daily-reward-times">
+      <small>Last claim timestamp: <time data-daily-last-claim>${escapeHtml(lastClaim)}</time></small>
+      <small>Next eligible timestamp: <time data-daily-next-claim>${escapeHtml(nextClaim)}</time></small>
+    </span>
+  `;
+}
+
+function logDailyRewardStatus(status) {
+  console.log("[DailyReward]");
+  console.log("[DailyReward] Last Claim:", formatRewardTimestamp(status.lastClaimMs));
+  console.log("[DailyReward] Next Claim:", status.lastClaimMs ? formatRewardTimestamp(status.nextClaimMs) : "Now");
+  console.log("[DailyReward] Current Time:", formatRewardTimestamp(status.currentMs));
+  console.log("[DailyReward] Eligible:", status.eligible);
+}
+
+function syncDailyRewardCountdown() {
+  if (dailyRewardCountdownTimer) {
+    window.clearInterval(dailyRewardCountdownTimer);
+    dailyRewardCountdownTimer = null;
+  }
+  if (!state.user) return;
+  const status = getDailyRewardStatus(state.user.loginBonus);
+  updateDailyRewardCountdownDom(status);
+  if (status.eligible) return;
+  dailyRewardCountdownTimer = window.setInterval(() => {
+    const nextStatus = getDailyRewardStatus(state.user?.loginBonus);
+    if (nextStatus.eligible) {
+      window.clearInterval(dailyRewardCountdownTimer);
+      dailyRewardCountdownTimer = null;
+      render();
+      return;
+    }
+    updateDailyRewardCountdownDom(nextStatus);
+  }, 1000);
+}
+
+function updateDailyRewardCountdownDom(status) {
+  const statusText = status.eligible ? "🎁 Reward Ready!" : "Next reward available in: " + formatCountdown(status.remainingMs);
+  app.querySelectorAll("[data-daily-reward-status]").forEach((node) => {
+    node.textContent = statusText;
+  });
+}
+
 function getNotificationPermission() {
   return "Notification" in window ? Notification.permission : "unsupported";
 }
@@ -2540,17 +2717,17 @@ function getNotificationPermission() {
 function maybeNotifyBonusReady(force = false) {
   if (!state.user) return;
   if (getNotificationPermission() !== "granted") return;
-  const today = todayKey();
-  if (!force && localStorage.getItem(NOTIFICATION_LAST_BONUS_KEY) === today) return;
+  const notificationKey = formatDateKey(new Date());
+  if (!force && localStorage.getItem(NOTIFICATION_LAST_BONUS_KEY) === notificationKey) return;
   if (!canReceiveNextBonusToday(state.user.loginBonus)) return;
   const nextDay = nextLoginBonusDay(state.user.loginBonus || defaultLoginBonus());
   const reward = loginBonusSchedule[nextDay - 1];
   sendHamsterNotification("Новый бонус ждёт", `День ${nextDay} из 14: ${reward.title}. Загляните в игру за подарком.`);
-  localStorage.setItem(NOTIFICATION_LAST_BONUS_KEY, today);
+  localStorage.setItem(NOTIFICATION_LAST_BONUS_KEY, notificationKey);
 }
 
 function canReceiveNextBonusToday(loginBonus) {
-  return normalizeLoginBonus(loginBonus).lastClaimDate !== todayKey();
+  return getDailyRewardStatus(loginBonus).eligible;
 }
 
 function sendHamsterNotification(title, body) {

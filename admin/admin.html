@@ -42,7 +42,7 @@
           <div class="admin-header-subtitle">
             <span id="headerStoreDomain">oako.kg</span>
             <span id="storePill">Store: kyrgyz-organics</span>
-            <span id="adminVersionPill" class="admin-version-pill">Admin v3.11</span>
+            <span id="adminVersionPill" class="admin-version-pill">Admin v3.12</span>
           </div>
         </div>
       </div>
@@ -385,6 +385,11 @@
           <div class="eyebrow">New Store Onboarding</div>
           <h3>Launch a store without hunting through the form</h3>
           <p>Open the guided creator, choose a starter, name the store, and we’ll switch you into the new workspace.</p>
+          <div class="store-onboarding-rail" aria-hidden="true">
+            <span class="is-active">Choose starter</span>
+            <span>Create draft</span>
+            <span>Review launch plan</span>
+          </div>
         </div>
         <div class="store-onboarding-actions">
           <button type="button" id="startBakeryOnboardingBtn" class="btn-secondary">Bakery Store</button>
@@ -419,10 +424,17 @@
             <div class="quick-store-copy">
               <p id="createStoreIntro">Choose the type of store you want, add the name, and we’ll create the workspace with a draft storefront.</p>
             </div>
+            <div id="createStoreProgress" class="quick-store-progress" aria-live="polite">
+              <span class="is-active" data-step="starter">Starter</span>
+              <span data-step="identity">Identity</span>
+              <span data-step="workspace">Workspace</span>
+              <span data-step="review">Review</span>
+            </div>
             <fieldset class="quick-store-starters" aria-label="Store starter">
               <label class="quick-store-starter">
                 <input type="radio" name="createStoreStarter" value="blank" checked>
                 <span>
+                  <span class="starter-visual starter-blank" aria-hidden="true"></span>
                   <strong>Blank</strong>
                   <small>Clean draft with only the essentials.</small>
                 </span>
@@ -430,6 +442,7 @@
               <label class="quick-store-starter">
                 <input type="radio" name="createStoreStarter" value="bakery">
                 <span>
+                  <span class="starter-visual starter-bakery" aria-hidden="true"></span>
                   <strong>Bakery</strong>
                   <small>Bread-focused layout, bakery copy, warm theme.</small>
                 </span>
@@ -437,6 +450,7 @@
               <label class="quick-store-starter">
                 <input type="radio" name="createStoreStarter" value="organic">
                 <span>
+                  <span class="starter-visual starter-organic" aria-hidden="true"></span>
                   <strong>Organic</strong>
                   <small>Market layout, organic copy, campaign sections.</small>
                 </span>
@@ -446,6 +460,14 @@
               <label for="newStoreNameInput">Store Name</label>
               <input type="text" id="newStoreNameInput" placeholder="New Store" required>
               <small id="newStoreSlugHint" class="field-hint">Store ID will be generated automatically.</small>
+            </div>
+            <div id="createStorePreview" class="quick-store-preview" aria-live="polite">
+              <div class="preview-store-mark">NS</div>
+              <div>
+                <span>Draft workspace</span>
+                <strong>New Store</strong>
+                <small>Pick a starter and name the store.</small>
+              </div>
             </div>
             <div id="createStoreNextSteps" class="quick-store-next">
               After creation, you’ll land in the full editor to add logo, contact details, products, and launch settings.
@@ -529,10 +551,18 @@
         </div>
       </div>
 
-      <div class="admin-card" id="storeFormCard" hidden>
-        <h3 id="storeFormTitle" style="margin-bottom:1rem;">Create Store</h3>
+      <div class="admin-card store-setup-card" id="storeFormCard" hidden>
+        <div class="store-setup-heading">
+          <div>
+            <div class="eyebrow">Store Workspace</div>
+            <h3 id="storeFormTitle">Create Store</h3>
+            <p>Fill the essentials, shape the storefront, then use launch readiness to see what still needs attention.</p>
+          </div>
+          <button type="button" id="storePreviewBtn" class="btn-secondary">Preview Store</button>
+        </div>
         <form id="storeForm">
           <input type="hidden" id="storeEditId">
+          <div id="storeSetupSummary" class="store-setup-summary" aria-live="polite"></div>
 
           <div class="form-row">
             <div class="form-group">
@@ -667,15 +697,14 @@
 
           <hr style="margin:1.5rem 0; border:none; border-top:1px solid #eee;">
 
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
+          <div class="store-setup-wizard-panel">
             <div>
               <h4 style="margin:0;">Store Setup Wizard</h4>
               <p style="margin:0.25rem 0 0; color:#666; font-size:0.9rem;">Quickly apply a starter identity, layout, and launch checklist for a new store.</p>
             </div>
-            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <div class="store-setup-wizard-actions">
               <button type="button" id="storeWizardBakeryBtn" class="btn-secondary">Apply Bakery Starter</button>
               <button type="button" id="storeWizardOrganicBtn" class="btn-secondary">Apply Organic Starter</button>
-              <button type="button" id="storePreviewBtn" class="btn-secondary">Preview Store</button>
             </div>
           </div>
 
@@ -927,9 +956,9 @@
             </div>
           </div>
 
-          <div id="storeLaunchChecklist" style="margin:1.5rem 0; padding:1rem; border:1px solid #e0e0e0; border-radius:8px; background:#fafafa;"></div>
+          <div id="storeLaunchChecklist" class="store-launch-checklist"></div>
 
-          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <div class="store-save-bar">
             <button type="submit" id="storeSaveBtn">Save Store</button>
             <button type="button" id="storeCancelBtn" class="btn-secondary">Cancel</button>
           </div>
@@ -2187,7 +2216,7 @@
     <div id="adminToast" class="admin-toast" role="status" aria-live="polite"></div>
   </div>
 
-  <script type="module" src="/admin/admin.js?v=3.11"></script>
+  <script type="module" src="/admin/admin.js?v=3.12"></script>
   <script type="module">
     // One-time migration runner: only loads when explicitly requested via URL flag.
     // Example: /admin/admin.html?runCompanyIdMigration=true
