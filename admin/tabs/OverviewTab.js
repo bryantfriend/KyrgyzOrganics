@@ -92,7 +92,14 @@ function ensureAbsoluteUrl(value) {
     const raw = String(value || '').trim();
     if (!raw) return '';
     if (/^https?:\/\//i.test(raw)) return raw;
-    return `https://${raw.replace(/^\/+/, '')}`;
+
+    try {
+        if (raw.startsWith('/')) return new URL(raw, window.location.origin).href;
+        if (/^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(raw)) return `https://${raw.replace(/^\/+/, '')}`;
+        return new URL(raw, window.location.origin).href;
+    } catch (_) {
+        return `https://${raw.replace(/^\/+/, '')}`;
+    }
 }
 
 function sortByFieldDesc(items, fieldName) {
@@ -108,11 +115,16 @@ function uniqueById(records = []) {
 }
 
 function getStorePublicUrl(store = {}, companyId = '') {
-    const explicitUrl = store.website || store.publicUrl || store.domain || store.customDomain;
+    const launchStatus = String(store.launchStatus || store.status || '').toLowerCase();
+    const explicitUrl = launchStatus && launchStatus !== 'live'
+        ? store.previewUrl || store.website || store.publicUrl || store.domain || store.customDomain
+        : store.website || store.publicUrl || store.previewUrl || store.domain || store.customDomain;
     if (explicitUrl) return ensureAbsoluteUrl(explicitUrl);
+
     const slug = store.slug || store.storeSlug || companyId;
-    if (!slug || slug === 'kyrgyz-organics') return 'https://oako.kg/';
-    return `https://${slug}.oako.kg/`;
+    if (!slug || slug === 'kyrgyz-organics') return ensureAbsoluteUrl('/');
+    const previewParam = launchStatus && launchStatus !== 'live' ? '&preview=1' : '';
+    return ensureAbsoluteUrl(`/?company=${encodeURIComponent(slug)}${previewParam}`);
 }
 
 function getStoreInitials(store = {}, companyId = '') {

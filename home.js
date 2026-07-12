@@ -4,7 +4,7 @@ import { ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.7.1/fire
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { $, $$, t, loc, setupLanguage, initMobileMenu } from './common.js';
 import { buildProductPageUrl, getDisplayPrice, getDisplayPriceType } from './product-utils.js';
-import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
+import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js?v=2.12.2';
 import { getCheckoutSettingsDocId, getInventoryDocId } from './firestore-paths.js';
 import { loadStoreConfig } from './storefront/store-loader.js';
 import { applyStoreTheme } from './storefront/theme-engine.js';
@@ -60,7 +60,10 @@ function isPreviewMode() {
 function getStoreHomeUrl() {
     const companyId = getCurrentCompanyId();
     if (!companyId || companyId === COMPANY_ID) return '/';
-    return `/${companyId}/`;
+
+    const params = new URLSearchParams({ company: companyId });
+    if (isPreviewMode()) params.set('preview', '1');
+    return `/?${params.toString()}`;
 }
 
 function applyStoreLinks() {

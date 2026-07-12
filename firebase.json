@@ -21,6 +21,14 @@
             {
                 "source": "/:store/admin/admin.html",
                 "destination": "/admin/admin.html"
+            },
+            {
+                "source": "/:store",
+                "destination": "/index.html"
+            },
+            {
+                "source": "/:store/",
+                "destination": "/index.html"
             }
         ]
     }

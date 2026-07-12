@@ -173,9 +173,36 @@ function getCreateOwnerErrorMessage(error) {
   return 'Could not create the store owner user. Please try again.';
 }
 
+function normalizeCompanyId(companyId) {
+  return String(companyId || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/[^a-z0-9-_]/g, '');
+}
+
+function getStorePublicPath(companyId) {
+  const normalized = normalizeCompanyId(companyId);
+  if (!normalized || normalized === COMPANY_ID) return '/';
+  return `/?company=${encodeURIComponent(normalized)}`;
+}
+
 function getStorePreviewPath(companyId) {
-  if (!companyId || companyId === COMPANY_ID) return '/';
-  return `/${String(companyId).replace(/^\/+|\/+$/g, '')}/`;
+  const publicPath = getStorePublicPath(companyId);
+  const separator = publicPath.includes('?') ? '&' : '?';
+  return `${publicPath}${separator}preview=1`;
+}
+
+function withUrlParam(path, key, value) {
+  try {
+    const url = new URL(path, window.location.origin);
+    url.searchParams.set(key, value);
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch (_) {
+    const safePath = String(path || '/');
+    const separator = safePath.includes('?') ? '&' : '?';
+    return `${safePath}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+  }
 }
 
 function safeFileName(name) {
@@ -1672,7 +1699,7 @@ export class StoresTab extends BaseTab {
       <div>
         <span>${escapeHtml(starterLabel)}</span>
         <strong>${escapeHtml(name)}</strong>
-        <small>${escapeHtml(statusText || `Draft ID: ${companyId}`)}</small>
+        <small>${escapeHtml(statusText || `Preview: ${getStorePreviewPath(companyId)}`)}</small>
       </div>
     `;
   }
@@ -1714,6 +1741,8 @@ export class StoresTab extends BaseTab {
       address: '',
       twoGisLink: '',
       website: getStorePreviewPath(companyId),
+      publicUrl: getStorePublicPath(companyId),
+      previewUrl: getStorePreviewPath(companyId),
       email: '',
       whatsapp: '',
       instagram: '',
@@ -1758,7 +1787,9 @@ export class StoresTab extends BaseTab {
       id: companyId,
       name,
       slug: companyId,
-      domain: getStorePreviewPath(companyId),
+      domain: getStorePublicPath(companyId),
+      publicUrl: getStorePublicPath(companyId),
+      previewUrl: getStorePreviewPath(companyId),
       launchStatus: 'draft',
       status: 'active',
       updatedAt: serverTimestamp()
@@ -1871,7 +1902,7 @@ export class StoresTab extends BaseTab {
   refreshPreview() {
     if (!this.previewFrame) return;
     const companyId = String(this.companyId?.value || getSelectedCompanyId()).trim();
-    this.previewFrame.src = `${getStorePreviewPath(companyId)}?preview=${Date.now()}`;
+    this.previewFrame.src = withUrlParam(getStorePreviewPath(companyId), 'previewTs', Date.now());
   }
 
   async editStore(companyId) {
@@ -1922,7 +1953,7 @@ export class StoresTab extends BaseTab {
     const fallback = {
       ...getFallbackStoreConfig(companyId),
       name: store.name || getFallbackStoreConfig(companyId).name,
-      domain: store.website || getFallbackStoreConfig(companyId).domain
+      domain: store.website || store.publicUrl || getStorePublicPath(companyId) || getFallbackStoreConfig(companyId).domain
     };
 
     try {
@@ -2321,7 +2352,9 @@ export class StoresTab extends BaseTab {
       companyId,
       name: storeData.name || fallback.name,
       slug: storeData.slug || companyId,
-      domain: storeData.website || fallback.domain,
+      domain: storeData.publicUrl || storeData.website || fallback.domain,
+      publicUrl: storeData.publicUrl || getStorePublicPath(companyId),
+      previewUrl: storeData.previewUrl || getStorePreviewPath(companyId),
       customDomain: storeData.customDomain || '',
       hosting: storeData.hosting || {},
       contact: storeData.contact || {},
@@ -2432,7 +2465,9 @@ export class StoresTab extends BaseTab {
       phone: String(this.phone?.value || '').trim(),
       address: String(this.address?.value || '').trim(),
       twoGisLink: String(this.twoGisLink?.value || '').trim(),
-      website: String(this.website?.value || '').trim(),
+      website: String(this.website?.value || getStorePreviewPath(companyId)).trim(),
+      publicUrl: getStorePublicPath(companyId),
+      previewUrl: getStorePreviewPath(companyId),
       email: String(this.email?.value || '').trim(),
       whatsapp: String(this.whatsapp?.value || '').trim(),
       instagram: String(this.instagram?.value || '').trim(),
