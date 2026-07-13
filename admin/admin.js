@@ -19,8 +19,9 @@ import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js?v=3.13';
 import { GamesTab } from './tabs/GamesTab.js';
 
-const ADMIN_VERSION = '3.13';
+const ADMIN_VERSION = '3.14';
 const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
+const STORE_ADMIN_ROLES = new Set(['admin', 'owner', 'manager', 'orders', 'products', 'marketing']);
 const PLATFORM_TABS = new Set(['stores', 'analytics', 'audit']);
 
 function getHostname() {
@@ -78,6 +79,10 @@ function isSuperAdminRole(role) {
   return SUPER_ADMIN_ROLES.has(normalizeRole(role));
 }
 
+function isStoreAdminRole(role) {
+  return STORE_ADMIN_ROLES.has(normalizeRole(role));
+}
+
 class AdminAccessError extends Error {
   constructor(message) {
     super(message);
@@ -126,6 +131,7 @@ class AdminApp {
     this.authRecoveryTimer = null;
     this.lastStableUser = null;
     this.logoutRequested = false;
+    this.forcedAuthSignOutMessage = '';
     this.hasResolvedInitialAuth = false;
     this.reconnectToastShown = false;
     this.loginAttemptInFlight = false;
@@ -167,7 +173,7 @@ class AdminApp {
         this.loginAttemptInFlight = false;
         this.authBootstrapInFlight = true;
         this.setLoginUiState({ pending: true, status: 'Loading your admin workspace...' });
-        this.applySignedInShell();
+        this.applySignedOutShell();
 
         try {
           const hostname = getHostname();
@@ -191,6 +197,10 @@ class AdminApp {
           };
 
           const isProdHqHost = hostname === 'oako.kg' || hostname === 'www.oako.kg';
+
+          if (!isLegacyAdmin && !isSuperAdminRole(role) && !isStoreAdminRole(role)) {
+            throw new AdminAccessError('This account does not have admin dashboard access. Please sign in with an admin account.');
+          }
 
           // Superadmin powers require an explicit role, except for the legacy HQ root
           // account path still allowed by Firestore rules.
@@ -240,6 +250,7 @@ class AdminApp {
           this.applyRoleUi();
           await this.refreshHeaderContext();
           this.authBootstrapInFlight = false;
+          this.applySignedInShell();
           this.resumeLiveTabs();
           this.onLogin();
           this.loginForm?.reset();
@@ -251,25 +262,17 @@ class AdminApp {
           const errorP = document.getElementById('loginError');
           if (errorP) errorP.textContent = message;
           this.setLoginUiState({ pending: false, status: '' });
-          if (err instanceof AdminAccessError) {
-            this.applySignedOutShell();
-            this.isSuperAdmin = false;
-            this.logoutRequested = true;
-            this.lastStableUser = null;
-            this.applyRoleUi();
-            this.pauseLiveTabs('Admin access needs the correct store context.');
-            this.showToast(message, 'error');
-            signOut(auth).catch((signOutErr) => {
-              console.warn('Failed to sign out after admin context error:', signOutErr);
-            });
-            return;
-          }
-
+          this.applySignedOutShell();
+          this.isSuperAdmin = false;
+          this.logoutRequested = false;
+          this.forcedAuthSignOutMessage = message;
+          this.lastStableUser = null;
           this.applyRoleUi();
-          this.applySignedInShell();
-          this.resumeLiveTabs();
-          this.onLogin();
-          this.showToast(`Session kept active. ${message}`, 'error');
+          this.pauseLiveTabs('Admin access needs a verified session.');
+          this.showToast(message, 'error');
+          signOut(auth).catch((signOutErr) => {
+            console.warn('Failed to sign out after admin context error:', signOutErr);
+          });
         }
       } else {
         this.handleSignedOutState();
@@ -410,6 +413,19 @@ class AdminApp {
       return;
     }
 
+    if (this.forcedAuthSignOutMessage) {
+      const message = this.forcedAuthSignOutMessage;
+      this.forcedAuthSignOutMessage = '';
+      this.clearAuthRecoveryTimer();
+      this.clearLoginAttemptTimer();
+      this.lastStableUser = null;
+      this.reconnectToastShown = false;
+      this.loginAttemptInFlight = false;
+      this.authBootstrapInFlight = false;
+      this.setLoginUiState({ pending: false, status: '', error: message });
+      this.applySignedOutShell();
+      return;
+    }
     if (this.logoutRequested) {
       this.clearAuthRecoveryTimer();
       this.clearLoginAttemptTimer();
@@ -441,7 +457,8 @@ class AdminApp {
       return;
     }
 
-    this.applySignedInShell();
+    this.applySignedOutShell();
+    this.setLoginUiState({ pending: true, status: 'Reconnecting your session...' });
     if (!this.reconnectToastShown) {
       this.showToast('Reconnecting your session...', 'warning');
       this.reconnectToastShown = true;
@@ -463,8 +480,22 @@ class AdminApp {
     }, recoveryGraceMs);
   }
 
+  stopTabListeners(tab) {
+    if (!tab) return;
+    Object.keys(tab).forEach((key) => {
+      if (!/unsubscribe/i.test(key) || typeof tab[key] !== 'function') return;
+      try {
+        tab[key]();
+      } catch (err) {
+        console.warn(`Failed to stop ${key}:`, err);
+      }
+      tab[key] = null;
+    });
+  }
+
   pauseLiveTabs(message = 'Session reconnecting...') {
     Object.values(this.tabs).forEach((tab) => {
+      this.stopTabListeners(tab);
       if (typeof tab?.pauseLiveUpdates === 'function') {
         tab.pauseLiveUpdates(message);
       }
