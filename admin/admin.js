@@ -1,6 +1,6 @@
 import { auth, db } from '../firebase-config.js';
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { ensureBaseCompanies, getUserProfile, login } from '../tenant-auth.js';
+import { ensureBaseCompanies, getUserProfile, login } from '../tenant-auth.js?v=3.15';
 import { COMPANY_ID } from '../company-config.js';
 import { getSelectedCompanyId, loadSelectedCompany, setSelectedCompany } from '../store-context.js';
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
@@ -19,7 +19,7 @@ import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js?v=3.13';
 import { GamesTab } from './tabs/GamesTab.js';
 
-const ADMIN_VERSION = '3.14';
+const ADMIN_VERSION = '3.15';
 const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
 const STORE_ADMIN_ROLES = new Set(['admin', 'owner', 'manager', 'orders', 'products', 'marketing']);
 const PLATFORM_TABS = new Set(['stores', 'analytics', 'audit']);
@@ -164,6 +164,21 @@ class AdminApp {
   setupAuth() {
     onAuthStateChanged(auth, async user => {
       if (user) {
+        const explicitLoginAttempt = this.loginAttemptInFlight === true;
+        if (!explicitLoginAttempt) {
+          this.hasResolvedInitialAuth = true;
+          this.lastStableUser = null;
+          this.authBootstrapInFlight = false;
+          this.loginAttemptInFlight = false;
+          this.applySignedOutShell();
+          this.setLoginUiState({ pending: false, status: '', error: '' });
+          this.pauseLiveTabs('Sign in required.');
+          signOut(auth).catch((signOutErr) => {
+            console.warn('Failed to clear cached admin session:', signOutErr);
+          });
+          return;
+        }
+
         this.clearLoginAttemptTimer();
         this.hasResolvedInitialAuth = true;
         this.lastStableUser = user;
@@ -298,7 +313,7 @@ class AdminApp {
           this.authBootstrapInFlight = false;
           this.clearLoginAttemptTimer();
           this.setLoginUiState({ pending: true, status: 'Signing you in...', error: '' });
-          await login(email, pwd);
+          await login(email, pwd, { persistence: 'memory' });
           if (errorP) errorP.textContent = '';
           this.setLoginUiState({ pending: true, status: 'Loading your admin workspace...' });
           this.loginAttemptTimer = window.setTimeout(() => {

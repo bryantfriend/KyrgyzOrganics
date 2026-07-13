@@ -1,10 +1,11 @@
 import { auth, db } from './firebase-config.js';
-import { browserLocalPersistence, setPersistence, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { browserLocalPersistence, inMemoryPersistence, setPersistence, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { doc, getDoc, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { COMPANY_ID, setCompanyId } from './company-config.js';
 
-export async function login(email, password) {
-    await setPersistence(auth, browserLocalPersistence);
+export async function login(email, password, options = {}) {
+    const persistence = options.persistence === 'memory' ? inMemoryPersistence : browserLocalPersistence;
+    await setPersistence(auth, persistence);
     return signInWithEmailAndPassword(auth, email, password);
 }
 
