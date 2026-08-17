@@ -28,7 +28,12 @@ async function init() {
     initMobileMenu();
     currentUserProfile = await loadCurrentUserProfile();
 
-    await Promise.all([loadCategories(), loadInventory()]);
+    const supportingDataResults = await Promise.allSettled([loadCategories(), loadInventory()]);
+    supportingDataResults.forEach((result, index) => {
+        if (result.status === 'rejected') {
+            console.warn(index === 0 ? 'Product categories failed to load:' : 'Product inventory failed to load:', result.reason);
+        }
+    });
     const product = await loadProductFromUrl();
 
     if (!product) {
@@ -49,7 +54,7 @@ function getTodayKey() {
 }
 
 async function loadCategories() {
-    const snap = await getDocs(collection(db, 'categories'));
+    const snap = await getDocs(query(collection(db, 'categories'), where('active', '==', true)));
     snap.forEach((docSnap) => {
         const category = { id: docSnap.id, ...docSnap.data() };
         if (!matchesCompanyId(category, `categories/${category.id}`)) return;
@@ -86,6 +91,7 @@ async function loadProductFromUrl() {
         const productQuery = query(
             collection(db, 'products'),
             where('slug', '==', slug),
+            where('active', '==', true),
             limit(5)
         );
         const snap = await getDocs(productQuery);
@@ -221,9 +227,36 @@ function renderExternalActions(product) {
     html += '</div></section>';
     return html;
 }
+
+function getProductReturnContext() {
+    const params = new URLSearchParams(window.location.search);
+    const collectionSlug = params.get('collectionSlug');
+    const collectionId = params.get('collectionId');
+    if (!collectionSlug && !collectionId) {
+        return {
+            url: getStoreHomeUrl(),
+            label: t('back_to_catalog'),
+            collectionName: ''
+        };
+    }
+
+    const returnUrl = new URL('/collection.html', window.location.origin);
+    if (collectionSlug) returnUrl.searchParams.set('slug', collectionSlug);
+    else returnUrl.searchParams.set('id', collectionId);
+    const companyId = params.get('company');
+    if (companyId) returnUrl.searchParams.set('company', companyId);
+    const collectionName = String(params.get('collectionName') || 'Collection').trim();
+    return {
+        url: `${returnUrl.pathname}${returnUrl.search}`,
+        label: `← Back to ${collectionName}`,
+        collectionName
+    };
+}
+
 function renderMissingState() {
+    const returnContext = getProductReturnContext();
     root.innerHTML = `
-        <a href="${getStoreHomeUrl()}" class="text-link-inline">${t('back_to_catalog')}</a>
+        <a href="${escapeHtml(returnContext.url)}" class="text-link-inline">${escapeHtml(returnContext.label)}</a>
         <div class="product-page-layout" style="margin-top:1rem;">
             <div class="product-page-info">
                 <h1 class="section-title" style="margin-top:0;">${t('product_not_found')}</h1>
@@ -246,11 +279,13 @@ function renderProductPage(product) {
     const displayPrice = getDisplayPrice(product, currentUserProfile);
     const priceType = getDisplayPriceType(product, currentUserProfile);
     const externalActions = renderExternalActions(product);
+    const returnContext = getProductReturnContext();
 
     root.innerHTML = `
         <nav class="product-breadcrumbs">
             <a href="${getStoreHomeUrl()}">${t('home')}</a>
             <span>/</span>
+            ${returnContext.collectionName ? `<a href="${escapeHtml(returnContext.url)}">${escapeHtml(returnContext.collectionName)}</a><span>/</span>` : ''}
             <span>${categoryName || t('product_details')}</span>
         </nav>
 
@@ -270,7 +305,7 @@ function renderProductPage(product) {
             </div>
 
             <div class="product-page-info">
-                <a href="${getStoreHomeUrl()}" class="text-link-inline">${t('back_to_catalog')}</a>
+                <a href="${escapeHtml(returnContext.url)}" class="text-link-inline">${escapeHtml(returnContext.label)}</a>
                 <div class="modal-category" style="margin-top:1rem;">${categoryName}</div>
                 <h1 class="product-page-title">${loc(product, 'name')}</h1>
                 <div class="product-page-price-row">
@@ -467,5 +502,8 @@ function updateMeta(product) {
     }
 }
 
-init();
+init().catch((error) => {
+    console.error('Product page failed to initialize:', error);
+    renderMissingState();
+});
 

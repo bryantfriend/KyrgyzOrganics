@@ -1,7 +1,7 @@
 import { BaseTab } from './BaseTab.js';
 import { db, functions, httpsCallable } from '../../firebase-config.js';
 import { uploadImage, logAudit } from '../utils.js';
-import { buildProductPageUrl, getBusinessPrice, getPreferredProductName, getRetailPrice, slugifyProductName } from '../../product-utils.js';
+import { buildCollectionPageUrl, buildProductPageUrl, getBusinessPrice, getPreferredProductName, getRetailPrice, slugifyProductName } from '../../product-utils.js';
 import {
     PRODUCT_EXTERNAL_LINK_TYPES,
     PRODUCT_LINK_TYPE_LABELS,
@@ -246,6 +246,21 @@ export class ProductsTab extends BaseTab {
             || document.getElementById('pNameKG').value;
 
         return this.generateUniqueSlug(name, currentId);
+    }
+
+    generateUniqueCollectionSlug(value, currentId = '') {
+        const base = slugifyProductName(value) || 'collection';
+        const existing = new Set(
+            this.collectionsCache
+                .filter((item) => item.id !== currentId)
+                .map((item) => String(item.slug || '').trim())
+                .filter(Boolean)
+        );
+        if (!existing.has(base)) return base;
+
+        let suffix = 2;
+        while (existing.has(`${base}-${suffix}`)) suffix += 1;
+        return `${base}-${suffix}`;
     }
 
     async loadCategories() {
@@ -545,13 +560,15 @@ export class ProductsTab extends BaseTab {
         this.collectionList.innerHTML = '';
         this.collectionsCache.forEach(collectionData => {
             const productCount = Array.isArray(collectionData.productIds) ? collectionData.productIds.length : 0;
+            const pageUrl = buildCollectionPageUrl(collectionData);
             const el = document.createElement('div');
             el.className = 'list-item';
             el.innerHTML = `
                 <div style="flex:1;">
                     <strong>${collectionData.name || collectionData.slug || collectionData.id}</strong>
-                    <div style="color:#666; font-size:0.9rem;">${productCount} products • ${collectionData.showOnHomepage ? 'Homepage' : 'Hidden from homepage'} • ${collectionData.active === false ? 'Inactive' : 'Active'}</div>
+                    <div style="color:#666; font-size:0.9rem;">${productCount} products • ${collectionData.active === false ? 'Inactive' : 'Active'}</div>
                     ${collectionData.description ? `<div style="color:#777; font-size:0.85rem;">${collectionData.description}</div>` : ''}
+                    <a href="${this.escapeHtml(pageUrl)}" target="_blank" rel="noopener" style="display:inline-block; margin-top:0.35rem; font-size:0.85rem; color:#2e7d32;">${this.escapeHtml(pageUrl)}</a>
                 </div>
                 <div style="display:flex; gap:0.5rem;">
                     <button class="btn-secondary" type="button" data-action="edit-collection" data-id="${collectionData.id}">Edit</button>
@@ -573,11 +590,11 @@ export class ProductsTab extends BaseTab {
         const data = {
             companyId: getSelectedCompanyId(),
             name,
-            slug: slugifyProductName(this.collectionSlug?.value || name),
+            slug: this.generateUniqueCollectionSlug(this.collectionSlug?.value || name, id),
             description: String(this.collectionDescription?.value || '').trim(),
             order: Number(this.collectionOrder?.value || 0),
             active: this.collectionActive ? this.collectionActive.checked : true,
-            showOnHomepage: this.collectionHomepage ? this.collectionHomepage.checked : false,
+            showOnHomepage: true,
             productIds: this.getSelectedCollectionProductIds(),
             updatedAt: serverTimestamp()
         };
@@ -610,7 +627,7 @@ export class ProductsTab extends BaseTab {
         if (this.collectionDescription) this.collectionDescription.value = collectionData.description || '';
         if (this.collectionOrder) this.collectionOrder.value = collectionData.order || 0;
         if (this.collectionActive) this.collectionActive.checked = collectionData.active !== false;
-        if (this.collectionHomepage) this.collectionHomepage.checked = collectionData.showOnHomepage === true;
+        if (this.collectionHomepage) this.collectionHomepage.checked = true;
         if (this.collectionSubmitBtn) this.collectionSubmitBtn.textContent = 'Update Collection';
         if (this.collectionCancelBtn) this.collectionCancelBtn.style.display = 'inline-block';
         this.renderCollectionProductPicker(collectionData.productIds || []);
@@ -629,7 +646,7 @@ export class ProductsTab extends BaseTab {
         this.collectionForm?.reset?.();
         if (this.collectionId) this.collectionId.value = '';
         if (this.collectionActive) this.collectionActive.checked = true;
-        if (this.collectionHomepage) this.collectionHomepage.checked = false;
+        if (this.collectionHomepage) this.collectionHomepage.checked = true;
         if (this.collectionOrder) this.collectionOrder.value = 0;
         if (this.collectionSubmitBtn) this.collectionSubmitBtn.textContent = 'Save Collection';
         if (this.collectionCancelBtn) this.collectionCancelBtn.style.display = 'none';

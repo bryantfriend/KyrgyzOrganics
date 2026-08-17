@@ -1458,6 +1458,17 @@ body.has-sticky-cart .footer {
     margin: 0 0 0.35rem;
 }
 
+.collection-card-title-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.collection-card-title-link:hover,
+.collection-card-title-link:focus-visible {
+    color: var(--color-accent);
+    text-decoration: underline;
+}
+
 .collection-card p {
     color: var(--color-text-light);
     margin: 0;
@@ -1541,6 +1552,161 @@ body.has-sticky-cart .footer {
     border-color: var(--color-primary);
     background: var(--color-primary-light);
     outline: none;
+}
+
+.collection-card-view-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    border-radius: var(--button-radius);
+    background: var(--color-primary-dark);
+    color: #ffffff;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.collection-card-view-link:hover,
+.collection-card-view-link:focus-visible {
+    background: var(--color-accent);
+}
+
+.collection-page-shell {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.collection-page-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem 2rem;
+    align-items: end;
+    padding: clamp(1.25rem, 4vw, 2.25rem);
+    border: 1px solid var(--color-border);
+    border-radius: calc(var(--radius) * 1.25);
+    background:
+        radial-gradient(circle at top right, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 42%),
+        var(--color-white);
+    box-shadow: var(--shadow-sm);
+}
+
+.collection-page-kicker {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--color-primary-dark);
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.collection-page-header h1 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: clamp(2rem, 6vw, 3.4rem);
+    line-height: 1.05;
+}
+
+.collection-page-header p {
+    max-width: 720px;
+    margin: 0.75rem 0;
+    color: var(--color-text-light);
+    font-size: 1.05rem;
+    line-height: 1.6;
+}
+
+.collection-page-header-actions {
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.collection-page-header .product-share-status {
+    grid-column: 1 / -1;
+}
+
+.collection-page-products {
+    min-width: 0;
+}
+
+.collection-page-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+.collection-page-product-card {
+    cursor: default;
+}
+
+.collection-page-product-image,
+.collection-page-product-card .product-title a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.collection-page-product-card .product-title a:hover,
+.collection-page-product-card .product-title a:focus-visible {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+}
+
+.collection-page-card-actions {
+    display: grid;
+    gap: 0.55rem;
+    margin-top: 1rem;
+}
+
+.collection-page-card-actions .secondary-pill,
+.collection-page-buy-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 42px;
+    padding: 0.62rem 0.75rem;
+    border-radius: var(--button-radius);
+    font-size: 0.84rem;
+    font-weight: 800;
+    text-align: center;
+    text-decoration: none;
+}
+
+.collection-page-buy-link {
+    border: 1px solid var(--color-primary-dark);
+    background: var(--color-primary-dark);
+    color: #ffffff;
+}
+
+.collection-page-buy-link:hover,
+.collection-page-buy-link:focus-visible {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+}
+
+.collection-page-empty {
+    grid-column: 1 / -1;
+    padding: 2rem;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-white);
+    color: var(--color-text-light);
+    text-align: center;
+}
+
+@media (max-width: 720px) {
+    .collection-page-header {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .collection-page-header-actions {
+        justify-content: stretch;
+    }
+
+    .collection-page-header-actions > * {
+        flex: 1;
+    }
 }
 
 .carousel-slide {

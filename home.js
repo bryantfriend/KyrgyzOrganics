@@ -3,7 +3,7 @@ import { collection, getDocs, query, where, doc, getDoc, addDoc, serverTimestamp
 import { ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { $, $$, t, loc, setupLanguage, initMobileMenu } from './common.js';
-import { buildProductPageUrl, getDisplayPrice, getDisplayPriceType } from './product-utils.js';
+import { buildCollectionPageUrl, buildProductPageUrl, getDisplayPrice, getDisplayPriceType } from './product-utils.js';
 import {
     getProductExternalLinkCtaLabel,
     getProductExternalLinkProviderName,
@@ -498,7 +498,7 @@ async function loadData() {
             getDocs(query(collection(db, "products"), where("active", "==", true))),
             getDocs(query(collection(db, "categories"), where("active", "==", true))),
             getDocs(query(collection(db, "payment_methods"), where("active", "==", true))),
-            getDocs(query(collection(db, "product_collections"), where("active", "==", true), where("showOnHomepage", "==", true)))
+            getDocs(query(collection(db, "product_collections"), where("active", "==", true)))
         ]);
 
         const pRes = results[0].status === 'fulfilled' ? results[0].value : { docs: [] };
@@ -595,10 +595,12 @@ function renderProductCollections() {
     }
 
     productCollectionsSection.hidden = false;
-    productCollectionsGrid.innerHTML = visible.map(collectionItem => `
+    productCollectionsGrid.innerHTML = visible.map(collectionItem => {
+        const collectionPageUrl = buildCollectionPageUrl(collectionItem);
+        return `
         <article class="collection-card" data-collection-id="${escapeHtml(collectionItem.id)}">
             <div>
-                <h3>${escapeHtml(collectionItem.name || 'Collection')}</h3>
+                <h3><a class="collection-card-title-link" href="${escapeHtml(collectionPageUrl)}">${escapeHtml(collectionItem.name || 'Collection')}</a></h3>
                 ${collectionItem.description ? `<p>${escapeHtml(collectionItem.description)}</p>` : ''}
             </div>
             <div class="collection-card-products">
@@ -609,8 +611,10 @@ function renderProductCollections() {
                     </button>
                 `).join('')}
             </div>
+            <a class="collection-card-view-link" href="${escapeHtml(collectionPageUrl)}">View Collection →</a>
         </article>
-    `).join('');
+    `;
+    }).join('');
 
     productCollectionsGrid.querySelectorAll('[data-collection-product-id]').forEach((button) => {
         button.addEventListener('click', () => {

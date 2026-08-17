@@ -29,6 +29,17 @@ export function buildProductPageUrl(product) {
     return `/product.html?id=${encodeURIComponent(product?.id || '')}${companyParam}`;
 }
 
+export function buildCollectionPageUrl(collection) {
+    const companyId = getCurrentCompanyId();
+    const companyParam = companyId && companyId !== COMPANY_ID ? `&company=${encodeURIComponent(companyId)}` : '';
+    const slug = collection?.slug;
+    if (slug) {
+        return `/collection.html?slug=${encodeURIComponent(slug)}${companyParam}`;
+    }
+
+    return `/collection.html?id=${encodeURIComponent(collection?.id || '')}${companyParam}`;
+}
+
 function hasOwnValue(source, key) {
     return source
         && Object.prototype.hasOwnProperty.call(source, key)

@@ -19,6 +19,7 @@ const RESERVED_PATH_SEGMENTS = new Set([
     'contact.html',
     'cart.html',
     'checkout.html',
+    'collection.html',
     'index.html',
     'product.html',
     'business-register.html',
