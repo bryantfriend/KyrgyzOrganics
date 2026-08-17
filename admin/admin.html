@@ -6,7 +6,7 @@
   <title>OA Kyrgyz Organic – Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="stylesheet" href="/admin/adminStyles.css" />
+  <link rel="stylesheet" href="/admin/adminStyles.css?v=3.18" />
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 </head>
@@ -42,7 +42,7 @@
           <div class="admin-header-subtitle">
             <span id="headerStoreDomain">oako.kg</span>
             <span id="storePill">Store: kyrgyz-organics</span>
-            <span id="adminVersionPill" class="admin-version-pill">Admin v3.15</span>
+            <span id="adminVersionPill" class="admin-version-pill">Admin v3.18</span>
           </div>
         </div>
       </div>
@@ -1341,7 +1341,10 @@
           </div>
           <div class="form-group">
             <label>Products in Collection</label>
-            <div id="collectionProductPicker" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.35rem; max-height:260px; overflow:auto; border:1px solid #eee; border-radius:8px; padding:0.75rem; background:#fafafa;"></div>
+            <div class="collection-picker-summary">
+              <div id="collectionProductPicker"></div>
+              <button type="button" id="openCollectionProductsBtn" class="btn-secondary">Choose Products</button>
+            </div>
           </div>
           <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:1rem;">
             <button type="submit" id="collectionSubmitBtn">Save Collection</button>
@@ -1364,6 +1367,32 @@
           <span id="yandexMenuStatus">Paste a restaurant URL and import its menu.</span>
         </div>
         <div id="yandexMenuResults" class="yandex-menu-results"></div>
+      </div>
+    </div>
+
+    <div id="collectionProductsModal" class="modal hidden" aria-hidden="true">
+      <div class="modal-panel collection-products-panel" role="dialog" aria-modal="true" aria-labelledby="collectionProductsTitle">
+        <div class="modal-header">
+          <div>
+            <span class="modal-kicker">Collection Builder</span>
+            <h3 id="collectionProductsTitle">Choose Products</h3>
+            <p class="collection-products-subtitle">Select any number of products for this collection.</p>
+          </div>
+          <button type="button" id="closeCollectionProductsBtn" class="icon-button" aria-label="Close product picker">&times;</button>
+        </div>
+        <div class="collection-products-toolbar">
+          <input type="search" id="collectionProductsSearch" placeholder="Search products by name">
+          <div class="collection-products-toolbar-actions">
+            <button type="button" id="selectAllCollectionProductsBtn" class="btn-secondary">Select All</button>
+            <button type="button" id="clearCollectionProductsBtn" class="btn-secondary">Clear All</button>
+          </div>
+        </div>
+        <div class="collection-products-status" id="collectionProductsCount" aria-live="polite">0 products selected</div>
+        <div id="collectionProductsGrid" class="collection-products-grid"></div>
+        <div class="collection-products-footer">
+          <button type="button" id="cancelCollectionProductsBtn" class="btn-secondary">Cancel</button>
+          <button type="button" id="confirmCollectionProductsBtn" class="btn-primary">Add Selected Products</button>
+        </div>
       </div>
     </div>
 
@@ -2216,14 +2245,14 @@
     <div id="adminToast" class="admin-toast" role="status" aria-live="polite"></div>
   </div>
 
-  <script type="module" src="/admin/admin.js?v=3.15"></script>
+  <script type="module" src="/admin/admin.js?v=3.18"></script>
   <script type="module">
     // One-time migration runner: only loads when explicitly requested via URL flag.
     // Example: /admin/admin.html?runCompanyIdMigration=true
     try {
       const params = new URLSearchParams(window.location.search);
       if (params.get('runCompanyIdMigration') === 'true') {
-        import('/migrate-companyId.js');
+        import('/migrate-companyId.js?v=2');
       }
     } catch (_) {
       // ignore

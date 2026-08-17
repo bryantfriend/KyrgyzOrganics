@@ -1,4 +1,5 @@
 import { auth, db } from '../../firebase-config.js';
+import { getSelectedCompanyId, matchesSelectedCompany } from '../../store-context.js';
 import { logAudit } from '../utils.js';
 import { BaseTab } from './BaseTab.js';
 import {
@@ -21,19 +22,37 @@ export class BusinessAccountsTab extends BaseTab {
 
     loadApplications() {
         if (this.unsubscribe) this.unsubscribe();
+        if (this.list) {
+            this.list.innerHTML = '<p style="color:#666; padding:1rem;">Loading business applications...</p>';
+        }
 
+        // Keep this query compatible with legacy applications that predate
+        // companyId. matchesSelectedCompany assigns those records to the
+        // default store until the companyId migration has been run.
         const q = query(
             collection(db, 'users'),
-            where('accountType', '==', 'business'),
             where('businessStatus', '==', 'pending')
         );
 
         this.unsubscribe = onSnapshot(q, function (snapshot) {
             this.applications = snapshot.docs.map(function (docSnap) {
                 return Object.assign({ id: docSnap.id }, docSnap.data());
+            }).filter(function (profile) {
+                return profile.accountType === 'business'
+                    && matchesSelectedCompany(profile, profile.id);
             });
             this.renderApplications();
+        }.bind(this), function (error) {
+            console.error('Business applications failed to load:', error);
+            if (this.list) {
+                this.list.innerHTML = '<p style="color:#b3261e; padding:1rem;">Business applications could not be loaded. Check your access and try again.</p>';
+            }
         }.bind(this));
+    }
+
+    onStoreChanged() {
+        if (!this.isInitialized) return;
+        this.loadApplications();
     }
 
     renderApplications() {
@@ -66,6 +85,7 @@ export class BusinessAccountsTab extends BaseTab {
         if (!confirm('Approve this business account for business pricing?')) return;
 
         await updateDoc(doc(db, 'users', uid), {
+            companyId: getSelectedCompanyId(),
             businessStatus: 'approved',
             approvedAt: serverTimestamp(),
             approvedBy: auth.currentUser ? auth.currentUser.uid : '',
@@ -79,6 +99,7 @@ export class BusinessAccountsTab extends BaseTab {
         if (!confirm('Reject this business account application?')) return;
 
         await updateDoc(doc(db, 'users', uid), {
+            companyId: getSelectedCompanyId(),
             businessStatus: 'rejected',
             updatedAt: serverTimestamp()
         });

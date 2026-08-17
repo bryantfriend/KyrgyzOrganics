@@ -6,20 +6,20 @@ import { getSelectedCompanyId, loadSelectedCompany, setSelectedCompany } from '.
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { CategoriesTab } from './tabs/CategoriesTab.js';
 import { OverviewTab } from './tabs/OverviewTab.js?v=3.13';
-import { ProductsTab } from './tabs/ProductsTab.js?v=3.12';
+import { ProductsTab } from './tabs/ProductsTab.js?v=3.18';
 import { BannersTab } from './tabs/BannersTab.js';
 import { ContentTab } from './tabs/ContentTab.js';
 import { InventoryTab } from './tabs/InventoryTab.js';
 import { SettingsTab } from './tabs/SettingsTab.js';
 import { OrdersTab } from './tabs/OrdersTab.js';
-import { BusinessAccountsTab } from './tabs/BusinessAccountsTab.js';
+import { BusinessAccountsTab } from './tabs/BusinessAccountsTab.js?v=3.18';
 import { AuditTab } from './tabs/AuditTab.js';
 import { AnalyticsTab } from './tabs/AnalyticsTab.js';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js?v=3.13';
 import { GamesTab } from './tabs/GamesTab.js';
 
-const ADMIN_VERSION = '3.15';
+const ADMIN_VERSION = '3.18';
 const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
 const STORE_ADMIN_ROLES = new Set(['admin', 'owner', 'manager', 'orders', 'products', 'marketing']);
 const PLATFORM_TABS = new Set(['stores', 'analytics', 'audit']);

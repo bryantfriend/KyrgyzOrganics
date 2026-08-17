@@ -4,18 +4,20 @@ export var PRODUCT_EXTERNAL_LINK_TYPES = [
     'glovo',
     'yandex',
     'map',
+    'optima_payda',
     'website',
     'other'
 ];
 
 export var DEFAULT_PRODUCT_LINK_LABELS = {
-    whatsapp: 'Order on WhatsApp',
-    telegram: 'Order on Telegram',
-    glovo: 'Order on Glovo',
-    yandex: 'Order on Yandex',
+    whatsapp: 'Buy now through WhatsApp',
+    telegram: 'Buy now through Telegram',
+    glovo: 'Buy now through Glovo',
+    yandex: 'Buy now through Yandex',
     map: 'View Location',
-    website: 'Order on Website',
-    other: 'Open Link'
+    optima_payda: 'Buy now through Optima PayDa!',
+    website: 'Buy now through Website',
+    other: 'Buy now through this seller'
 };
 
 export var PRODUCT_LINK_TYPE_LABELS = {
@@ -24,12 +26,54 @@ export var PRODUCT_LINK_TYPE_LABELS = {
     glovo: 'Glovo',
     yandex: 'Yandex',
     map: 'Map / Physical Location',
+    optima_payda: 'Optima PayDa!',
     website: 'Website',
     other: 'Other'
 };
 
 export function getDefaultProductLinkLabel(type) {
     return DEFAULT_PRODUCT_LINK_LABELS[type] || DEFAULT_PRODUCT_LINK_LABELS.other;
+}
+
+export function getProductExternalLinkCtaLabel(link) {
+    var type = String(link && link.type ? link.type : 'other').trim().toLowerCase();
+    var savedLabel = String(link && link.label ? link.label : '').trim();
+
+    // Location links are informational rather than purchase actions.
+    if (type === 'map') return savedLabel || getDefaultProductLinkLabel(type);
+
+    var provider = getProductExternalLinkProviderName(link);
+    return 'Buy now through ' + provider;
+}
+
+export function getProductExternalLinkProviderName(link) {
+    var type = String(link && link.type ? link.type : 'other').trim().toLowerCase();
+    if (type !== 'other' && PRODUCT_LINK_TYPE_LABELS[type]) {
+        return PRODUCT_LINK_TYPE_LABELS[type];
+    }
+
+    var savedLabel = String(link && link.label ? link.label : '').trim();
+    if (savedLabel && savedLabel !== DEFAULT_PRODUCT_LINK_LABELS.other) {
+        var providerFromLabel = savedLabel
+            .replace(/^(?:buy\s+now\s+|buy\s+|order\s+)(?:through|on|with|via)\s+/i, '')
+            .replace(/^pay\s+with\s+/i, '')
+            .replace(/^open\s+/i, '')
+            .trim();
+        if (providerFromLabel && providerFromLabel.toLowerCase() !== 'link') {
+            return providerFromLabel;
+        }
+    }
+
+    var url = sanitizeProductExternalUrl(link && link.url ? link.url : '');
+    if (url) {
+        try {
+            return new URL(url).hostname.replace(/^www\./i, '');
+        } catch (error) {
+            // The URL was already sanitized; keep the generic fallback defensive.
+        }
+    }
+
+    return 'this seller';
 }
 
 export function isSupportedProductLinkType(type) {

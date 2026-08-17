@@ -3,7 +3,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from "https://w
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl, getDisplayPrice, getDisplayPriceType } from './product-utils.js';
-import { getProductExternalLinks, PRODUCT_LINK_TYPE_LABELS } from './product-external-links.mjs';
+import { getProductExternalLinkCtaLabel, getProductExternalLinkProviderName, getProductExternalLinks } from './product-external-links.mjs';
 import { trackProductExternalLinkClickIntent } from './product-external-links.service.js';
 import { addCartItem, formatPrice, loadCart, saveCart, saveCartDay } from './shop-utils.js';
 import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
@@ -185,6 +185,7 @@ function getProductLinkIcon(type) {
         glovo: 'G',
         yandex: 'Y',
         map: 'M',
+        optima_payda: 'P',
         website: '↗',
         other: '↗'
     };
@@ -194,8 +195,9 @@ function getProductLinkIcon(type) {
 
 function getProductLinkHelperText(link) {
     if (link.type === 'map') return 'Open map or location details';
+    if (link.type === 'optima_payda') return 'Open Optima PayDa payment link';
     if (link.type === 'website') return 'Open the order page';
-    return PRODUCT_LINK_TYPE_LABELS[link.type] || 'External order option';
+    return 'Open ' + getProductExternalLinkProviderName(link) + ' to buy this product';
 }
 
 function renderExternalActions(product) {
@@ -210,8 +212,9 @@ function renderExternalActions(product) {
         '<div class="product-external-actions">';
 
     links.forEach((link) => {
-        html += '<a class="external-action ' + escapeHtml(link.type) + '" href="' + escapeHtml(link.url) + '" target="_blank" rel="noopener noreferrer" data-product-external-link-id="' + escapeHtml(link.id) + '">' +
-            '<span>' + escapeHtml(getProductLinkIcon(link.type)) + '</span><strong>' + escapeHtml(link.label) + '</strong><small>' + escapeHtml(getProductLinkHelperText(link)) + '</small>' +
+        const ctaLabel = getProductExternalLinkCtaLabel(link);
+        html += '<a class="external-action ' + escapeHtml(link.type) + '" href="' + escapeHtml(link.url) + '" target="_blank" rel="noopener noreferrer" aria-label="' + escapeHtml(ctaLabel) + '" data-product-external-link-id="' + escapeHtml(link.id) + '">' +
+            '<span aria-hidden="true">' + escapeHtml(getProductLinkIcon(link.type)) + '</span><div class="external-action-copy"><strong>' + escapeHtml(ctaLabel) + '</strong><small>' + escapeHtml(getProductLinkHelperText(link)) + '</small></div>' +
         '</a>';
     });
 

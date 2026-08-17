@@ -4,6 +4,12 @@ import { ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.7.1/fire
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { $, $$, t, loc, setupLanguage, initMobileMenu } from './common.js';
 import { buildProductPageUrl, getDisplayPrice, getDisplayPriceType } from './product-utils.js';
+import {
+    getProductExternalLinkCtaLabel,
+    getProductExternalLinkProviderName,
+    getProductExternalLinks,
+} from './product-external-links.mjs';
+import { trackProductExternalLinkClickIntent } from './product-external-links.service.js';
 import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js?v=2.12.2';
 import { getCheckoutSettingsDocId, getInventoryDocId } from './firestore-paths.js';
 import { loadStoreConfig } from './storefront/store-loader.js';
@@ -44,6 +50,8 @@ let activeStoreName = 'OA Kyrgyz Organic';
 let activeStoreConfig = null;
 let storefrontSessionId = '';
 let currentUserProfile = null;
+let productModalReturnScrollY = 0;
+let productModalReturnTarget = null;
 
 function revealStorefront() {
     document.documentElement.classList.remove('storefront-booting');
@@ -305,7 +313,10 @@ async function saveCustomerProfile(user, data) {
         role: 'customer',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-    }, data);
+    }, data, {
+        // Bind the account to the storefront being browsed at signup time.
+        companyId: getCurrentCompanyId()
+    });
 
     await setDoc(doc(db, 'users', user.uid), profileData, { merge: true });
     currentUserProfile = profileData;
@@ -574,7 +585,7 @@ function renderProductCollections() {
     const visible = productCollections
         .map(collectionItem => ({
             ...collectionItem,
-            products: products.filter(product => Array.isArray(collectionItem.productIds) && collectionItem.productIds.includes(product.id)).slice(0, 4)
+            products: products.filter(product => Array.isArray(collectionItem.productIds) && collectionItem.productIds.includes(product.id))
         }))
         .filter(collectionItem => collectionItem.products.length > 0);
 
@@ -585,18 +596,34 @@ function renderProductCollections() {
 
     productCollectionsSection.hidden = false;
     productCollectionsGrid.innerHTML = visible.map(collectionItem => `
-        <article class="collection-card">
+        <article class="collection-card" data-collection-id="${escapeHtml(collectionItem.id)}">
             <div>
-                <h3>${collectionItem.name || 'Collection'}</h3>
-                ${collectionItem.description ? `<p>${collectionItem.description}</p>` : ''}
+                <h3>${escapeHtml(collectionItem.name || 'Collection')}</h3>
+                ${collectionItem.description ? `<p>${escapeHtml(collectionItem.description)}</p>` : ''}
             </div>
             <div class="collection-card-products">
                 ${collectionItem.products.map(product => `
-                    <img src="${product.imageUrl || ''}" alt="${loc(product, 'name') || 'Product'}">
+                    <button class="collection-product-button" type="button" data-collection-product-id="${escapeHtml(product.id)}" data-collection-id="${escapeHtml(collectionItem.id)}" aria-label="View ${escapeHtml(loc(product, 'name') || 'product')}">
+                        <img src="${escapeHtml(product.imageUrl || '')}" alt="${escapeHtml(loc(product, 'name') || 'Product')}">
+                        <span aria-hidden="true">View</span>
+                    </button>
                 `).join('')}
             </div>
         </article>
     `).join('');
+
+    productCollectionsGrid.querySelectorAll('[data-collection-product-id]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const product = products.find((item) => item.id === button.dataset.collectionProductId);
+            if (!product) return;
+
+            trackStoreEvent('collection_product_click', product.id, {
+                collectionId: button.dataset.collectionId || '',
+                productName: loc(product, 'name')
+            });
+            openModal(product, button);
+        });
+    });
 }
 
 function isFeatureEnabled(featureName, fallback = true) {
@@ -1309,8 +1336,13 @@ function setupEventListeners() {
 }
 
 function closeModalFn() {
+    const wasOpen = modal?.style.display === 'flex';
+    if (!wasOpen) return;
     if (modal) modal.style.display = 'none';
     syncBodyScroll();
+    window.scrollTo({ top: productModalReturnScrollY, behavior: 'auto' });
+    if (productModalReturnTarget?.isConnected) productModalReturnTarget.focus({ preventScroll: true });
+    productModalReturnTarget = null;
 }
 
 function openCartModal() {
@@ -1434,11 +1466,102 @@ function renderCart() {
     }
 }
 
-function openModal(product) {
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function getExternalLinkIcon(type) {
+    return ({
+        whatsapp: 'W',
+        telegram: 'T',
+        glovo: 'G',
+        yandex: 'Y',
+        map: 'M',
+        optima_payda: 'P',
+        website: '↗',
+        other: '↗'
+    })[type] || '↗';
+}
+
+function renderModalExternalActions(product) {
+    const links = getProductExternalLinks(product);
+    if (!links.length) return '';
+
+    const actions = links.map((link) => {
+        const ctaLabel = getProductExternalLinkCtaLabel(link);
+        const helperText = link.type === 'map'
+            ? 'Open map or location details'
+            : `Open ${getProductExternalLinkProviderName(link)} to buy this product`;
+
+        return `
+            <a class="external-action ${escapeHtml(link.type)}" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(ctaLabel)}" data-product-external-link-id="${escapeHtml(link.id)}">
+                <span aria-hidden="true">${escapeHtml(getExternalLinkIcon(link.type))}</span>
+                <div class="external-action-copy">
+                    <strong>${escapeHtml(ctaLabel)}</strong>
+                    <small>${escapeHtml(helperText)}</small>
+                </div>
+            </a>
+        `;
+    }).join('');
+
+    return `
+        <section class="product-external-panel" aria-label="External ordering options">
+            <div class="product-external-heading">
+                <span>Order options</span>
+                <strong>Where to buy</strong>
+            </div>
+            <div class="product-external-actions">${actions}</div>
+        </section>
+    `;
+}
+
+function bindModalExternalLinkTracking(product) {
+    const links = getProductExternalLinks(product);
+    const linkById = new Map(links.map((link) => [link.id, link]));
+    const params = new URLSearchParams(window.location.search);
+
+    modalContent.querySelectorAll('[data-product-external-link-id]').forEach((anchor) => {
+        anchor.addEventListener('click', () => {
+            const link = linkById.get(anchor.dataset.productExternalLinkId);
+            if (!link) return;
+
+            trackProductExternalLinkClickIntent({
+                productId: product.id || '',
+                productName: loc(product, 'name') || product.name_en || product.name_ru || '',
+                companyId: product.companyId || getCurrentCompanyId(),
+                linkId: link.id,
+                linkType: link.type,
+                linkLabel: link.label,
+                destinationUrl: link.url,
+                trackingSlug: params.get('trackingSlug') || '',
+                campaignId: params.get('campaignId') || params.get('campaign') || '',
+                influencerId: params.get('influencerId') || '',
+                source: 'product_modal'
+            }).catch((error) => {
+                console.warn('Product external link click tracking failed', error);
+            });
+        });
+    });
+}
+
+function openModal(product, returnTarget = null) {
+    productModalReturnScrollY = window.scrollY;
+    productModalReturnTarget = returnTarget || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    const returnCollectionName = returnTarget
+        ?.closest('.collection-card')
+        ?.querySelector('h3')
+        ?.textContent
+        ?.trim() || '';
     const categoryName = categoriesMap[product.categoryId] ? loc(categoriesMap[product.categoryId], 'name') : (product.category || 'Other');
     const productPageUrl = buildProductPageUrl(product);
     const displayPrice = getDisplayPrice(product, currentUserProfile);
     const priceType = getDisplayPriceType(product, currentUserProfile);
+    const externalActionsHtml = renderModalExternalActions(product);
 
     // Default Images
     const imgPack = product.imageUrl || 'https://placehold.co/400x300?text=Packaging';
@@ -1489,6 +1612,7 @@ function openModal(product) {
 
             <!-- Right: Info Section -->
             <div class="modal-info-col">
+                ${returnCollectionName ? `<button id="backToCollectionBtn" class="collection-return-button" type="button">← Back to ${escapeHtml(returnCollectionName)}</button>` : ''}
                 <div class="modal-category">${categoryName}</div>
                 <h2 class="modal-title">${loc(product, 'name')}</h2>
                 
@@ -1507,6 +1631,7 @@ function openModal(product) {
                     ${loc(product, 'description') || 'No description available.'}
                 </div>
                 ${product.availability?.note ? `<div class="modal-meta-box" style="margin-bottom:1rem;"><div class="modal-meta-item"><span class="modal-meta-label">Availability</span><span>${product.availability.note}</span></div></div>` : ''}
+                ${externalActionsHtml}
 
                 <div class="product-page-actions modal-share-actions" style="margin-bottom:1rem;">
                     <a href="${productPageUrl}" class="cta-btn">${t('view_product_page')}</a>
@@ -1541,6 +1666,10 @@ function openModal(product) {
     `;
     modal.style.display = 'flex';
     syncBodyScroll();
+    bindModalExternalLinkTracking(product);
+
+    const backToCollectionBtn = document.getElementById('backToCollectionBtn');
+    if (backToCollectionBtn) backToCollectionBtn.addEventListener('click', closeModalFn);
 
     const copyBtn = document.getElementById('copyProductLink');
     const copyStatus = document.getElementById('copyStatus');

@@ -98,6 +98,8 @@ service cloud.firestore {
         && isValidCustomerRole(request.resource.data)
         && (request.resource.data.accountType == "basic" || request.resource.data.accountType == "business")
         && isValidSelfBusinessStatus(request.resource.data)
+        && request.resource.data.companyId is string
+        && request.resource.data.companyId.size() > 0
         && !("approvedAt" in request.resource.data)
         && !("approvedBy" in request.resource.data);
     }
@@ -106,6 +108,7 @@ service cloud.firestore {
       return request.auth.uid == userId
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.role == resource.data.role
+        && request.resource.data.companyId == resource.data.companyId
         && request.resource.data.accountType == resource.data.accountType
         && request.resource.data.businessStatus == resource.data.businessStatus
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["approvedAt", "approvedBy"]);

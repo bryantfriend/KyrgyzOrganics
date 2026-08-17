@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  getProductExternalLinkCtaLabel,
   getProductExternalLinks,
   normalizeProductExternalLinks,
   validateProductExternalLinkInput
@@ -28,6 +29,7 @@ function assertInvalid(overrides) {
 
 assertValid({ url: 'https://example.com/order' });
 assertValid({ url: 'http://example.com/order' });
+assertValid({ type: 'optima_payda', label: 'Pay with Optima PayDa!', url: 'https://pay.optima.kg/order/abc' });
 assertInvalid({ url: '' });
 assertInvalid({ label: '' });
 assertInvalid({ type: '' });
@@ -36,6 +38,23 @@ assertInvalid({ url: 'javascript:alert(1)' });
 assertInvalid({ url: 'data:text/html,hello' });
 assertInvalid({ url: 'file:///tmp/order' });
 assertInvalid({ url: 'vbscript:msgbox(1)' });
+
+assert.equal(
+  getProductExternalLinkCtaLabel(validLink({ type: 'glovo', label: 'Order on Glovo' })),
+  'Buy now through Glovo'
+);
+assert.equal(
+  getProductExternalLinkCtaLabel(validLink({ type: 'other', label: 'Order on Wildberries' })),
+  'Buy now through Wildberries'
+);
+assert.equal(
+  getProductExternalLinkCtaLabel(validLink({ type: 'other', label: '', url: 'https://shop.example.com/item' })),
+  'Buy now through shop.example.com'
+);
+assert.equal(
+  getProductExternalLinkCtaLabel(validLink({ type: 'map', label: 'View stockists' })),
+  'View stockists'
+);
 
 assert.deepEqual(normalizeProductExternalLinks({ id: 'p1' }), []);
 

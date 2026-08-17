@@ -22,7 +22,8 @@ const COLLECTIONS_TO_MIGRATE = [
   "campaigns",
   "campaign_events",
   "inventory_templates",
-  "audit_logs"
+  "audit_logs",
+  "users"
 ];
 
 async function migrateCollection(collectionName) {

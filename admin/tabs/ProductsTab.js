@@ -6,6 +6,7 @@ import {
     PRODUCT_EXTERNAL_LINK_TYPES,
     PRODUCT_LINK_TYPE_LABELS,
     getDefaultProductLinkLabel,
+    normalizeProductExternalLinkInput,
     normalizeProductExternalLinks
 } from '../../product-external-links.mjs';
 import {
@@ -60,6 +61,16 @@ export class ProductsTab extends BaseTab {
         this.collectionActive = document.getElementById('collectionActive');
         this.collectionHomepage = document.getElementById('collectionHomepage');
         this.collectionPicker = document.getElementById('collectionProductPicker');
+        this.openCollectionProductsBtn = document.getElementById('openCollectionProductsBtn');
+        this.collectionProductsModal = document.getElementById('collectionProductsModal');
+        this.closeCollectionProductsBtn = document.getElementById('closeCollectionProductsBtn');
+        this.cancelCollectionProductsBtn = document.getElementById('cancelCollectionProductsBtn');
+        this.confirmCollectionProductsBtn = document.getElementById('confirmCollectionProductsBtn');
+        this.collectionProductsSearch = document.getElementById('collectionProductsSearch');
+        this.collectionProductsGrid = document.getElementById('collectionProductsGrid');
+        this.collectionProductsCount = document.getElementById('collectionProductsCount');
+        this.selectAllCollectionProductsBtn = document.getElementById('selectAllCollectionProductsBtn');
+        this.clearCollectionProductsBtn = document.getElementById('clearCollectionProductsBtn');
         this.collectionList = document.getElementById('collectionList');
         this.collectionSubmitBtn = document.getElementById('collectionSubmitBtn');
         this.collectionCancelBtn = document.getElementById('collectionCancelBtn');
@@ -90,6 +101,8 @@ export class ProductsTab extends BaseTab {
         this.productLinksProduct = null;
         this.productLinksEditingId = '';
         this.productLinksAutoLabel = '';
+        this.collectionSelectedProductIds = new Set();
+        this.collectionDraftProductIds = new Set();
     }
 
     async init() {
@@ -105,6 +118,9 @@ export class ProductsTab extends BaseTab {
     onStoreChanged() {
         // Switch listeners to the newly-selected store.
         this.allProductsCache = [];
+        this.collectionSelectedProductIds.clear();
+        this.collectionDraftProductIds.clear();
+        this.closeCollectionProductsModal();
         this.loadCategories();
         this.loadProducts();
         this.loadCollections();
@@ -118,6 +134,21 @@ export class ProductsTab extends BaseTab {
         if (this.migrateProductPricesBtn) this.migrateProductPricesBtn.addEventListener('click', this.migrateLegacyPrices.bind(this));
         if (this.collectionForm) this.collectionForm.addEventListener('submit', (e) => this.saveCollection(e));
         if (this.collectionCancelBtn) this.collectionCancelBtn.addEventListener('click', () => this.resetCollectionForm());
+        if (this.openCollectionProductsBtn) this.openCollectionProductsBtn.addEventListener('click', () => this.openCollectionProductsModal());
+        if (this.closeCollectionProductsBtn) this.closeCollectionProductsBtn.addEventListener('click', () => this.closeCollectionProductsModal());
+        if (this.cancelCollectionProductsBtn) this.cancelCollectionProductsBtn.addEventListener('click', () => this.closeCollectionProductsModal());
+        if (this.confirmCollectionProductsBtn) this.confirmCollectionProductsBtn.addEventListener('click', () => this.confirmCollectionProducts());
+        if (this.collectionProductsSearch) this.collectionProductsSearch.addEventListener('input', () => this.renderCollectionProductsModal());
+        if (this.selectAllCollectionProductsBtn) this.selectAllCollectionProductsBtn.addEventListener('click', () => this.selectAllCollectionProducts());
+        if (this.clearCollectionProductsBtn) this.clearCollectionProductsBtn.addEventListener('click', () => this.clearCollectionProducts());
+        if (this.collectionProductsGrid) {
+            this.collectionProductsGrid.addEventListener('change', (event) => this.handleCollectionProductSelection(event));
+        }
+        if (this.collectionProductsModal) {
+            this.collectionProductsModal.addEventListener('click', (event) => {
+                if (event.target === this.collectionProductsModal) this.closeCollectionProductsModal();
+            });
+        }
         if (this.importYandexMenuBtn) this.importYandexMenuBtn.addEventListener('click', () => this.importYandexMenu());
         if (this.clearYandexProductBtn) this.clearYandexProductBtn.addEventListener('click', () => this.clearYandexSelection());
         if (this.closeYandexMenuModalBtn) this.closeYandexMenuModalBtn.addEventListener('click', () => this.closeYandexModal());
@@ -144,6 +175,12 @@ export class ProductsTab extends BaseTab {
         if (filterSelect) {
             filterSelect.addEventListener('change', () => this.renderProductList());
         }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !this.collectionProductsModal?.classList.contains('hidden')) {
+                this.closeCollectionProductsModal();
+            }
+        });
     }
 
     handleFileSelect(input, previewImg, container, nameSpan) {
@@ -366,25 +403,137 @@ export class ProductsTab extends BaseTab {
 
     renderCollectionProductPicker(selectedIds = null) {
         if (!this.collectionPicker) return;
-        const selected = new Set(selectedIds || this.getSelectedCollectionProductIds());
+        if (selectedIds !== null) {
+            this.collectionSelectedProductIds = new Set(selectedIds || []);
+        }
+
         if (!this.allProductsCache.length) {
-            this.collectionPicker.innerHTML = '<p style="color:#666;">Add products first, then create collections.</p>';
+            this.collectionPicker.innerHTML = '<p class="collection-selection-empty">Add products first, then create collections.</p>';
+            if (this.openCollectionProductsBtn) this.openCollectionProductsBtn.disabled = true;
             return;
         }
-        this.collectionPicker.innerHTML = this.allProductsCache
-            .slice()
-            .sort((a, b) => getPreferredProductName(a).localeCompare(getPreferredProductName(b)))
-            .map(product => `
-                <label style="display:flex; align-items:center; gap:0.45rem;">
-                    <input type="checkbox" value="${product.id}" ${selected.has(product.id) ? 'checked' : ''}>
-                    ${getPreferredProductName(product)}
-                </label>
-            `).join('');
+
+        if (this.openCollectionProductsBtn) this.openCollectionProductsBtn.disabled = false;
+        const selectedProducts = this.allProductsCache.filter((product) => this.collectionSelectedProductIds.has(product.id));
+        if (!selectedProducts.length) {
+            this.collectionPicker.innerHTML = '<p class="collection-selection-empty">No products selected yet.</p><small>Use Choose Products to add items to this collection.</small>';
+            return;
+        }
+
+        const previews = selectedProducts.slice(0, 8).map((product) => `
+            <span class="collection-selection-preview" title="${this.escapeHtml(getPreferredProductName(product))}">
+                ${product.imageUrl
+                    ? '<img src="' + this.escapeHtml(product.imageUrl) + '" alt="">'
+                    : '<span class="collection-selection-preview-empty">No image</span>'}
+            </span>
+        `).join('');
+        const remaining = selectedProducts.length > 8
+            ? '<span class="collection-selection-more">+' + (selectedProducts.length - 8) + ' more</span>'
+            : '';
+
+        this.collectionPicker.innerHTML = `
+            <strong>${selectedProducts.length} product${selectedProducts.length === 1 ? '' : 's'} selected</strong>
+            <div class="collection-selection-previews">${previews}${remaining}</div>
+        `;
     }
 
     getSelectedCollectionProductIds() {
-        if (!this.collectionPicker) return [];
-        return Array.from(this.collectionPicker.querySelectorAll('input[type="checkbox"]:checked')).map(input => input.value);
+        const availableIds = new Set(this.allProductsCache.map((product) => product.id));
+        return Array.from(this.collectionSelectedProductIds).filter((id) => availableIds.has(id));
+    }
+
+    openCollectionProductsModal() {
+        if (!this.collectionProductsModal) return;
+        this.collectionDraftProductIds = new Set(this.collectionSelectedProductIds);
+        if (this.collectionProductsSearch) this.collectionProductsSearch.value = '';
+        this.collectionProductsModal.classList.remove('hidden');
+        this.collectionProductsModal.setAttribute('aria-hidden', 'false');
+        this.renderCollectionProductsModal();
+        this.collectionProductsSearch?.focus();
+    }
+
+    closeCollectionProductsModal() {
+        if (!this.collectionProductsModal) return;
+        this.collectionProductsModal.classList.add('hidden');
+        this.collectionProductsModal.setAttribute('aria-hidden', 'true');
+        this.collectionDraftProductIds = new Set(this.collectionSelectedProductIds);
+        this.openCollectionProductsBtn?.focus?.();
+    }
+
+    confirmCollectionProducts() {
+        this.collectionSelectedProductIds = new Set(this.collectionDraftProductIds);
+        this.renderCollectionProductPicker();
+        this.closeCollectionProductsModal();
+    }
+
+    renderCollectionProductsModal() {
+        if (!this.collectionProductsGrid) return;
+        const searchTerm = String(this.collectionProductsSearch?.value || '').trim().toLowerCase();
+        const filteredProducts = this.allProductsCache
+            .slice()
+            .sort((a, b) => getPreferredProductName(a).localeCompare(getPreferredProductName(b)))
+            .filter((product) => {
+                if (!searchTerm) return true;
+                return [product.name_en, product.name_ru, product.name_kg, getPreferredProductName(product)]
+                    .filter(Boolean)
+                    .some((name) => String(name).toLowerCase().includes(searchTerm));
+            });
+
+        if (!filteredProducts.length) {
+            this.collectionProductsGrid.innerHTML = '<div class="collection-products-empty">No matching products found.</div>';
+            this.updateCollectionProductsCount();
+            return;
+        }
+
+        this.collectionProductsGrid.innerHTML = filteredProducts.map((product) => {
+            const isSelected = this.collectionDraftProductIds.has(product.id);
+            const productName = getPreferredProductName(product) || product.name_ru || 'Product';
+            return `
+                <label class="collection-picker-card ${isSelected ? 'selected' : ''}">
+                    ${product.imageUrl
+                        ? '<img src="' + this.escapeHtml(product.imageUrl) + '" alt="">'
+                        : '<span class="collection-picker-image-empty">No image</span>'}
+                    <span class="collection-picker-copy">
+                        <strong>${this.escapeHtml(productName)}</strong>
+                        <small>${this.escapeHtml(product.weight || '')}</small>
+                    </span>
+                    <input class="collection-picker-checkbox" type="checkbox" value="${this.escapeHtml(product.id)}" ${isSelected ? 'checked' : ''} aria-label="Add ${this.escapeHtml(productName)} to collection">
+                </label>
+            `;
+        }).join('');
+        this.updateCollectionProductsCount();
+    }
+
+    handleCollectionProductSelection(event) {
+        const checkbox = event.target.closest('.collection-picker-checkbox');
+        if (!checkbox) return;
+
+        if (checkbox.checked) this.collectionDraftProductIds.add(checkbox.value);
+        else this.collectionDraftProductIds.delete(checkbox.value);
+        checkbox.closest('.collection-picker-card')?.classList.toggle('selected', checkbox.checked);
+        this.updateCollectionProductsCount();
+    }
+
+    updateCollectionProductsCount() {
+        const count = this.collectionDraftProductIds.size;
+        if (this.collectionProductsCount) {
+            this.collectionProductsCount.textContent = `${count} product${count === 1 ? '' : 's'} selected`;
+        }
+        if (this.confirmCollectionProductsBtn) {
+            this.confirmCollectionProductsBtn.textContent = count
+                ? `Add ${count} Selected Product${count === 1 ? '' : 's'}`
+                : 'Use Empty Collection';
+        }
+    }
+
+    selectAllCollectionProducts() {
+        this.collectionDraftProductIds = new Set(this.allProductsCache.map((product) => product.id));
+        this.renderCollectionProductsModal();
+    }
+
+    clearCollectionProducts() {
+        this.collectionDraftProductIds.clear();
+        this.renderCollectionProductsModal();
     }
 
     renderCollections() {
@@ -523,22 +672,22 @@ export class ProductsTab extends BaseTab {
     }
 
     readExternalLinksFromForm() {
-        const glovoUrl = this.normalizeExternalUrl(this.pGlovoUrl?.value, ['glovoapp.com', 'www.glovoapp.com']);
+        const glovoUrl = this.normalizeExternalUrl(this.pGlovoUrl?.value);
         const yandexProduct = this.parseSelectedYandexProduct();
-        const yandexUrl = this.normalizeExternalUrl(this.pYandexUrl?.value || yandexProduct?.restaurantUrl, ['eda.yandex.kg', 'eda.yandex.ru', 'eda.yandex.com']);
+        const yandexUrl = this.normalizeExternalUrl(this.pYandexUrl?.value || yandexProduct?.restaurantUrl);
         const mapUrl = this.normalizeExternalUrl(this.pMapUrl?.value);
 
         return {
             glovo: {
                 enabled: Boolean(this.pGlovoEnabled?.checked && glovoUrl),
                 url: glovoUrl,
-                label: 'Order on Glovo'
+                label: getDefaultProductLinkLabel('glovo')
             },
             yandex: {
                 enabled: Boolean(this.pYandexEnabled?.checked && yandexUrl),
                 url: yandexUrl,
                 restaurantUrl: yandexUrl,
-                label: 'Order on Yandex',
+                label: getDefaultProductLinkLabel('yandex'),
                 product: yandexProduct || null
             },
             map: {
@@ -547,6 +696,40 @@ export class ProductsTab extends BaseTab {
                 label: 'View map locations'
             }
         };
+    }
+
+    mergeExternalLinksFromForm(product) {
+        const existingLinks = normalizeProductExternalLinks(product || []);
+        if (!this.pGlovoUrl && !this.pYandexUrl && !this.pMapUrl) return existingLinks;
+
+        const quickLinks = this.readExternalLinksFromForm();
+        const nextLinks = existingLinks.slice();
+
+        ['glovo', 'yandex', 'map'].forEach((type) => {
+            const formLink = quickLinks[type];
+            const existingIndex = nextLinks.findIndex((link) => link.type === type);
+            const existingLink = existingIndex >= 0 ? nextLinks[existingIndex] : null;
+
+            if (!formLink?.url) {
+                if (existingIndex >= 0) nextLinks.splice(existingIndex, 1);
+                return;
+            }
+
+            const normalized = normalizeProductExternalLinkInput({
+                ...existingLink,
+                type,
+                label: formLink.label,
+                url: formLink.url,
+                isEnabled: formLink.enabled === true
+            }, {
+                sortOrder: existingLink?.sortOrder || nextLinks.length + 1
+            });
+
+            if (existingIndex >= 0) nextLinks[existingIndex] = normalized;
+            else nextLinks.push(normalized);
+        });
+
+        return normalizeProductExternalLinks(nextLinks);
     }
 
     getExternalLinkSummary(product) {
@@ -1040,7 +1223,7 @@ export class ProductsTab extends BaseTab {
                     leadTimeHours: Math.max(0, Number(this.leadTimeHours?.value || 0) || 0),
                     note: String(this.availabilityNote?.value || '').trim()
                 },
-                externalLinks: existingProduct ? normalizeProductExternalLinks(existingProduct) : [],
+                externalLinks: this.mergeExternalLinksFromForm(existingProduct),
                 slug: this.generateUniqueSlug(
                     this.pSlug.value || getPreferredProductName({
                         name_en: document.getElementById('pNameEN').value,
@@ -1135,15 +1318,19 @@ export class ProductsTab extends BaseTab {
         if (this.leadTimeHours) this.leadTimeHours.value = p.availability?.leadTimeHours || 0;
         if (this.availabilityNote) this.availabilityNote.value = p.availability?.note || '';
         if (this.pSlug) this.pSlug.value = p.slug || this.generateUniqueSlug(getPreferredProductName(p), id);
-        const links = p.externalLinks || {};
-        if (this.pGlovoUrl) this.pGlovoUrl.value = links.glovo?.url || '';
-        if (this.pGlovoEnabled) this.pGlovoEnabled.checked = links.glovo?.enabled === true || Boolean(links.glovo?.url);
-        if (this.pYandexUrl) this.pYandexUrl.value = links.yandex?.restaurantUrl || links.yandex?.url || '';
-        if (this.pYandexEnabled) this.pYandexEnabled.checked = links.yandex?.enabled === true || Boolean(links.yandex?.url);
-        if (this.pYandexSelectedJson) this.pYandexSelectedJson.value = links.yandex?.product ? JSON.stringify(links.yandex.product) : '';
-        this.renderYandexSelectedProduct(links.yandex?.product || null);
-        if (this.pMapUrl) this.pMapUrl.value = links.map?.url || '';
-        if (this.pMapEnabled) this.pMapEnabled.checked = links.map?.enabled === true || Boolean(links.map?.url);
+        const normalizedLinks = normalizeProductExternalLinks(p);
+        const glovoLink = normalizedLinks.find((link) => link.type === 'glovo');
+        const yandexLink = normalizedLinks.find((link) => link.type === 'yandex');
+        const mapLink = normalizedLinks.find((link) => link.type === 'map');
+        const legacyYandexProduct = !Array.isArray(p.externalLinks) ? p.externalLinks?.yandex?.product || null : null;
+        if (this.pGlovoUrl) this.pGlovoUrl.value = glovoLink?.url || '';
+        if (this.pGlovoEnabled) this.pGlovoEnabled.checked = glovoLink?.isEnabled === true;
+        if (this.pYandexUrl) this.pYandexUrl.value = yandexLink?.url || '';
+        if (this.pYandexEnabled) this.pYandexEnabled.checked = yandexLink?.isEnabled === true;
+        if (this.pYandexSelectedJson) this.pYandexSelectedJson.value = legacyYandexProduct ? JSON.stringify(legacyYandexProduct) : '';
+        this.renderYandexSelectedProduct(legacyYandexProduct);
+        if (this.pMapUrl) this.pMapUrl.value = mapLink?.url || '';
+        if (this.pMapEnabled) this.pMapEnabled.checked = mapLink?.isEnabled === true;
         this.slugTouched = !!p.slug;
 
         // Show Images
