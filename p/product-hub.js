@@ -82,7 +82,12 @@
     return null;
   }
 
-  function buildYandexGoSmartUrl(link) {
+  function getYandexSearchQuery(source) {
+    if (!/(?:^|\/)search\/?$/i.test(source.pathname)) return "";
+    return text(source.searchParams.get("query") || source.searchParams.get("text") || source.searchParams.get("search"));
+  }
+
+  function getYandexBrowserTarget(link) {
     const candidates = [link && link.convertedUrl, link && link.originalUrl];
 
     for (const value of candidates) {
@@ -90,34 +95,36 @@
       try {
         const source = new URL(value, window.location.href);
         const sourceHost = source.hostname.replace(/\.$/, "").toLowerCase();
-        if (sourceHost === "8jxm.adj.st" && source.pathname === "/external") return source.toString();
-        if (sourceHost !== "eda.yandex.kg" && sourceHost !== "www.eda.yandex.kg") continue;
-        if (!/(?:^|\/)search\/?$/i.test(source.pathname)) continue;
+        let query = getYandexSearchQuery(source);
 
-        const query = text(source.searchParams.get("query") || source.searchParams.get("text") || source.searchParams.get("search"));
+        if (sourceHost === "8jxm.adj.st" && source.pathname === "/external") {
+          const browserCandidates = [source.searchParams.get("adj_fallback"), source.searchParams.get("adj_redirect")];
+          for (const browserCandidate of browserCandidates) {
+            try {
+              query = getYandexSearchQuery(new URL(browserCandidate || ""));
+              if (query) break;
+            } catch (error) {}
+          }
+
+          if (!query) {
+            try {
+              const nativeTarget = new URL(source.searchParams.get("adj_deeplink") || "");
+              query = getYandexSearchQuery(new URL(nativeTarget.searchParams.get("href") || ""));
+            } catch (error) {}
+          }
+        } else if (sourceHost !== "eda.yandex.kg" && sourceHost !== "www.eda.yandex.kg") {
+          continue;
+        }
+
         if (!query) continue;
 
-        const appDestination = new URL("https://eda.yandex.kg/search");
-        appDestination.searchParams.set("query", query);
-        const browserFallback = new URL("https://eda.yandex.kg/en-kg/search");
-        browserFallback.searchParams.set("hideSelector", "true");
-        browserFallback.searchParams.set("query", query);
-        browserFallback.searchParams.set("type", "all");
-
-        const nativeLink = "yandextaxi://external?service=eats"
-          + "&href=" + encodeURIComponent(appDestination.toString())
-          + "&delivery_lat=42.8778&delivery_lon=74.5688";
-        const smartLink = new URL("https://8jxm.adj.st/external");
-        smartLink.searchParams.set("adj_deeplink", nativeLink);
-        smartLink.searchParams.set("adjust_t", "gm2aavy_wjqyew0");
-        smartLink.searchParams.set("service", "eats");
-        smartLink.searchParams.set("adj_fallback", browserFallback.toString());
-        smartLink.searchParams.set("adj_redirect", browserFallback.toString());
-        return smartLink.toString();
+        const browserTarget = new URL("https://eda.yandex.kg/en-kg/Bishkek/search");
+        browserTarget.searchParams.set("query", query);
+        return browserTarget;
       } catch (error) {}
     }
 
-    return "";
+    return null;
   }
 
   function fillActionContent(control, action, icon, link) {
@@ -191,10 +198,33 @@
       return stack;
     }
 
+    const yandexTarget = action === "yandex_click" ? getYandexBrowserTarget(link) : null;
+    if (yandexTarget) {
+      const form = document.createElement("form");
+      form.className = "action-card-form";
+      form.method = "get";
+      form.action = yandexTarget.origin + yandexTarget.pathname;
+      yandexTarget.searchParams.forEach(function (value, name) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      });
+
+      const button = document.createElement("button");
+      button.type = "submit";
+      button.className = "action-card" + (primary ? " primary" : "");
+      fillActionContent(button, action, icon, link);
+      button.querySelector("span span").textContent = "Open this product search on the Yandex website";
+      form.appendChild(button);
+      form.addEventListener("submit", function () { recordLocal(action, hub); });
+      return form;
+    }
+
     const anchor = document.createElement("a");
     anchor.className = "action-card" + (primary ? " primary" : "");
-    const yandexSmartUrl = action === "yandex_click" ? buildYandexGoSmartUrl(link) : "";
-    anchor.href = safeHref(yandexSmartUrl || link.convertedUrl || link.originalUrl);
+    anchor.href = safeHref(link.convertedUrl || link.originalUrl);
     anchor.rel = "noopener noreferrer";
     fillActionContent(anchor, action, icon, link);
     anchor.addEventListener("click", function () { recordLocal(action, hub); });

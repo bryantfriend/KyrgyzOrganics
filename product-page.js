@@ -3,7 +3,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from "https://w
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl, getDisplayPrice, getDisplayPriceType } from './product-utils.js';
-import { getProductExternalLinkCtaLabel, getProductExternalLinkNavigation, getProductExternalLinkProviderName, getProductExternalLinks } from './product-external-links.mjs?v=2.3';
+import { getProductExternalLinkCtaLabel, getProductExternalLinkNavigation, getProductExternalLinkProviderName, getProductExternalLinks } from './product-external-links.mjs?v=2.4';
 import { trackProductExternalLinkClickIntent } from './product-external-links.service.js';
 import { addCartItem, formatPrice, loadCart, saveCart, saveCartDay } from './shop-utils.js';
 import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
@@ -204,6 +204,7 @@ function getProductLinkHelperText(link) {
     if (link.type === 'optima_payda') return 'Open Optima PayDa payment link';
     if (link.type === 'website') return 'Open the order page';
     if (link.type === 'glovo') return 'Already signed in? Open this exact product';
+    if (link.type === 'yandex') return 'Open this product search on the Yandex website';
     return 'Open ' + getProductExternalLinkProviderName(link) + ' to buy this product';
 }
 
@@ -218,15 +219,19 @@ function renderExternalActionControl(link, ctaLabel) {
             '<input type="hidden" name="' + escapeHtml(field.name) + '" value="' + escapeHtml(field.value) + '">'
         ).join('');
 
+        const actionForm = '<form class="external-action-form" method="get" action="' + escapeHtml(navigation.action) + '">' +
+            fields +
+            '<button class="external-action ' + escapeHtml(link.type) + '" type="submit" aria-label="' + escapeHtml(ctaLabel) + '"' + trackingAttribute + '>' + content + '</button>' +
+        '</form>';
+
+        if (!navigation.loginAction) return actionForm;
+
         const loginFields = navigation.loginFields.map((field) =>
             '<input type="hidden" name="' + escapeHtml(field.name) + '" value="' + escapeHtml(field.value) + '">'
         ).join('');
 
         return '<div class="glovo-action-stack">' +
-            '<form class="external-action-form" method="get" action="' + escapeHtml(navigation.action) + '">' +
-                fields +
-                '<button class="external-action ' + escapeHtml(link.type) + '" type="submit" aria-label="' + escapeHtml(ctaLabel) + '"' + trackingAttribute + '>' + content + '</button>' +
-            '</form>' +
+            actionForm +
             '<div class="glovo-signin-option">' +
                 '<p><strong>Not signed in to Glovo?</strong><span>Start here and choose Email on Android. Google can open the app and lose the product.</span></p>' +
                 '<form class="glovo-signin-form" method="get" action="' + escapeHtml(navigation.loginAction) + '">' +

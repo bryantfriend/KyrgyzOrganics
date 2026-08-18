@@ -232,33 +232,42 @@
     return String(url.searchParams.get("query") || url.searchParams.get("text") || url.searchParams.get("search") || "").trim();
   }
 
-  function buildYandexGoSmartUrl(value) {
+  function getYandexSearchQueryFromUrl(source) {
+    let query = getYandexSearchQuery(source);
+    if (query) return query;
+
+    const sourceHost = normalizeHost(source.hostname);
+    if (sourceHost !== "8jxm.adj.st" || source.pathname !== "/external") return "";
+
+    const browserCandidates = [source.searchParams.get("adj_fallback"), source.searchParams.get("adj_redirect")];
+    for (const browserCandidate of browserCandidates) {
+      try {
+        query = getYandexSearchQuery(new URL(browserCandidate || ""));
+        if (query) return query;
+      } catch (error) {}
+    }
+
+    try {
+      const nativeTarget = new URL(source.searchParams.get("adj_deeplink") || "");
+      const nestedHref = nativeTarget.searchParams.get("href");
+      return nestedHref ? getYandexSearchQuery(new URL(nestedHref)) : "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function buildYandexBrowserUrl(value) {
     const source = value instanceof URL ? new URL(value.href) : new URL(String(value || "").trim());
     assertSafeHttpUrl(source, "Yandex link");
     const sourceHost = normalizeHost(source.hostname);
-    if (sourceHost === "8jxm.adj.st" && source.pathname === "/external") return source.href;
-    if (sourceHost !== "eda.yandex.kg" && sourceHost !== "www.eda.yandex.kg") return "";
+    if (sourceHost !== "eda.yandex.kg" && sourceHost !== "www.eda.yandex.kg" && sourceHost !== "8jxm.adj.st") return "";
 
-    const query = getYandexSearchQuery(source);
+    const query = getYandexSearchQueryFromUrl(source);
     if (!query) return "";
 
-    const appDestination = new URL("https://eda.yandex.kg/search");
-    appDestination.searchParams.set("query", query);
-    const browserFallback = new URL("https://eda.yandex.kg/en-kg/search");
-    browserFallback.searchParams.set("hideSelector", "true");
-    browserFallback.searchParams.set("query", query);
-    browserFallback.searchParams.set("type", "all");
-
-    const nativeLink = "yandextaxi://external?service=eats"
-      + "&href=" + encodeURIComponent(appDestination.href)
-      + "&delivery_lat=42.8778&delivery_lon=74.5688";
-    const smartLink = new URL("https://8jxm.adj.st/external");
-    smartLink.searchParams.set("adj_deeplink", nativeLink);
-    smartLink.searchParams.set("adjust_t", "gm2aavy_wjqyew0");
-    smartLink.searchParams.set("service", "eats");
-    smartLink.searchParams.set("adj_fallback", browserFallback.href);
-    smartLink.searchParams.set("adj_redirect", browserFallback.href);
-    return smartLink.href;
+    const browserUrl = new URL("https://eda.yandex.kg/en-kg/Bishkek/search");
+    browserUrl.searchParams.set("query", query);
+    return browserUrl.href;
   }
 
   function parseYandexDeliveryUrl(value) {
@@ -278,19 +287,19 @@
         parsed = null;
       }
     }
-    const searchQuery = getYandexSearchQuery(url);
-    const smartUrl = buildYandexGoSmartUrl(url);
+    const searchQuery = getYandexSearchQueryFromUrl(url);
+    const browserUrl = buildYandexBrowserUrl(url);
     return {
       platform: "yandex-eats",
       url,
-      canonical: smartUrl || url.href,
-      smartUrl,
+      canonical: browserUrl || url.href,
+      browserUrl,
       searchQuery,
       route: parsed ? parsed.route : searchQuery ? "search" : "external",
       storeSlug: parsed ? parsed.storeSlug : searchQuery || host,
       productId: "",
       externalProductId: "",
-      content: parsed ? parsed.content : searchQuery ? "Yandex Go product search: " + searchQuery : "Yandex delivery link preserved as pasted",
+      content: parsed ? parsed.content : searchQuery ? "Yandex website product search: " + searchQuery : "Yandex delivery link preserved as pasted",
       exactProductSupport: Boolean(searchQuery),
     };
   }
@@ -387,11 +396,11 @@
     const yandexLink = yandexParsed ? {
       enabled: true,
       originalUrl: yandexParsed.url.href,
-      convertedUrl: yandexParsed.smartUrl || yandexParsed.canonical,
+      convertedUrl: yandexParsed.browserUrl || yandexParsed.canonical,
       buttonLabel: "Order on Yandex",
-      helperText: yandexParsed.searchQuery ? "Open this product search in Yandex Go" : "Quick delivery to your door",
+      helperText: yandexParsed.searchQuery ? "Open this product search on the Yandex website" : "Quick delivery to your door",
       platformName: "Yandex",
-      openMode: yandexParsed.smartUrl ? "yandex-go-smart" : "external-url",
+      openMode: yandexParsed.browserUrl ? "yandex-browser-form" : "external-url",
     } : { enabled: false };
 
     if (!productName) {
@@ -1061,12 +1070,12 @@
       trailingDotUrl.value = glovoParsed ? buildTrailingDotUrl(glovoParsed.canonical) : yandexParsed ? yandexParsed.canonical : "";
       landingUrl.value = glovoParsed ? buildLandingUrl(glovoParsed.canonical, settings, "glovo") : "";
       socialShortUrl.value = publicUrl;
-      oakoProductUrl.value = glovoParsed ? glovoParsed.canonical : yandexParsed && yandexParsed.smartUrl ? yandexParsed.smartUrl : "";
+      oakoProductUrl.value = glovoParsed ? glovoParsed.canonical : yandexParsed && yandexParsed.browserUrl ? yandexParsed.browserUrl : "";
       oakoProductLinkResult.hidden = !oakoProductUrl.value;
       if (oakoProductLinkNote) {
         oakoProductLinkNote.innerHTML = glovoParsed
           ? "<strong>Important:</strong> choose <strong>Glovo</strong> as the link type in OAKO. The product page submits this URL as a browser-safe form. Logged-out users also get a <strong>Sign in first with Email</strong> option that preserves the full product return path."
-          : "<strong>Important:</strong> choose <strong>Yandex</strong> as the link type in OAKO. This smart URL opens Yandex Go to the matching product search and falls back to the Yandex website when the app is unavailable.";
+          : "<strong>Important:</strong> choose <strong>Yandex</strong> as the link type in OAKO. OAKO submits this Bishkek search as a browser form, keeping iPhones on the Yandex website because Yandex Go currently drops the product search on iOS.";
       }
 
       updateHubPreview(currentHub);

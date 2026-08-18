@@ -20,7 +20,7 @@ QR / Instagram / TikTok link
 - Produces a canonical Glovo URL for the OAKO product editor while preserving all query parameters, including `content`, `search`, `productId`, and `externalProductId`.
 - Renders Glovo actions in newly generated public hubs as browser-safe GET forms so exact web product behavior is preserved on phones.
 - Adds a same-tab **Sign in first with Email** action whose Glovo `returnPath` contains the complete product query. This avoids the Google OAuth-to-app handoff that can lose the selected item on Android.
-- Converts normal `eda.yandex.kg/.../search?query=...` URLs into a combined iOS/Android Yandex Go smart link. Installed users land on the matching Food search; users without the app fall back to the same Yandex web search.
+- Converts normal `eda.yandex.kg/.../search?query=...` URLs into a Bishkek-scoped Yandex Eats browser search. OAKO submits the link as a GET form so iPhones stay on the website and retain the product query.
 - Accepts other conservative Yandex-related URLs, including `yandex.*`, `eda.yandex.kg`, `ya.cc`, and `yandexgo.*`, and preserves non-search links as pasted.
 - Adds pickup locations with name, address, hours, phone, latitude, longitude, and map URL.
 - Generates a public `/p/?h=...` product hub link and renders the QR from that hub link.
@@ -74,11 +74,11 @@ The public hub uses the same browser-safe form behavior. If the customer is logg
 
 Native Glovo exact product deep linking is intentionally not forced because testing did not find a reliable supported route.
 
-## Yandex Go Behavior
+## Yandex iPhone Behavior
 
-For Yandex product searches, the converter generates an Adjust HTTPS link containing the Yandex Go `yandextaxi://external?service=eats` destination. The link uses Yandex's combined iOS and Android tracker tokens and carries the search term in the supported `href` parameter. Both `adj_fallback` and `adj_redirect` point to the equivalent `eda.yandex.kg` browser search.
+Yandex Go on Android accepts an Eats search in the `yandextaxi://external` route, but the iOS app launches and discards that nested search. The converter therefore generates `https://eda.yandex.kg/en-kg/Bishkek/search?query=...` instead of an Adjust app link. The city segment prevents a fresh Yandex session from redirecting to a generic home page and losing the query.
 
-The OAKO storefront performs the same conversion at click time for older products that still store a normal Yandex search URL. Testing on the Android phone emulator confirmed both paths: Yandex Go opened directly to the matching Alma Go results when installed, and Chrome opened the matching Yandex website results when the app was disabled.
+The OAKO storefront submits the search as a GET form rather than following a normal Universal Link. This keeps Safari on the Yandex website, where the customer can enter a delivery address while `query=бискотти` remains in the URL. Older OAKO products and generated hubs that still contain an `8jxm.adj.st` link are unwrapped at runtime and sent through the same browser-safe route.
 
 ## Yandex Behavior
 
@@ -86,7 +86,7 @@ Yandex is conservative in this MVP:
 
 - Safe Yandex URLs are accepted and preserved.
 - Clean Yandex Eats restaurant URLs can use the compact `/q/?y=...` route.
-- Product-level Yandex support is not claimed unless the pasted URL itself opens the exact product.
+- Yandex search links preserve the product query; the matching Alma Go result is shown after Yandex has the customer's delivery area.
 - No private APIs, scraping, or order automation are used.
 
 ## Pickup Locations
@@ -103,6 +103,7 @@ If one pickup location exists, the public map button opens its `mapUrl` directly
 6. Copy the public product hub link and open it on desktop.
 7. Open the same link at mobile width around 360px.
 8. Tap Order on Glovo and confirm it reaches the existing Glovo web product flow.
+9. Tap Order on Yandex from an iPhone and confirm Safari stays open with `/en-kg/Bishkek/search?query=...`.
 9. Tap Order on Yandex and confirm it opens the saved Yandex URL.
 10. Tap View map locations with one and multiple pickup locations.
 11. Test geolocation allowed and denied.

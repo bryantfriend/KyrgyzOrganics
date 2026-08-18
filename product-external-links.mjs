@@ -102,10 +102,6 @@ export function sanitizeProductExternalUrl(value) {
     }
 }
 
-var YANDEX_GO_ADJUST_TOKENS = 'gm2aavy_wjqyew0';
-var YANDEX_BISHKEK_LATITUDE = '42.8778';
-var YANDEX_BISHKEK_LONGITUDE = '74.5688';
-
 function getYandexSearchQuery(candidate) {
     var pathname = String(candidate && candidate.pathname ? candidate.pathname : '');
     if (!/(?:^|\/)search\/?$/i.test(pathname)) return '';
@@ -117,63 +113,87 @@ function getYandexSearchQuery(candidate) {
     ).trim();
 }
 
-export function buildYandexGoSmartUrl(value) {
+function getYandexSearchQueryFromUrl(source) {
+    var query = getYandexSearchQuery(source);
+    if (query) return query;
+
+    var sourceHost = source.hostname.replace(/\.$/, '').toLowerCase();
+    if (sourceHost !== '8jxm.adj.st' || source.pathname !== '/external') return '';
+
+    var browserCandidates = [
+        source.searchParams.get('adj_fallback'),
+        source.searchParams.get('adj_redirect')
+    ];
+    for (var index = 0; index < browserCandidates.length; index += 1) {
+        try {
+            query = getYandexSearchQuery(new URL(browserCandidates[index] || ''));
+            if (query) return query;
+        } catch (error) {
+            // Continue to the legacy native target below.
+        }
+    }
+
+    try {
+        var nativeTarget = new URL(source.searchParams.get('adj_deeplink') || '');
+        var nestedHref = nativeTarget.searchParams.get('href');
+        return nestedHref ? getYandexSearchQuery(new URL(nestedHref)) : '';
+    } catch (error) {
+        return '';
+    }
+}
+
+export function buildYandexEatsBrowserUrl(value) {
     var safeUrl = sanitizeProductExternalUrl(value);
     if (!safeUrl) return '';
 
     try {
         var source = new URL(safeUrl);
         var sourceHost = source.hostname.replace(/\.$/, '').toLowerCase();
-
-        // Preserve links that have already been converted by this app.
-        if (sourceHost === '8jxm.adj.st' && source.pathname === '/external') {
-            return source.toString();
-        }
-
-        if (sourceHost !== 'eda.yandex.kg' && sourceHost !== 'www.eda.yandex.kg') {
+        if (
+            sourceHost !== 'eda.yandex.kg'
+            && sourceHost !== 'www.eda.yandex.kg'
+            && sourceHost !== '8jxm.adj.st'
+        ) {
             return '';
         }
 
-        var query = getYandexSearchQuery(source);
+        var query = getYandexSearchQueryFromUrl(source);
         if (!query) return '';
 
-        var appDestination = new URL('https://eda.yandex.kg/search');
-        appDestination.searchParams.set('query', query);
-
-        var browserFallback = new URL('https://eda.yandex.kg/en-kg/search');
-        browserFallback.searchParams.set('hideSelector', 'true');
-        browserFallback.searchParams.set('query', query);
-        browserFallback.searchParams.set('type', 'all');
-
-        var nativeLink = 'yandextaxi://external?service=eats'
-            + '&href=' + encodeURIComponent(appDestination.toString())
-            + '&delivery_lat=' + YANDEX_BISHKEK_LATITUDE
-            + '&delivery_lon=' + YANDEX_BISHKEK_LONGITUDE;
-
-        var smartLink = new URL('https://8jxm.adj.st/external');
-        smartLink.searchParams.set('adj_deeplink', nativeLink);
-        smartLink.searchParams.set('adjust_t', YANDEX_GO_ADJUST_TOKENS);
-        smartLink.searchParams.set('service', 'eats');
-        smartLink.searchParams.set('adj_fallback', browserFallback.toString());
-        smartLink.searchParams.set('adj_redirect', browserFallback.toString());
-        return smartLink.toString();
+        // Yandex Go on iOS launches for the old Adjust link but drops the
+        // nested Eats search. This route works for fresh browser sessions.
+        // The storefront submits it as a GET form so iOS stays on the website.
+        var browserUrl = new URL('https://eda.yandex.kg/en-kg/Bishkek/search');
+        browserUrl.searchParams.set('query', query);
+        return browserUrl.toString();
     } catch (error) {
         return '';
     }
+}
+
+// Backward-compatible export for code that imported the v3.12 helper name.
+export function buildYandexGoSmartUrl(value) {
+    return buildYandexEatsBrowserUrl(value);
 }
 
 export function getProductExternalLinkNavigation(link) {
     var url = sanitizeProductExternalUrl(link && link.url ? link.url : '');
     var type = String(link && link.type ? link.type : '').trim().toLowerCase();
     var glovoTarget = null;
-    var yandexSmartUrl = type === 'yandex' ? buildYandexGoSmartUrl(url) : '';
+    var yandexBrowserUrl = type === 'yandex' ? buildYandexEatsBrowserUrl(url) : '';
 
-    if (yandexSmartUrl) {
+    if (yandexBrowserUrl) {
+        var yandexTarget = new URL(yandexBrowserUrl);
+        var yandexFields = [];
+        yandexTarget.searchParams.forEach(function appendYandexField(value, name) {
+            yandexFields.push({ name: name, value: value });
+        });
+
         return {
-            kind: 'link',
-            url: yandexSmartUrl,
-            action: '',
-            fields: [],
+            kind: 'form',
+            url: yandexBrowserUrl,
+            action: yandexTarget.origin + yandexTarget.pathname,
+            fields: yandexFields,
             loginAction: '',
             loginFields: [],
             openInNewTab: false

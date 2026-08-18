@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+  buildYandexEatsBrowserUrl,
   buildYandexGoSmartUrl,
   getProductExternalLinkCtaLabel,
   getProductExternalLinkNavigation,
@@ -80,35 +81,34 @@ assert.deepEqual(regularNavigation.loginFields, []);
 assert.equal(regularNavigation.url, 'https://example.com/product');
 
 const normalYandexSearchUrl = 'https://eda.yandex.kg/en-kg/search?hideSelector=true&query=%D0%B1%D0%B8%D1%81%D0%BA%D0%BE%D1%82%D1%82%D0%B8&type=all';
-const yandexSmartUrl = buildYandexGoSmartUrl(normalYandexSearchUrl);
-const yandexSmart = new URL(yandexSmartUrl);
-assert.equal(yandexSmart.origin, 'https://8jxm.adj.st');
-assert.equal(yandexSmart.pathname, '/external');
-assert.equal(yandexSmart.searchParams.get('adjust_t'), 'gm2aavy_wjqyew0');
-assert.equal(yandexSmart.searchParams.get('service'), 'eats');
+const yandexBrowserUrl = buildYandexEatsBrowserUrl(normalYandexSearchUrl);
+const yandexBrowser = new URL(yandexBrowserUrl);
+assert.equal(yandexBrowser.origin, 'https://eda.yandex.kg');
+assert.equal(yandexBrowser.pathname, '/en-kg/Bishkek/search');
+assert.equal(yandexBrowser.searchParams.get('query'), 'бискотти');
+assert.equal(buildYandexEatsBrowserUrl(yandexBrowserUrl), yandexBrowserUrl);
+assert.equal(buildYandexGoSmartUrl(normalYandexSearchUrl), yandexBrowserUrl);
 
-const yandexNative = new URL(yandexSmart.searchParams.get('adj_deeplink'));
-assert.equal(yandexNative.protocol, 'yandextaxi:');
-assert.equal(yandexNative.hostname, 'external');
-assert.equal(yandexNative.searchParams.get('service'), 'eats');
-assert.equal(yandexNative.searchParams.get('delivery_lat'), '42.8778');
-assert.equal(yandexNative.searchParams.get('delivery_lon'), '74.5688');
-const yandexAppDestination = new URL(yandexNative.searchParams.get('href'));
-assert.equal(yandexAppDestination.pathname, '/search');
-assert.equal(yandexAppDestination.searchParams.get('query'), 'бискотти');
-
-const yandexFallback = new URL(yandexSmart.searchParams.get('adj_fallback'));
-assert.equal(yandexFallback.pathname, '/en-kg/search');
-assert.equal(yandexFallback.searchParams.get('hideSelector'), 'true');
-assert.equal(yandexFallback.searchParams.get('query'), 'бискотти');
-assert.equal(yandexFallback.searchParams.get('type'), 'all');
-assert.equal(yandexSmart.searchParams.get('adj_redirect'), yandexFallback.toString());
-assert.equal(buildYandexGoSmartUrl(yandexSmartUrl), yandexSmartUrl);
+const legacyYandexAdjust = new URL('https://8jxm.adj.st/external');
+const legacyYandexNative = new URL('yandextaxi://external');
+legacyYandexNative.searchParams.set('service', 'eats');
+legacyYandexNative.searchParams.set('href', 'https://eda.yandex.kg/search?query=бискотти');
+legacyYandexAdjust.searchParams.set('adj_deeplink', legacyYandexNative.toString());
+legacyYandexAdjust.searchParams.set('adjust_t', 'gm2aavy_wjqyew0');
+legacyYandexAdjust.searchParams.set('adj_fallback', normalYandexSearchUrl);
+assert.equal(buildYandexEatsBrowserUrl(legacyYandexAdjust.toString()), yandexBrowserUrl);
 
 const yandexNavigation = getProductExternalLinkNavigation(validLink({ type: 'yandex', url: normalYandexSearchUrl }));
-assert.equal(yandexNavigation.kind, 'link');
-assert.equal(yandexNavigation.url, yandexSmartUrl);
+assert.equal(yandexNavigation.kind, 'form');
+assert.equal(yandexNavigation.url, yandexBrowserUrl);
+assert.equal(yandexNavigation.action, 'https://eda.yandex.kg/en-kg/Bishkek/search');
+assert.deepEqual(yandexNavigation.fields, [{ name: 'query', value: 'бискотти' }]);
+assert.equal(yandexNavigation.loginAction, '');
 assert.equal(yandexNavigation.openInNewTab, false);
+
+const legacyYandexNavigation = getProductExternalLinkNavigation(validLink({ type: 'yandex', url: legacyYandexAdjust.toString() }));
+assert.equal(legacyYandexNavigation.kind, 'form');
+assert.equal(legacyYandexNavigation.url, yandexBrowserUrl);
 
 const yandexRestaurantNavigation = getProductExternalLinkNavigation(validLink({ type: 'yandex', url: 'https://eda.yandex.kg/en-kg/r/faiza_1706873280' }));
 assert.equal(yandexRestaurantNavigation.url, 'https://eda.yandex.kg/en-kg/r/faiza_1706873280');

@@ -3,7 +3,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from "https://w
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl, getDisplayPrice } from './product-utils.js';
-import { getProductExternalLinkCtaLabel, getProductExternalLinkNavigation, getProductExternalLinks } from './product-external-links.mjs?v=2.3';
+import { getProductExternalLinkCtaLabel, getProductExternalLinkNavigation, getProductExternalLinks } from './product-external-links.mjs?v=2.4';
 import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
 import { formatPrice } from './shop-utils.js';
 import { loadStoreConfig } from './storefront/store-loader.js';
