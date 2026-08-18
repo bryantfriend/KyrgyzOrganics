@@ -13,11 +13,14 @@ function renderConfiguredHero(root, store, section) {
     const imageUrl = hero.imageUrl || '';
 
     root.classList.add('store-hero-section', `store-hero-${variant}`);
+    if (!imageUrl) root.classList.add('store-hero-no-media');
     root.innerHTML = `
         <div class="store-hero-copy">
-            <p class="store-hero-eyebrow">${escapeHtml(store?.name || '')}</p>
+            <p class="store-hero-eyebrow">${escapeHtml(hero.eyebrow || store?.name || '')}</p>
             <h1>${escapeHtml(hero.title || store?.name || '')}</h1>
             ${hero.subtitle ? `<p>${escapeHtml(hero.subtitle)}</p>` : ''}
+            ${hero.body ? `<p class="store-hero-body">${escapeHtml(hero.body)}</p>` : ''}
+            ${hero.note ? `<p class="store-hero-note">${escapeHtml(hero.note)}</p>` : ''}
             ${hero.ctaText ? `<a class="cta-btn" href="${escapeHtml(hero.ctaTarget || '#products')}">${escapeHtml(hero.ctaText)}</a>` : ''}
         </div>
         ${imageUrl ? `<div class="store-hero-media"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(hero.title || store?.name || 'Store hero')}"></div>` : ''}

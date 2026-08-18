@@ -15,7 +15,15 @@
         "ignore": [
             "firebase.json",
             "**/.*",
-            "**/node_modules/**"
+            "**/node_modules/**",
+            "functions/**",
+            "tests/**",
+            "test-results/**",
+            "output/**",
+            "firestore.rules",
+            "firestore.indexes.json",
+            "storage.rules",
+            "migrate-companyId.js"
         ],
         "rewrites": [
             {

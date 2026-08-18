@@ -6,7 +6,7 @@
   <title>OA Kyrgyz Organic – Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="stylesheet" href="/admin/adminStyles.css?v=3.20" />
+  <link rel="stylesheet" href="/admin/adminStyles.css?v=3.21" />
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 </head>
@@ -394,6 +394,7 @@
         <div class="store-onboarding-actions">
           <button type="button" id="startBakeryOnboardingBtn" class="btn-secondary">Bakery Store</button>
           <button type="button" id="startOrganicOnboardingBtn" class="btn-secondary">Organic Store</button>
+          <button type="button" id="startEditorialOnboardingBtn" class="btn-secondary">Creative / Spiritual</button>
           <button type="button" id="startBlankOnboardingBtn" class="btn-primary">Blank Store</button>
         </div>
       </div>
@@ -455,6 +456,14 @@
                   <small>Market layout, organic copy, campaign sections.</small>
                 </span>
               </label>
+              <label class="quick-store-starter">
+                <input type="radio" name="createStoreStarter" value="editorial">
+                <span>
+                  <span class="starter-visual starter-editorial" aria-hidden="true"></span>
+                  <strong>Creative</strong>
+                  <small>Editorial hero, visual link cards, no shop clutter.</small>
+                </span>
+              </label>
             </fieldset>
             <div class="form-group">
               <label for="newStoreNameInput">Store Name</label>
@@ -510,6 +519,7 @@
               <option value="hero">Hero Image</option>
               <option value="product">Product Image</option>
               <option value="campaign">Campaign Asset</option>
+              <option value="card">Editorial Card Image</option>
               <option value="seo">SEO / Share Image</option>
               <option value="qr">QR Code</option>
               <option value="other">Other</option>
@@ -705,6 +715,7 @@
             <div class="store-setup-wizard-actions">
               <button type="button" id="storeWizardBakeryBtn" class="btn-secondary">Apply Bakery Starter</button>
               <button type="button" id="storeWizardOrganicBtn" class="btn-secondary">Apply Organic Starter</button>
+              <button type="button" id="storeWizardEditorialBtn" class="btn-secondary">Apply Creative / Spiritual Starter</button>
             </div>
           </div>
 
@@ -719,6 +730,7 @@
                 <option value="cafe">Cafe</option>
                 <option value="luxury">Luxury</option>
                 <option value="minimal">Minimal</option>
+                <option value="editorial">Editorial / Spiritual</option>
               </select>
             </div>
             <div class="form-group" style="display:flex; align-items:flex-end;">
@@ -756,6 +768,14 @@
                 <option value="Montserrat">Montserrat</option>
                 <option value="Lora">Lora</option>
                 <option value="Nunito">Nunito</option>
+                <option value="Cormorant Garamond">Cormorant Garamond</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="storeThemeStyle">Storefront Style</label>
+              <select id="storeThemeStyle">
+                <option value="commerce">Commerce</option>
+                <option value="editorial">Editorial / Portfolio</option>
               </select>
             </div>
             <div class="form-group">
@@ -820,6 +840,16 @@
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureWhatsapp" checked> WhatsApp Support</label>
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureSubscriptions"> Subscriptions</label>
           </div>
+          <h5 style="margin:1rem 0 0.65rem;">Header, shop, and footer visibility</h5>
+          <div class="form-row">
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureHeaderSearch" checked> Search</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureCategories" checked> Category Bar</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureLanguage" checked> Language Selector</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureAccount" checked> Customer Account</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureFeaturedProducts" checked> Available Today</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureCollections" checked> Collections</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeFeatureFooter" checked> Standard Footer</label>
+          </div>
 
           <h4 style="margin:1.5rem 0 1rem;">Homepage Layout Sections</h4>
           <p style="color:#666; margin-top:-0.5rem; font-size:0.9rem;">Turn sections on/off for this store. The order is saved for the storefront engine.</p>
@@ -827,6 +857,7 @@
           <div class="form-row">
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutHero" checked> Hero</label>
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutQuickActions"> Quick Actions</label>
+            <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutLinkCards"> Visual Link Cards</label>
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutCampaign"> Campaign</label>
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutProducts" checked> Products</label>
             <label style="display:flex; align-items:center; gap:0.5rem;"><input type="checkbox" id="storeLayoutCta"> CTA</label>
@@ -834,12 +865,22 @@
           <div class="form-row">
             <div class="form-group">
               <label for="storeLayoutOrder">Section Order</label>
-              <input type="text" id="storeLayoutOrder" value="hero,quickActions,campaign,products,cta" placeholder="hero,quickActions,campaign,products,cta">
-              <small style="display:block; color:#777; margin-top:0.35rem;">Valid sections: hero, quickActions, campaign, products, cta</small>
+              <input type="text" id="storeLayoutOrder" value="hero,quickActions,linkCards,campaign,products,cta" placeholder="hero,linkCards,products,cta">
+              <small style="display:block; color:#777; margin-top:0.35rem;">Valid sections: hero, quickActions, linkCards, campaign, products, cta</small>
             </div>
           </div>
 
           <h4 style="margin:1.5rem 0 1rem;">Homepage Hero Content</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeHeroEyebrow">Hero Eyebrow</label>
+              <input type="text" id="storeHeroEyebrow" placeholder="Living archive of art & inner worlds">
+            </div>
+            <div class="form-group">
+              <label for="storeHeroCtaTarget">Hero Button Link</label>
+              <input type="text" id="storeHeroCtaTarget" placeholder="#explore">
+            </div>
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label for="storeHeroTitle">Hero Title</label>
@@ -859,6 +900,37 @@
               <label for="storeHeroImage">Hero Image URL</label>
               <input type="url" id="storeHeroImage" placeholder="https://...">
               <button type="button" class="btn-secondary media-pick-btn" data-media-input="storeHeroImage">Choose from Media Library</button>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeHeroBody">Hero Body Copy</label>
+              <textarea id="storeHeroBody" placeholder="A short introduction to the person, practice, or brand."></textarea>
+            </div>
+            <div class="form-group">
+              <label for="storeHeroNote">Hero Accent / Italic Line</label>
+              <textarea id="storeHeroNote" placeholder="Art, philosophy, intuition, and conscious creation."></textarea>
+            </div>
+          </div>
+
+          <h4 style="margin:1.5rem 0 1rem;">Editorial Navigation & Visual Cards</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeNavigationLinks">Header Navigation</label>
+              <textarea id="storeNavigationLinks" rows="7" placeholder="Home | /&#10;My Path | #my-path&#10;Connect | #connect"></textarea>
+              <small style="display:block; color:#777; margin-top:0.35rem;">One link per line: Label | URL. Up to 10 links.</small>
+            </div>
+            <div class="form-group">
+              <label for="storeLinkCardsContent">Visual Link Cards</label>
+              <textarea id="storeLinkCardsContent" rows="9" placeholder="✦ | My Path | My story and values | #my-path | https://image-url&#10;☾ | Inner Notes | Writings and reflections | #inner-notes | https://image-url"></textarea>
+              <small style="display:block; color:#777; margin-top:0.35rem;">One card per line: Icon | Title | Description | Link | Image URL. Up to 12 cards.</small>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="storeBrandStrip">Bottom Brand Strip</label>
+              <input type="text" id="storeBrandStrip" placeholder="ART · PHILOSOPHY · INTUITIVE PRACTICE · CONSCIOUS WORK">
             </div>
           </div>
 
@@ -2244,7 +2316,7 @@
     <div id="adminToast" class="admin-toast" role="status" aria-live="polite"></div>
   </div>
 
-  <script type="module" src="/admin/admin.js?v=3.20"></script>
+  <script type="module" src="/admin/admin.js?v=3.21"></script>
   <script type="module">
     // One-time migration runner: only loads when explicitly requested via URL flag.
     // Example: /admin/admin.html?runCompanyIdMigration=true

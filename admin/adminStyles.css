@@ -2659,7 +2659,7 @@ button[type="submit"]:hover {
 .quick-store-starters {
   display: grid;
   gap: 0.7rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
   padding: 0;
   border: 0;
@@ -5219,6 +5219,13 @@ button[type="submit"]:hover {
     radial-gradient(circle at 14px 18px, #16a34a 0 7px, transparent 8px),
     radial-gradient(circle at 27px 12px, #84cc16 0 6px, transparent 7px),
     linear-gradient(135deg, #ecfdf5 0%, #bbf7d0 100%);
+}
+
+.starter-editorial {
+  background:
+    radial-gradient(circle at 28px 10px, #a85f35 0 2px, transparent 3px),
+    linear-gradient(90deg, transparent 19px, rgba(168, 95, 53, 0.3) 20px 21px, transparent 22px),
+    linear-gradient(145deg, #fbf2e4 0%, #e9c8a8 100%);
 }
 
 .quick-store-starter:hover .starter-visual,

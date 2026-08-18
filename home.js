@@ -211,6 +211,9 @@ const homeCampaignSection = $('homeCampaignSection');
 const homeCampaignTimeline = $('homeCampaignTimeline');
 const productCollectionsSection = $('productCollectionsSection');
 const productCollectionsGrid = $('productCollectionsGrid');
+const storeLinkCards = $('storeLinkCards');
+const productCatalogSection = $('productCatalogSection');
+const brandFooterStrip = $('brandFooterStrip');
 const accountButton = $('accountButton');
 const accountModal = $('accountModal');
 const closeAccountModal = $('closeAccountModal');
@@ -459,9 +462,15 @@ async function init() {
 
 async function loadData() {
     const activeCompanyId = getCurrentCompanyId();
+    const productsEnabled = isSectionEnabled('products', true);
+    const cartEnabled = isFeatureEnabled('cart', true);
+    const campaignEnabled = isFeatureEnabled('campaign', false) && isSectionEnabled('campaign', false);
+    const collectionsEnabled = productsEnabled && isFeatureEnabled('productCollections', true);
+    const heroConfig = activeStoreConfig?.layout?.find(section => section.type === 'hero');
+    const carouselEnabled = heroConfig?.enabled !== false && (heroConfig?.variant || 'carousel') === 'carousel';
 
     // 1. Load Banners Separately & Immediately
-    getDocs(query(collection(db, "banners"), where("active", "==", true))).then(snap => {
+    if (carouselEnabled) getDocs(query(collection(db, "banners"), where("active", "==", true))).then(snap => {
         const now = new Date();
         bannerData = snap.docs
             .map(d => ({ id: d.id, ...d.data() }))
@@ -495,10 +504,10 @@ async function loadData() {
     try {
         // 2. Load Rest of Data
         const results = await Promise.allSettled([
-            getDocs(query(collection(db, "products"), where("active", "==", true))),
-            getDocs(query(collection(db, "categories"), where("active", "==", true))),
-            getDocs(query(collection(db, "payment_methods"), where("active", "==", true))),
-            getDocs(query(collection(db, "product_collections"), where("active", "==", true)))
+            productsEnabled ? getDocs(query(collection(db, "products"), where("active", "==", true))) : Promise.resolve({ docs: [] }),
+            productsEnabled ? getDocs(query(collection(db, "categories"), where("active", "==", true))) : Promise.resolve({ docs: [] }),
+            cartEnabled ? getDocs(query(collection(db, "payment_methods"), where("active", "==", true))) : Promise.resolve({ docs: [] }),
+            collectionsEnabled ? getDocs(query(collection(db, "product_collections"), where("active", "==", true))) : Promise.resolve({ docs: [] })
         ]);
 
         const pRes = results[0].status === 'fulfilled' ? results[0].value : { docs: [] };
@@ -531,7 +540,7 @@ async function loadData() {
             .filter(col => matchesCompanyId(col, `product_collections/${col.id}`))
             .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
 
-        try {
+        if (productsEnabled) try {
             // Fetch inventory separately so stock-rule issues do not blank the catalog.
             const invId = getInventoryDocId(activeCompanyId, todayStr);
             let invSnap = await getDoc(doc(db, 'inventory', invId));
@@ -555,10 +564,12 @@ async function loadData() {
             dailyInventory = {};
         }
 
-        await loadCampaignTimeline();
-        await loadCheckoutSettings();
-        syncCartWithCatalog();
-        reconcileCartWithInventory({ shouldNotify: true });
+        if (campaignEnabled) await loadCampaignTimeline();
+        if (cartEnabled || isFeatureEnabled('whatsappSupport', true)) await loadCheckoutSettings();
+        if (cartEnabled) {
+            syncCartWithCatalog();
+            reconcileCartWithInventory({ shouldNotify: true });
+        }
 
     } catch (e) {
         console.error("Error loading data:", e);
@@ -572,16 +583,22 @@ function renderAll() {
     renderCategories();
     renderBanner();
     renderQuickActions();
+    renderLinkCards();
     renderFeatured();
     renderProducts(products);
     renderProductCollections();
     renderCampaignTimeline();
     updateStaticUI();
+    applyHomepageLayoutOrder();
     renderCart();
 }
 
 function renderProductCollections() {
     if (!productCollectionsSection || !productCollectionsGrid) return;
+    if (!isFeatureEnabled('productCollections', true) || !isSectionEnabled('products', true)) {
+        productCollectionsSection.hidden = true;
+        return;
+    }
     const visible = productCollections
         .map(collectionItem => ({
             ...collectionItem,
@@ -838,6 +855,61 @@ function renderCampaignTimeline() {
     }).join('');
 }
 
+function normalizePublicHref(value) {
+    const href = String(value || '').trim();
+    if (!href) return '#';
+    if (href === '/') return getStoreHomeUrl();
+    if (/^(https?:|mailto:|tel:|#|\/|\.\/|\.\.\/)/i.test(href)) return href;
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(href)) return href;
+    return '#';
+}
+
+function renderConfiguredNavigation() {
+    const items = Array.isArray(activeStoreConfig?.content?.navigation)
+        ? activeStoreConfig.content.navigation.filter(item => item?.label).slice(0, 10)
+        : [];
+    if (!items.length) return;
+
+    const markup = items.map((item, index) => {
+        const href = normalizePublicHref(item.href);
+        const activeClass = index === 0 ? ' class="is-active"' : '';
+        return `<a href="${escapeHtml(href)}"${activeClass}>${escapeHtml(item.label)}</a>`;
+    }).join('');
+
+    const desktopNav = document.querySelector('.nav-links');
+    const mobileNav = document.querySelector('.mobile-nav-links');
+    if (desktopNav) desktopNav.innerHTML = markup;
+    if (mobileNav) mobileNav.innerHTML = markup;
+}
+
+function applyHomepageLayoutOrder() {
+    const container = document.querySelector('.main-content > .container');
+    const configured = Array.isArray(activeStoreConfig?.layout) ? activeStoreConfig.layout : [];
+    if (!container || !configured.length) return;
+
+    const nodes = {
+        hero: [heroCarousel],
+        quickActions: [document.querySelector('.quick-actions-row')],
+        linkCards: [storeLinkCards],
+        campaign: [homeCampaignSection],
+        products: [document.querySelector('.featured-section'), productCollectionsSection, productCatalogSection],
+        cta: [document.querySelector('.investment-cta')]
+    };
+
+    const configuredTypes = configured.map(section => section.type).filter(type => nodes[type]);
+    if (!configuredTypes.includes('quickActions') && isFeatureEnabled('quickActions', false)) {
+        configuredTypes.splice(Math.max(0, configuredTypes.indexOf('hero') + 1), 0, 'quickActions');
+    }
+    const finalTypes = [
+        ...configuredTypes,
+        ...Object.keys(nodes).filter(type => !configuredTypes.includes(type))
+    ];
+
+    finalTypes.forEach((type) => {
+        (nodes[type] || []).filter(Boolean).forEach((node) => container.appendChild(node));
+    });
+}
+
 function updateStaticUI() {
     const content = activeStoreConfig?.content || {};
     const logoUrl = activeStoreConfig?.logoUrl || content.logoUrl || '';
@@ -849,6 +921,22 @@ function updateStaticUI() {
             : activeStoreName;
         logo.href = getStoreHomeUrl();
     });
+
+    renderConfiguredNavigation();
+
+    const searchBar = document.querySelector('.search-bar');
+    const categoryBar = document.querySelector('.filter-bar');
+    const languageSelector = document.querySelector('.lang-dropdown');
+    const footer = document.querySelector('.footer');
+    if (searchBar) searchBar.hidden = !isFeatureEnabled('headerSearch', true);
+    if (categoryBar) categoryBar.hidden = !isFeatureEnabled('categoryNavigation', true);
+    if (languageSelector) languageSelector.hidden = !isFeatureEnabled('languageSelector', true);
+    if (accountButton) accountButton.hidden = !isFeatureEnabled('customerAccount', true);
+    if (footer) footer.hidden = !isFeatureEnabled('footer', true);
+    if (brandFooterStrip) {
+        brandFooterStrip.textContent = content.brandStrip || '';
+        brandFooterStrip.hidden = !content.brandStrip;
+    }
 
     const footAboutTitle = document.getElementById('footAboutTitle');
     if (footAboutTitle) footAboutTitle.textContent = activeStoreName;
@@ -919,7 +1007,13 @@ function updateStaticUI() {
 function renderBanner() {
     if (!heroCarousel) return;
 
-    const heroSection = activeStoreConfig?.layout?.find(section => section.type === 'hero' && section.enabled !== false) || { type: 'hero', variant: 'carousel' };
+    const configuredSection = activeStoreConfig?.layout?.find(section => section.type === 'hero');
+    if (configuredSection?.enabled === false) {
+        heroCarousel.hidden = true;
+        return;
+    }
+    heroCarousel.hidden = false;
+    const heroSection = configuredSection || { type: 'hero', variant: 'carousel' };
     renderStoreSection('hero', {
         root: heroCarousel,
         store: activeStoreConfig,
@@ -944,8 +1038,30 @@ function renderQuickActions() {
     });
 }
 
+function renderLinkCards() {
+    if (!storeLinkCards) return;
+    const section = activeStoreConfig?.layout?.find(item => item.type === 'linkCards');
+    if (!section || section.enabled === false) {
+        storeLinkCards.hidden = true;
+        return;
+    }
+
+    storeLinkCards.hidden = false;
+    renderStoreSection('linkCards', {
+        root: storeLinkCards,
+        store: activeStoreConfig,
+        section
+    });
+}
+
 function renderFeatured() {
     if (!featuredGrid) return;
+    const featuredSection = featuredGrid.closest('.featured-section');
+    if (!isFeatureEnabled('featuredProducts', true) || !isSectionEnabled('products', true)) {
+        if (featuredSection) featuredSection.hidden = true;
+        return;
+    }
+    if (featuredSection) featuredSection.hidden = false;
     featuredGrid.innerHTML = '';
     const availableToday = products
         .map((product) => ({
@@ -972,9 +1088,11 @@ function renderProducts(data) {
     const fullCatalog = document.getElementById('fullCatalog');
     if (!isSectionEnabled('products', true)) {
         productGrid.hidden = true;
+        if (productCatalogSection) productCatalogSection.hidden = true;
         if (fullCatalog) fullCatalog.hidden = true;
         return;
     }
+    if (productCatalogSection) productCatalogSection.hidden = false;
     productGrid.hidden = false;
     if (fullCatalog) fullCatalog.hidden = false;
     productGrid.innerHTML = '';

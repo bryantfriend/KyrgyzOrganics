@@ -58,6 +58,7 @@ export function applyStoreTheme(store) {
 
     body.dataset.storeId = store?.companyId || store?.id || '';
     body.dataset.buttonStyle = theme.buttonStyle || 'rounded';
+    body.dataset.siteStyle = theme.siteStyle || 'commerce';
 
     loadGoogleFont(fontFamily);
 }

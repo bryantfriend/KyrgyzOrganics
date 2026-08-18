@@ -246,6 +246,7 @@ export class StoresTab extends BaseTab {
     this.createStoreStarterInputs = Array.from(document.querySelectorAll('input[name="createStoreStarter"]'));
     this.startBakeryOnboardingBtn = document.getElementById('startBakeryOnboardingBtn');
     this.startOrganicOnboardingBtn = document.getElementById('startOrganicOnboardingBtn');
+    this.startEditorialOnboardingBtn = document.getElementById('startEditorialOnboardingBtn');
     this.startBlankOnboardingBtn = document.getElementById('startBlankOnboardingBtn');
     this.refreshMetricsBtn = document.getElementById('refreshStoreMetrics');
     this.previewFrame = document.getElementById('storePreviewFrame');
@@ -299,6 +300,7 @@ export class StoresTab extends BaseTab {
     this.previewBtn = document.getElementById('storePreviewBtn');
     this.wizardBakeryBtn = document.getElementById('storeWizardBakeryBtn');
     this.wizardOrganicBtn = document.getElementById('storeWizardOrganicBtn');
+    this.wizardEditorialBtn = document.getElementById('storeWizardEditorialBtn');
     this.themePrimary = document.getElementById('storeThemePrimary');
     this.themeSecondary = document.getElementById('storeThemeSecondary');
     this.themeAccent = document.getElementById('storeThemeAccent');
@@ -307,6 +309,7 @@ export class StoresTab extends BaseTab {
     this.themeFont = document.getElementById('storeThemeFont');
     this.themeRadius = document.getElementById('storeThemeRadius');
     this.buttonStyle = document.getElementById('storeButtonStyle');
+    this.themeStyle = document.getElementById('storeThemeStyle');
     this.logoUrl = document.getElementById('storeLogoUrl');
     this.logoUpload = document.getElementById('storeLogoUpload');
     this.seoTitle = document.getElementById('storeSeoTitle');
@@ -320,16 +323,28 @@ export class StoresTab extends BaseTab {
     this.featureCart = document.getElementById('storeFeatureCart');
     this.featureWhatsapp = document.getElementById('storeFeatureWhatsapp');
     this.featureSubscriptions = document.getElementById('storeFeatureSubscriptions');
+    this.featureHeaderSearch = document.getElementById('storeFeatureHeaderSearch');
+    this.featureCategories = document.getElementById('storeFeatureCategories');
+    this.featureLanguage = document.getElementById('storeFeatureLanguage');
+    this.featureAccount = document.getElementById('storeFeatureAccount');
+    this.featureFeaturedProducts = document.getElementById('storeFeatureFeaturedProducts');
+    this.featureCollections = document.getElementById('storeFeatureCollections');
+    this.featureFooter = document.getElementById('storeFeatureFooter');
     this.layoutHero = document.getElementById('storeLayoutHero');
     this.layoutQuickActions = document.getElementById('storeLayoutQuickActions');
+    this.layoutLinkCards = document.getElementById('storeLayoutLinkCards');
     this.layoutCampaign = document.getElementById('storeLayoutCampaign');
     this.layoutProducts = document.getElementById('storeLayoutProducts');
     this.layoutCta = document.getElementById('storeLayoutCta');
     this.layoutOrder = document.getElementById('storeLayoutOrder');
     this.homepageBuilderPreview = document.getElementById('storeHomepageBuilderPreview');
     this.heroTitle = document.getElementById('storeHeroTitle');
+    this.heroEyebrow = document.getElementById('storeHeroEyebrow');
     this.heroSubtitle = document.getElementById('storeHeroSubtitle');
+    this.heroBody = document.getElementById('storeHeroBody');
+    this.heroNote = document.getElementById('storeHeroNote');
     this.heroCta = document.getElementById('storeHeroCta');
+    this.heroCtaTarget = document.getElementById('storeHeroCtaTarget');
     this.heroImage = document.getElementById('storeHeroImage');
     this.productHeading = document.getElementById('storeProductHeading');
     this.availableTitle = document.getElementById('storeAvailableTitle');
@@ -345,6 +360,9 @@ export class StoresTab extends BaseTab {
     this.productShowPrice = document.getElementById('storeProductShowPrice');
     this.productShowBadges = document.getElementById('storeProductShowBadges');
     this.productShowStock = document.getElementById('storeProductShowStock');
+    this.navigationLinks = document.getElementById('storeNavigationLinks');
+    this.linkCardsContent = document.getElementById('storeLinkCardsContent');
+    this.brandStrip = document.getElementById('storeBrandStrip');
     this.quickActions = [
       document.getElementById('storeQuickAction1'),
       document.getElementById('storeQuickAction2'),
@@ -534,6 +552,10 @@ export class StoresTab extends BaseTab {
       this.startOrganicOnboardingBtn.addEventListener('click', () => this.openCreateStoreModal('organic'));
     }
 
+    if (this.startEditorialOnboardingBtn) {
+      this.startEditorialOnboardingBtn.addEventListener('click', () => this.openCreateStoreModal('editorial'));
+    }
+
     if (this.startBlankOnboardingBtn) {
       this.startBlankOnboardingBtn.addEventListener('click', () => this.openCreateStoreModal('blank'));
     }
@@ -612,6 +634,10 @@ export class StoresTab extends BaseTab {
 
     if (this.wizardOrganicBtn) {
       this.wizardOrganicBtn.addEventListener('click', () => this.applyStarter('organic'));
+    }
+
+    if (this.wizardEditorialBtn) {
+      this.wizardEditorialBtn.addEventListener('click', () => this.applyStarter('editorial'));
     }
 
     if (this.logoUpload) {
@@ -752,6 +778,8 @@ export class StoresTab extends BaseTab {
     const alerts = [];
     const hosting = store?.hosting || {};
     const contact = store?.contact || {};
+    const tags = Array.isArray(store?.tags) ? store.tags.map((tag) => String(tag).toLowerCase()) : [];
+    const isContentFirstStore = tags.some((tag) => ['editorial', 'creative', 'services', 'portfolio'].includes(tag));
     const dnsStatus = hosting.dnsStatus || store?.dnsStatus || 'not_started';
     const website = store?.website || store?.customDomain || hosting.customDomain || '';
 
@@ -769,7 +797,7 @@ export class StoresTab extends BaseTab {
     if (metrics.error) {
       push('warning', 'Metrics unavailable', 'Firestore rules or network state blocked product/order health checks.', 'Data');
     } else {
-      if (Number(metrics.productsCount || 0) === 0) {
+      if (Number(metrics.productsCount || 0) === 0 && !isContentFirstStore) {
         push('critical', 'No products yet', 'Add products before sharing this store with customers.', 'Catalog');
       }
 
@@ -1602,7 +1630,7 @@ export class StoresTab extends BaseTab {
   }
 
   setCreateStoreStarter(starter = 'blank') {
-    const normalized = ['blank', 'bakery', 'organic'].includes(starter) ? starter : 'blank';
+    const normalized = ['blank', 'bakery', 'organic', 'editorial'].includes(starter) ? starter : 'blank';
     this.createStoreStarterInputs.forEach((input) => {
       input.checked = input.value === normalized;
     });
@@ -1633,6 +1661,14 @@ export class StoresTab extends BaseTab {
         next: 'Next: add brand assets, contact details, catalog categories, and campaign settings.',
         plan: 'pro',
         tags: ['organic', 'grocery']
+      },
+      editorial: {
+        placeholder: 'Creative Studio',
+        submitLabel: 'Create Creative Store',
+        intro: 'Use the creative starter for artists, guides, coaches, authors, and spiritual practices. It includes a large editorial hero, visual link cards, and no shop-only clutter.',
+        next: 'Next: add the brand portrait, logo, navigation links, visual card images, and final page copy. Products and checkout stay optional.',
+        plan: 'pro',
+        tags: ['editorial', 'creative', 'services']
       }
     };
     return starters[type] || starters.blank;
@@ -1780,7 +1816,9 @@ export class StoresTab extends BaseTab {
   }
 
   buildQuickStorefrontConfig(companyId, name, starter = 'blank') {
-    const templateId = starter === 'organic' ? COMPANY_ID : (starter === 'bakery' ? 'dailybread' : companyId);
+    const templateId = starter === 'organic'
+      ? COMPANY_ID
+      : (starter === 'bakery' ? 'dailybread' : (starter === 'editorial' ? 'editorial' : companyId));
     const config = {
       ...getFallbackStoreConfig(templateId),
       companyId,
@@ -1821,6 +1859,21 @@ export class StoresTab extends BaseTab {
           imageUrl: ''
         },
         productHeading: 'Products'
+      };
+    }
+
+    if (starter === 'editorial') {
+      config.content = {
+        ...(config.content || {}),
+        hero: {
+          ...(config.content?.hero || {}),
+          title: name,
+          imageUrl: ''
+        }
+      };
+      config.seo = {
+        ...(config.seo || {}),
+        title: `${name} | Creative studio`
       };
     }
 
@@ -1998,6 +2051,7 @@ export class StoresTab extends BaseTab {
     if (this.themeFont) this.themeFont.value = theme.fontFamily || 'Outfit';
     if (this.themeRadius) this.themeRadius.value = theme.borderRadius || '8px';
     if (this.buttonStyle) this.buttonStyle.value = theme.buttonStyle || 'rounded';
+    if (this.themeStyle) this.themeStyle.value = theme.siteStyle || 'commerce';
     if (this.logoUrl) this.logoUrl.value = config.logoUrl || config.content?.logoUrl || '';
     if (this.seoTitle) this.seoTitle.value = seo.title || '';
     if (this.seoDescription) this.seoDescription.value = seo.description || '';
@@ -2011,20 +2065,32 @@ export class StoresTab extends BaseTab {
     if (this.featureCart) this.featureCart.checked = features.cart !== false;
     if (this.featureWhatsapp) this.featureWhatsapp.checked = features.whatsappSupport !== false;
     if (this.featureSubscriptions) this.featureSubscriptions.checked = features.subscriptions === true;
+    if (this.featureHeaderSearch) this.featureHeaderSearch.checked = features.headerSearch !== false;
+    if (this.featureCategories) this.featureCategories.checked = features.categoryNavigation !== false;
+    if (this.featureLanguage) this.featureLanguage.checked = features.languageSelector !== false;
+    if (this.featureAccount) this.featureAccount.checked = features.customerAccount !== false;
+    if (this.featureFeaturedProducts) this.featureFeaturedProducts.checked = features.featuredProducts !== false;
+    if (this.featureCollections) this.featureCollections.checked = features.productCollections !== false;
+    if (this.featureFooter) this.featureFooter.checked = features.footer !== false;
 
     if (this.layoutHero) this.layoutHero.checked = hasSection('hero', true);
     if (this.layoutQuickActions) this.layoutQuickActions.checked = hasSection('quickActions', features.quickActions === true);
+    if (this.layoutLinkCards) this.layoutLinkCards.checked = hasSection('linkCards', false);
     if (this.layoutCampaign) this.layoutCampaign.checked = hasSection('campaign', features.campaign === true);
     if (this.layoutProducts) this.layoutProducts.checked = hasSection('products', true);
     if (this.layoutCta) this.layoutCta.checked = hasSection('cta', features.investmentSection === true);
     if (this.layoutOrder) {
-      const order = layout.length ? layout.map((item) => item.type).join(',') : 'hero,quickActions,campaign,products,cta';
+      const order = layout.length ? layout.map((item) => item.type).join(',') : 'hero,quickActions,linkCards,campaign,products,cta';
       this.layoutOrder.value = order;
     }
 
     if (this.heroTitle) this.heroTitle.value = hero.title || '';
+    if (this.heroEyebrow) this.heroEyebrow.value = hero.eyebrow || '';
     if (this.heroSubtitle) this.heroSubtitle.value = hero.subtitle || '';
+    if (this.heroBody) this.heroBody.value = hero.body || '';
+    if (this.heroNote) this.heroNote.value = hero.note || '';
     if (this.heroCta) this.heroCta.value = hero.ctaText || '';
+    if (this.heroCtaTarget) this.heroCtaTarget.value = hero.ctaTarget || '';
     if (this.heroImage) this.heroImage.value = hero.imageUrl || '';
     if (this.productHeading) this.productHeading.value = config.content?.productHeading || '';
     if (this.availableTitle) this.availableTitle.value = config.content?.availableTodayTitle || '';
@@ -2048,6 +2114,17 @@ export class StoresTab extends BaseTab {
       const action = quickActions[index] || {};
       input.value = [action.icon, action.title].filter(Boolean).join(' ').trim();
     });
+    if (this.navigationLinks) {
+      const navigation = Array.isArray(config.content?.navigation) ? config.content.navigation : [];
+      this.navigationLinks.value = navigation.map((item) => `${item.label || ''} | ${item.href || ''}`).join('\n');
+    }
+    if (this.linkCardsContent) {
+      const cards = Array.isArray(config.content?.linkCards) ? config.content.linkCards : [];
+      this.linkCardsContent.value = cards
+        .map((card) => [card.icon, card.title, card.text, card.href, card.imageUrl].map((value) => value || '').join(' | '))
+        .join('\n');
+    }
+    if (this.brandStrip) this.brandStrip.value = config.content?.brandStrip || '';
     this.renderLaunchChecklist();
     this.renderHomepageBuilderPreview();
   }
@@ -2065,6 +2142,7 @@ export class StoresTab extends BaseTab {
     if (this.themeFont) this.themeFont.value = preset.fontFamily;
     if (this.themeRadius) this.themeRadius.value = preset.borderRadius;
     if (this.buttonStyle) this.buttonStyle.value = preset.buttonStyle;
+    if (this.themeStyle) this.themeStyle.value = preset.siteStyle || 'commerce';
     return true;
   }
 
@@ -2101,51 +2179,16 @@ export class StoresTab extends BaseTab {
   }
 
   applyStarter(type) {
-    const starter = type === 'organic'
-      ? getFallbackStoreConfig(COMPANY_ID)
-      : getFallbackStoreConfig('dailybread');
+    const normalized = ['bakery', 'organic', 'editorial'].includes(type) ? type : 'bakery';
+    const templateId = normalized === 'organic' ? COMPANY_ID : (normalized === 'editorial' ? 'editorial' : 'dailybread');
+    const starter = getFallbackStoreConfig(templateId);
 
     this.applyStorefrontConfigToForm(starter);
-    this.applyThemePreset(type === 'organic' ? 'organic' : 'bakery');
-
-    if (this.layoutHero) this.layoutHero.checked = true;
-    if (this.layoutProducts) this.layoutProducts.checked = true;
-    if (this.layoutQuickActions) this.layoutQuickActions.checked = type === 'organic';
-    if (this.layoutCampaign) this.layoutCampaign.checked = type === 'organic';
-    if (this.layoutCta) this.layoutCta.checked = type === 'organic';
-    if (this.layoutOrder) this.layoutOrder.value = type === 'organic'
-      ? 'hero,campaign,quickActions,products,cta'
-      : 'hero,products,quickActions,campaign,cta';
-
-    if (this.featureCampaign) this.featureCampaign.checked = type === 'organic';
-    if (this.featureInvestment) this.featureInvestment.checked = type === 'organic';
-    if (this.featureQuickActions) this.featureQuickActions.checked = type === 'organic';
-    if (this.featureDelivery) this.featureDelivery.checked = true;
-    if (this.featureCart) this.featureCart.checked = true;
-    if (this.featureWhatsapp) this.featureWhatsapp.checked = true;
-
-    if (this.heroTitle && !this.heroTitle.value.trim()) {
-      this.heroTitle.value = type === 'organic' ? 'Organic groceries from Kyrgyzstan' : 'Fresh Bread Daily';
-    }
-    if (this.productHeading) this.productHeading.value = type === 'organic' ? 'Full Catalog' : 'Fresh from Daily Bread';
-    if (this.availableTitle) this.availableTitle.value = type === 'organic' ? 'Available Today' : 'Baked Today';
-    if (this.availableLabel) this.availableLabel.value = type === 'organic' ? 'Fresh Stock' : 'Warm from the oven';
-    if (this.deliveryTitle) this.deliveryTitle.value = type === 'organic' ? 'Delivery across Bishkek and nearby areas' : 'Fresh bread delivered around Bishkek';
-    if (this.deliverySubtitle) this.deliverySubtitle.value = type === 'organic' ? 'Eco-friendly local producers at your doorstep' : 'Order today for soft, fresh bakery favorites';
-    if (this.ctaTitle) this.ctaTitle.value = type === 'organic' ? 'Invest in Biscotti Miste' : 'Need a custom bakery order?';
-    if (this.ctaText) this.ctaText.value = type === 'organic' ? 'Join our community of investors and support local organic production.' : 'Message us for office boxes, events, and special bread orders.';
-    if (this.ctaButton) this.ctaButton.value = type === 'organic' ? 'Learn More' : 'Contact Us';
-    if (this.ctaHref) this.ctaHref.value = type === 'organic' ? 'biscotti.html' : '#products';
-    if (this.seoTitle) this.seoTitle.value = type === 'organic' ? 'OA Kyrgyz Organic | Organic groceries in Bishkek' : 'Daily Bread | Fresh bread in Bishkek';
-    if (this.seoDescription) this.seoDescription.value = type === 'organic'
-      ? 'Fresh local organic products from Kyrgyzstan delivered around Bishkek.'
-      : 'Fresh bread baked daily and delivered around Bishkek.';
-    if (this.seoKeywords) this.seoKeywords.value = type === 'organic'
-      ? 'organic, groceries, Bishkek, Kyrgyzstan'
-      : 'bread, bakery, Bishkek, daily bread';
+    this.applyThemePreset(normalized);
     this.renderLaunchChecklist();
     this.renderHomepageBuilderPreview();
-    this.showToast(`${type === 'organic' ? 'Organic' : 'Bakery'} starter applied.`, 'success');
+    const label = normalized === 'editorial' ? 'Creative / spiritual' : `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`;
+    this.showToast(`${label} starter applied.`, 'success');
   }
 
   startOnboarding(type) {
@@ -2161,6 +2204,11 @@ export class StoresTab extends BaseTab {
       this.applyStarter('organic');
       if (this.name && !this.name.value) this.name.value = 'New Organic Store';
       if (this.tags) this.tags.value = 'organic, grocery';
+      if (this.plan) this.plan.value = 'pro';
+    } else if (type === 'editorial') {
+      this.applyStarter('editorial');
+      if (this.name && !this.name.value) this.name.value = 'Creative Studio';
+      if (this.tags) this.tags.value = 'editorial, creative, services';
       if (this.plan) this.plan.value = 'pro';
     } else {
       this.applyStorefrontConfigToForm(getFallbackStoreConfig(COMPANY_ID));
@@ -2244,10 +2292,10 @@ export class StoresTab extends BaseTab {
       ['Contact phone added', !!String(this.phone?.value || '').trim()],
       ['Logo added', !!String(this.logoUrl?.value || '').trim()],
       ['Hero title added', !!String(this.heroTitle?.value || '').trim()],
-      ['Products section enabled', this.layoutProducts?.checked !== false],
-      ['Cart enabled', this.featureCart?.checked !== false],
-      ['WhatsApp support enabled', this.featureWhatsapp?.checked !== false],
-      ['Delivery copy added', !!String(this.deliveryTitle?.value || '').trim()],
+      ['Homepage sections configured', this.layoutHero?.checked === true || this.layoutLinkCards?.checked === true || this.layoutProducts?.checked === true],
+      ['Commerce visibility chosen', Boolean(this.layoutProducts) && Boolean(this.featureCart)],
+      ['Contact experience chosen', this.featureWhatsapp?.checked === false || !!String(this.whatsapp?.value || this.phone?.value || '').trim()],
+      ['Delivery content ready', this.featureDelivery?.checked === false || !!String(this.deliveryTitle?.value || '').trim()],
       ['SEO title added', !!String(this.seoTitle?.value || '').trim()],
       ['SEO description added', !!String(this.seoDescription?.value || '').trim()],
       ['Domain plan started', !!String(this.customDomain?.value || this.website?.value || '').trim()],
@@ -2276,13 +2324,14 @@ export class StoresTab extends BaseTab {
   renderHomepageBuilderPreview() {
     if (!this.homepageBuilderPreview) return;
 
-    const order = String(this.layoutOrder?.value || 'hero,quickActions,campaign,products,cta')
+    const order = String(this.layoutOrder?.value || 'hero,quickActions,linkCards,campaign,products,cta')
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean);
     const enabled = {
       hero: this.layoutHero?.checked !== false,
       quickActions: this.layoutQuickActions?.checked === true,
+      linkCards: this.layoutLinkCards?.checked === true,
       campaign: this.layoutCampaign?.checked === true,
       products: this.layoutProducts?.checked !== false,
       cta: this.layoutCta?.checked === true
@@ -2290,11 +2339,12 @@ export class StoresTab extends BaseTab {
     const labels = {
       hero: this.heroTitle?.value || 'Hero',
       quickActions: 'Quick Actions',
+      linkCards: 'Visual Link Cards',
       campaign: 'Campaign',
       products: this.productHeading?.value || 'Products',
       cta: this.ctaTitle?.value || 'CTA'
     };
-    const allSections = ['hero', 'quickActions', 'campaign', 'products', 'cta'];
+    const allSections = ['hero', 'quickActions', 'linkCards', 'campaign', 'products', 'cta'];
     const finalOrder = [
       ...order.filter((type) => allSections.includes(type)),
       ...allSections.filter((type) => !order.includes(type))
@@ -2329,20 +2379,39 @@ export class StoresTab extends BaseTab {
     return { icon: first, title };
   }
 
+  parseNavigationInput(value) {
+    return String(value || '')
+      .split(/\r?\n/)
+      .map((line) => line.split('|').map((part) => part.trim()))
+      .filter(([label, href]) => label && href)
+      .slice(0, 10)
+      .map(([label, href]) => ({ label, href }));
+  }
+
+  parseLinkCardsInput(value) {
+    return String(value || '')
+      .split(/\r?\n/)
+      .map((line) => line.split('|').map((part) => part.trim()))
+      .filter(([, title]) => title)
+      .slice(0, 12)
+      .map(([icon, title, text, href, imageUrl]) => ({ icon, title, text, href, imageUrl }));
+  }
+
   buildStorefrontConfig(companyId, storeData) {
     const fallback = getFallbackStoreConfig(companyId);
     const layoutMap = {
-      hero: { type: 'hero', variant: companyId === COMPANY_ID ? 'carousel' : 'image', enabled: this.layoutHero ? this.layoutHero.checked : true },
+      hero: { type: 'hero', variant: this.themeStyle?.value === 'editorial' ? 'editorial' : (companyId === COMPANY_ID ? 'carousel' : 'image'), enabled: this.layoutHero ? this.layoutHero.checked : true },
       quickActions: { type: 'quickActions', variant: 'cards', enabled: this.layoutQuickActions ? this.layoutQuickActions.checked : false },
+      linkCards: { type: 'linkCards', variant: 'image-grid', enabled: this.layoutLinkCards ? this.layoutLinkCards.checked : false },
       campaign: { type: 'campaign', variant: 'timeline', enabled: this.layoutCampaign ? this.layoutCampaign.checked : false },
       products: { type: 'products', variant: this.productView?.value || 'grid', enabled: this.layoutProducts ? this.layoutProducts.checked : true },
       cta: { type: 'cta', variant: 'investment', enabled: this.layoutCta ? this.layoutCta.checked : false }
     };
-    const requestedOrder = String(this.layoutOrder?.value || 'hero,quickActions,campaign,products,cta')
+    const requestedOrder = String(this.layoutOrder?.value || 'hero,quickActions,linkCards,campaign,products,cta')
       .split(',')
       .map((type) => type.trim())
       .filter((type, index, arr) => layoutMap[type] && arr.indexOf(type) === index);
-    const finalOrder = requestedOrder.length ? requestedOrder : ['hero', 'quickActions', 'campaign', 'products', 'cta'];
+    const finalOrder = requestedOrder.length ? requestedOrder : ['hero', 'quickActions', 'linkCards', 'campaign', 'products', 'cta'];
     const layout = [
       ...finalOrder.map((type) => layoutMap[type]),
       ...Object.keys(layoutMap).filter((type) => !finalOrder.includes(type)).map((type) => layoutMap[type])
@@ -2382,7 +2451,8 @@ export class StoresTab extends BaseTab {
         textColor: this.themeText?.value || fallback.theme.textColor,
         fontFamily: this.themeFont?.value || fallback.theme.fontFamily,
         borderRadius: this.themeRadius?.value || fallback.theme.borderRadius,
-        buttonStyle: this.buttonStyle?.value || fallback.theme.buttonStyle
+        buttonStyle: this.buttonStyle?.value || fallback.theme.buttonStyle,
+        siteStyle: this.themeStyle?.value || fallback.theme.siteStyle || 'commerce'
       },
       layout,
       features: {
@@ -2392,7 +2462,14 @@ export class StoresTab extends BaseTab {
         quickActions: this.featureQuickActions ? this.featureQuickActions.checked : companyId === COMPANY_ID,
         deliveryBanner: this.featureDelivery ? this.featureDelivery.checked : true,
         cart: this.featureCart ? this.featureCart.checked : true,
-        whatsappSupport: this.featureWhatsapp ? this.featureWhatsapp.checked : true
+        whatsappSupport: this.featureWhatsapp ? this.featureWhatsapp.checked : true,
+        headerSearch: this.featureHeaderSearch ? this.featureHeaderSearch.checked : true,
+        categoryNavigation: this.featureCategories ? this.featureCategories.checked : true,
+        languageSelector: this.featureLanguage ? this.featureLanguage.checked : true,
+        customerAccount: this.featureAccount ? this.featureAccount.checked : true,
+        featuredProducts: this.featureFeaturedProducts ? this.featureFeaturedProducts.checked : true,
+        productCollections: this.featureCollections ? this.featureCollections.checked : true,
+        footer: this.featureFooter ? this.featureFooter.checked : true
       },
       productDisplay: {
         ...fallback.productDisplay,
@@ -2409,6 +2486,9 @@ export class StoresTab extends BaseTab {
         availableTodayTitle: String(this.availableTitle?.value || fallback.content.availableTodayTitle || '').trim(),
         availableTodayLabel: String(this.availableLabel?.value || fallback.content.availableTodayLabel || '').trim(),
         loadingText: String(fallback.content.loadingText || '').trim(),
+        brandStrip: String(this.brandStrip?.value || '').trim(),
+        navigation: this.parseNavigationInput(this.navigationLinks?.value),
+        linkCards: this.parseLinkCardsInput(this.linkCardsContent?.value),
         deliveryBanner: {
           ...(fallback.content.deliveryBanner || {}),
           title: String(this.deliveryTitle?.value || fallback.content.deliveryBanner?.title || '').trim(),
@@ -2416,11 +2496,14 @@ export class StoresTab extends BaseTab {
         },
         hero: {
           ...fallback.content.hero,
+          eyebrow: String(this.heroEyebrow?.value || '').trim(),
           title: String(this.heroTitle?.value || fallback.content.hero.title || '').trim(),
           subtitle: String(this.heroSubtitle?.value || fallback.content.hero.subtitle || '').trim(),
+          body: String(this.heroBody?.value || '').trim(),
+          note: String(this.heroNote?.value || '').trim(),
           imageUrl: String(this.heroImage?.value || '').trim(),
           ctaText: String(this.heroCta?.value || fallback.content.hero.ctaText || '').trim(),
-          ctaTarget: fallback.content.hero.ctaTarget || '#products'
+          ctaTarget: String(this.heroCtaTarget?.value || fallback.content.hero.ctaTarget || '#products').trim()
         },
         cta: {
           ...(fallback.content.cta || {}),

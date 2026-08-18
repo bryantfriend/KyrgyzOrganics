@@ -16,7 +16,7 @@ import { BusinessAccountsTab } from './tabs/BusinessAccountsTab.js?v=3.18';
 import { AuditTab } from './tabs/AuditTab.js';
 import { AnalyticsTab } from './tabs/AnalyticsTab.js';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
-import { StoresTab } from './tabs/StoresTab.js?v=3.13';
+import { StoresTab } from './tabs/StoresTab.js?v=3.14';
 import { GamesTab } from './tabs/GamesTab.js';
 
 const ADMIN_VERSION = '3.20';
@@ -849,7 +849,6 @@ class AdminApp {
   }
 
   async onLogin() {
-    console.log("Admin Logged In");
 
     // Initialize all tabs (or lazy load?)
     // Let's init generic stuff

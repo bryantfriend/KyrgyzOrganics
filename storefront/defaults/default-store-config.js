@@ -53,6 +53,18 @@ export const THEME_PRESETS = {
         fontFamily: "Nunito",
         borderRadius: "6px",
         buttonStyle: "sharp"
+    },
+    editorial: {
+        label: "Editorial / Spiritual",
+        primaryColor: "#A85F35",
+        secondaryColor: "#F2DDC2",
+        accentColor: "#C78052",
+        backgroundColor: "#FBF2E4",
+        textColor: "#261B16",
+        fontFamily: "Cormorant Garamond",
+        borderRadius: "22px",
+        buttonStyle: "rounded",
+        siteStyle: "editorial"
     }
 };
 
@@ -90,6 +102,7 @@ export const DEFAULT_STORE_CONFIGS = {
         },
         layout: [
             { type: "hero", variant: "carousel", enabled: true },
+            { type: "quickActions", variant: "cards", enabled: true },
             { type: "campaign", variant: "timeline", enabled: true },
             { type: "products", variant: "grid", enabled: true },
             { type: "cta", variant: "investment", enabled: true }
@@ -234,6 +247,121 @@ export const DEFAULT_STORE_CONFIGS = {
                 text: "Message us on WhatsApp",
                 buttonText: "Contact Us",
                 href: "#products"
+            }
+        }
+    },
+    editorial: {
+        id: "editorial",
+        companyId: "editorial",
+        name: "New Creative Studio",
+        slug: "creative-studio",
+        domain: "oako.kg/creative-studio",
+        launchStatus: "draft",
+        contact: {
+            email: "",
+            whatsapp: "",
+            openingHours: ""
+        },
+        social: {
+            instagram: ""
+        },
+        seo: {
+            title: "Creative Studio | Art, guidance, and inner worlds",
+            description: "Explore a living archive of art, stories, guidance, and creative offerings.",
+            imageUrl: "",
+            keywords: ["art", "spirituality", "creative practice", "guidance"]
+        },
+        theme: {
+            primaryColor: "#A85F35",
+            secondaryColor: "#F2DDC2",
+            accentColor: "#C78052",
+            backgroundColor: "#FBF2E4",
+            textColor: "#261B16",
+            fontFamily: "Cormorant Garamond",
+            borderRadius: "22px",
+            buttonStyle: "rounded",
+            siteStyle: "editorial"
+        },
+        layout: [
+            { type: "hero", variant: "editorial", enabled: true },
+            { type: "linkCards", variant: "image-grid", enabled: true },
+            { type: "products", variant: "grid", enabled: false },
+            { type: "quickActions", variant: "cards", enabled: false },
+            { type: "campaign", variant: "timeline", enabled: false },
+            { type: "cta", variant: "investment", enabled: false }
+        ],
+        features: {
+            campaign: false,
+            subscriptions: false,
+            investmentSection: false,
+            deliveryBanner: false,
+            quickActions: false,
+            cart: false,
+            whatsappSupport: false,
+            headerSearch: false,
+            categoryNavigation: false,
+            languageSelector: false,
+            customerAccount: false,
+            featuredProducts: false,
+            productCollections: false,
+            footer: false
+        },
+        productDisplay: {
+            view: "grid",
+            cardSize: "medium",
+            showPrice: false,
+            showDiscount: false,
+            showBadges: false,
+            showStock: false
+        },
+        content: {
+            logoUrl: "",
+            loadingText: "Opening the creative studio.",
+            productHeading: "Offerings",
+            availableTodayTitle: "Featured Offerings",
+            availableTodayLabel: "Explore",
+            brandStrip: "ART  ·  PHILOSOPHY  ·  INTUITIVE PRACTICE  ·  STORYTELLING  ·  CONSCIOUS WORK",
+            navigation: [
+                { label: "Home", href: "/" },
+                { label: "My Path", href: "#my-path" },
+                { label: "Visual Worlds", href: "#visual-worlds" },
+                { label: "Mythopoetic World", href: "#mythopoetic-world" },
+                { label: "Intuitive Method", href: "#intuitive-method" },
+                { label: "Inner Notes", href: "#inner-notes" },
+                { label: "Conscious Work", href: "#conscious-work" },
+                { label: "Work With Me", href: "#work-with-me" },
+                { label: "Connect", href: "#connect" }
+            ],
+            deliveryBanner: {
+                title: "",
+                subtitle: ""
+            },
+            hero: {
+                eyebrow: "Living archive of art & inner worlds",
+                title: "Your Creative Universe",
+                subtitle: "Art, philosophy, intuitive practice, and mythopoetic storytelling.",
+                body: "Share your story, your work, and the inner world that gives it meaning.",
+                note: "A quiet space for art, reflection, and conscious creation.",
+                imageUrl: "",
+                ctaText: "Explore the universe",
+                ctaTarget: "#explore"
+            },
+            linkCards: [
+                { icon: "✦", title: "My Path", text: "The story, values, and transformations that shape my work.", href: "#my-path", imageUrl: "" },
+                { icon: "◉", title: "Visual Worlds", text: "Explore artworks and visual expressions from the seen and unseen.", href: "#visual-worlds", imageUrl: "" },
+                { icon: "☼", title: "Mythopoetic World", text: "Step into a symbolic realm of stories, archetypes, and living mythology.", href: "#mythopoetic-world", imageUrl: "" },
+                { icon: "⌁", title: "Intuitive Method", text: "Discover a practice that bridges intuition, symbols, and the creative soul.", href: "#intuitive-method", imageUrl: "" },
+                { icon: "☾", title: "Inner Notes", text: "Writings, reflections, and philosophical whispers.", href: "#inner-notes", imageUrl: "" },
+                { icon: "✺", title: "Conscious Work", text: "Meaningful projects, aligned business, and creative freedom.", href: "#conscious-work", imageUrl: "" },
+                { icon: "✧", title: "Work With Me", text: "Offerings, collaborations, and mentorship for your journey.", href: "#work-with-me", imageUrl: "" },
+                { icon: "❀", title: "Connect", text: "Let us connect and create something beautiful together.", href: "#connect", imageUrl: "" }
+            ],
+            quickActions: [],
+            cta: {
+                title: "Let us create something meaningful",
+                text: "Explore collaborations, mentorship, and creative offerings.",
+                buttonText: "Connect",
+                href: "#connect"
             }
         }
     }
