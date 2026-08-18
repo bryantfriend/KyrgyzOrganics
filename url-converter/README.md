@@ -2,7 +2,7 @@
 
 Static Smart Product Link Hub for creating one customer-facing product page and one branded QR code for Glovo, Yandex, and pickup locations.
 
-The app still preserves the original Glovo exact web product behavior, but the QR/Instagram/TikTok link now points to your own public product hub page first.
+The converter also produces a validated **OAKO product URL** from a normal Glovo browser link. Paste that URL into an OAKO product external link and select **Glovo** as its link type. The OAKO product page renders the action as a user-submitted GET form, which preserves the exact product on mobile instead of handing a normal verified link to the Glovo app.
 
 ## Customer Flow
 
@@ -17,8 +17,11 @@ QR / Instagram / TikTok link
 - Adds a provider link finder modal for Glovo and Yandex. It opens the provider website, supports an external-tab fallback, and lets the user paste or clipboard-capture the selected product/store URL for conversion.
 - Builds a product hub with product name, description, image URL, SKU, campaign, badge, price text, brand colors, and QR styling.
 - Keeps the working Glovo product URL parser for `productId`, `externalProductId`, store slug, and content path.
-- Uses the existing compact Glovo `/q/?s=...&c=...&p=...&e=...` route for the Glovo action so exact web product behavior is preserved.
-- Accepts conservative Yandex-related URLs, including `yandex.*`, `eda.yandex.kg`, `ya.cc`, and `yandexgo.*`, and preserves the pasted URL unless a simple Eats restaurant route can safely use `/q/?y=...`.
+- Produces a canonical Glovo URL for the OAKO product editor while preserving all query parameters, including `content`, `search`, `productId`, and `externalProductId`.
+- Renders Glovo actions in newly generated public hubs as browser-safe GET forms so exact web product behavior is preserved on phones.
+- Adds a same-tab **Sign in first with Email** action whose Glovo `returnPath` contains the complete product query. This avoids the Google OAuth-to-app handoff that can lose the selected item on Android.
+- Converts normal `eda.yandex.kg/.../search?query=...` URLs into a combined iOS/Android Yandex Go smart link. Installed users land on the matching Food search; users without the app fall back to the same Yandex web search.
+- Accepts other conservative Yandex-related URLs, including `yandex.*`, `eda.yandex.kg`, `ya.cc`, and `yandexgo.*`, and preserves non-search links as pasted.
 - Adds pickup locations with name, address, hours, phone, latitude, longitude, and map URL.
 - Generates a public `/p/?h=...` product hub link and renders the QR from that hub link.
 - Provides a mobile-first public product page with action cards for Glovo, Yandex, and pickup.
@@ -65,9 +68,17 @@ The code is structured so that can be added behind a future storage adapter.
 
 ## Glovo Behavior
 
-Glovo product links continue to require `productId` and `externalProductId`. The public hub's Glovo button uses the compact `/q/` route, which reconstructs the exact Glovo web product URL and opens it through the existing redirect/analytics flow.
+Glovo product links continue to require `productId` and `externalProductId`. The converter's **OAKO product URL** is the validated canonical Glovo URL. It may look similar to the input because the mobile fix is intentionally applied by the OAKO button: choosing the **Glovo** link type makes that button submit a GET form instead of following a normal Android app link.
+
+The public hub uses the same browser-safe form behavior. If the customer is logged out, they should use **Sign in first with Email** before ordering; after email authentication Glovo receives the complete exact-product return path. Google and Facebook authentication can still be claimed by the installed Glovo Android app because that callback is controlled by Glovo. Older generated hub payloads that contain the previous `open.html` wrapper are unwrapped at runtime when possible.
 
 Native Glovo exact product deep linking is intentionally not forced because testing did not find a reliable supported route.
+
+## Yandex Go Behavior
+
+For Yandex product searches, the converter generates an Adjust HTTPS link containing the Yandex Go `yandextaxi://external?service=eats` destination. The link uses Yandex's combined iOS and Android tracker tokens and carries the search term in the supported `href` parameter. Both `adj_fallback` and `adj_redirect` point to the equivalent `eda.yandex.kg` browser search.
+
+The OAKO storefront performs the same conversion at click time for older products that still store a normal Yandex search URL. Testing on the Android phone emulator confirmed both paths: Yandex Go opened directly to the matching Alma Go results when installed, and Chrome opened the matching Yandex website results when the app was disabled.
 
 ## Yandex Behavior
 

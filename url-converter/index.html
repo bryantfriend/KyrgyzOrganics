@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Product Link & QR Hub</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=3.12">
 </head>
 <body>
   <header class="mobile-topbar" aria-label="Mobile toolbar">
@@ -17,7 +17,7 @@
       <span class="brand-mark" aria-hidden="true">G</span>
       <div>
         <strong>Product Hub</strong>
-        <span class="app-version-pill">v3.10</span>
+      <span class="app-version-pill">v3.12</span>
       </div>
     </div>
     <button class="mobile-pill-button" type="button" data-open-modal="brand">Brand</button>
@@ -62,16 +62,16 @@
           <strong>Need help?</strong>
           <span>Build one mobile product hub link for Glovo, Yandex, pickup, Instagram, TikTok, and QR.</span>
         </div>
-        <p class="version">Version 3.10</p>
+        <p class="version">Version 3.12</p>
       </div>
     </aside>
 
     <main class="tool-shell" id="converter">
       <header class="page-header">
         <div>
-          <p class="eyebrow">Smart Product Link Hub <span class="app-version-pill">v3.10</span></p>
+          <p class="eyebrow">Smart Product Link Hub <span class="app-version-pill">v3.12</span></p>
           <h1>Product Link &amp; QR Hub</h1>
-          <p class="lede">Create one mobile-first product page with buttons for Glovo, Yandex, and pickup locations, then export a branded QR for Instagram, TikTok, and packaging.</p>
+          <p class="lede">Convert a normal Glovo product URL into the validated URL used by OAKO product buttons, or create a mobile-first product hub and branded QR.</p>
         </div>
         <div class="status-card" id="statusCard" role="status" aria-live="polite">
           <span class="status-dot" aria-hidden="true"></span>
@@ -89,11 +89,11 @@
           </div>
           <label class="field-label" for="sourceUrl">Glovo product link</label>
           <textarea id="sourceUrl" spellcheck="false" placeholder="https://glovoapp.com/...productId=..."></textarea>
-          <p class="helper-text">Glovo keeps the existing exact web product behavior. We do not force unsupported native product deep links.</p>
+          <p class="helper-text">Paste the full browser URL, including <code>productId</code> and <code>externalProductId</code>. Search and content parameters are preserved.</p>
 
           <label class="field-label stacked-field" for="yandexUrl">Yandex delivery link</label>
-          <input id="yandexUrl" spellcheck="false" inputmode="url" placeholder="https://eda.yandex.kg/r/faiza_1706873280">
-          <p class="helper-text">Yandex links are validated conservatively and preserved as pasted. Product-level support is only claimed when the pasted URL already does it.</p>
+          <input id="yandexUrl" spellcheck="false" inputmode="url" placeholder="https://eda.yandex.kg/en-kg/search?query=бискотти">
+          <p class="helper-text">Paste a normal Yandex Eats search URL. Search links are converted into a Yandex Go smart link with an automatic website fallback.</p>
 
           <div class="finder-actions" aria-label="Find product links">
             <button type="button" class="secondary" data-open-link-finder="glovo">Find on Glovo</button>
@@ -101,10 +101,26 @@
           </div>
 
           <div class="actions" aria-label="URL actions">
-            <button id="convertButton" type="button">Build Product Hub</button>
+            <button id="convertButton" type="button">Convert Link &amp; Build Hub</button>
             <button id="sampleButton" type="button" class="secondary">Use Sample</button>
             <button id="clearButton" type="button" class="ghost">Clear</button>
           </div>
+
+          <section class="oako-product-link-result" id="oakoProductLinkResult" aria-labelledby="oako-product-link-heading" hidden>
+            <div class="oako-result-heading">
+              <div>
+                <p class="eyebrow">Ready for the product editor</p>
+                <h3 id="oako-product-link-heading">OAKO product URL</h3>
+              </div>
+              <span class="result-pill">Mobile safe</span>
+            </div>
+            <label class="field-label" for="oakoProductUrl">Paste this URL into the product's external link</label>
+            <div class="copy-row">
+              <input id="oakoProductUrl" readonly>
+              <button class="copy-button" type="button" data-copy-target="oakoProductUrl">Copy</button>
+            </div>
+            <p class="note" id="oakoProductLinkNote"><strong>Important:</strong> choose the matching delivery provider as the link type in OAKO.</p>
+          </section>
         </section>
 
         <div class="mobile-quick-actions" aria-label="Mobile quick actions">
@@ -376,7 +392,7 @@
 
   <script src="vendor/qrcode.min.js" defer></script>
   <script src="storageAdapter.js" defer></script>
-  <script src="app.js" defer></script>
+  <script src="app.js?v=3.12" defer></script>
   <script src="ui.js" defer></script>
 </body>
 </html>

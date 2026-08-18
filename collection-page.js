@@ -3,7 +3,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from "https://w
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl, getDisplayPrice } from './product-utils.js';
-import { getProductExternalLinkCtaLabel, getProductExternalLinks } from './product-external-links.mjs';
+import { getProductExternalLinkCtaLabel, getProductExternalLinkNavigation, getProductExternalLinks } from './product-external-links.mjs?v=2.3';
 import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
 import { formatPrice } from './shop-utils.js';
 import { loadStoreConfig } from './storefront/store-loader.js';
@@ -156,11 +156,19 @@ function renderProductCard(product, collectionData) {
     const categoryName = categoriesMap[product.categoryId] ? loc(categoriesMap[product.categoryId], 'name') : '';
     const productUrl = buildProductUrlWithCollectionReturn(product, collectionData);
     const externalLinks = getProductExternalLinks(product);
-    const externalActions = externalLinks.map((link) => `
-        <a class="collection-page-buy-link" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer">
-            ${escapeHtml(getProductExternalLinkCtaLabel(link))}
-        </a>
-    `).join('');
+    const externalActions = externalLinks.map((link) => {
+        const navigation = getProductExternalLinkNavigation(link);
+        const label = escapeHtml(getProductExternalLinkCtaLabel(link));
+        if (navigation.kind === 'form') {
+            const fields = navigation.fields.map((field) =>
+                `<input type="hidden" name="${escapeHtml(field.name)}" value="${escapeHtml(field.value)}">`
+            ).join('');
+            return `<form class="collection-page-buy-form" method="get" action="${escapeHtml(navigation.action)}">${fields}<button class="collection-page-buy-link" type="submit">${label}</button></form>`;
+        }
+
+        const targetAttribute = navigation.openInNewTab === false ? '' : ' target="_blank"';
+        return `<a class="collection-page-buy-link" href="${escapeHtml(navigation.url)}"${targetAttribute} rel="noopener noreferrer">${label}</a>`;
+    }).join('');
 
     return `
         <article class="product-card collection-page-product-card">

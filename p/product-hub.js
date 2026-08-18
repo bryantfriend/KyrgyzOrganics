@@ -52,17 +52,151 @@
     return "map";
   }
 
-  function buildAction(link, action, icon, primary, hub) {
-    const anchor = document.createElement("a");
-    anchor.className = "action-card" + (primary ? " primary" : "");
-    anchor.href = safeHref(link.convertedUrl || link.originalUrl);
-    anchor.rel = "noopener noreferrer";
-    anchor.innerHTML = '<span class="action-icon"></span><span><strong></strong><span></span></span><span class="chevron" aria-hidden="true">›</span>';
-    const iconNode = anchor.querySelector(".action-icon");
+  function getGlovoProductUrl(link) {
+    const candidates = [link && link.originalUrl, link && link.convertedUrl];
+
+    for (const value of candidates) {
+      if (!value) continue;
+      try {
+        let candidate = new URL(value, window.location.href);
+        const embeddedTarget = candidate.searchParams.get("u");
+        const normalizedHost = candidate.hostname.replace(/\.$/, "").toLowerCase();
+
+        // Older generated hubs stored an OAKO open.html wrapper. Unwrap its
+        // target so those links also gain the browser-safe form navigation.
+        if (normalizedHost !== "glovoapp.com" && normalizedHost !== "www.glovoapp.com" && embeddedTarget) {
+          candidate = new URL(embeddedTarget);
+        }
+
+        const targetHost = candidate.hostname.replace(/\.$/, "").toLowerCase();
+        if (targetHost !== "glovoapp.com" && targetHost !== "www.glovoapp.com") continue;
+        if (candidate.protocol !== "https:" && candidate.protocol !== "http:") continue;
+
+        candidate.protocol = "https:";
+        candidate.hostname = "glovoapp.com";
+        candidate.port = "";
+        return candidate;
+      } catch (error) {}
+    }
+
+    return null;
+  }
+
+  function buildYandexGoSmartUrl(link) {
+    const candidates = [link && link.convertedUrl, link && link.originalUrl];
+
+    for (const value of candidates) {
+      if (!value) continue;
+      try {
+        const source = new URL(value, window.location.href);
+        const sourceHost = source.hostname.replace(/\.$/, "").toLowerCase();
+        if (sourceHost === "8jxm.adj.st" && source.pathname === "/external") return source.toString();
+        if (sourceHost !== "eda.yandex.kg" && sourceHost !== "www.eda.yandex.kg") continue;
+        if (!/(?:^|\/)search\/?$/i.test(source.pathname)) continue;
+
+        const query = text(source.searchParams.get("query") || source.searchParams.get("text") || source.searchParams.get("search"));
+        if (!query) continue;
+
+        const appDestination = new URL("https://eda.yandex.kg/search");
+        appDestination.searchParams.set("query", query);
+        const browserFallback = new URL("https://eda.yandex.kg/en-kg/search");
+        browserFallback.searchParams.set("hideSelector", "true");
+        browserFallback.searchParams.set("query", query);
+        browserFallback.searchParams.set("type", "all");
+
+        const nativeLink = "yandextaxi://external?service=eats"
+          + "&href=" + encodeURIComponent(appDestination.toString())
+          + "&delivery_lat=42.8778&delivery_lon=74.5688";
+        const smartLink = new URL("https://8jxm.adj.st/external");
+        smartLink.searchParams.set("adj_deeplink", nativeLink);
+        smartLink.searchParams.set("adjust_t", "gm2aavy_wjqyew0");
+        smartLink.searchParams.set("service", "eats");
+        smartLink.searchParams.set("adj_fallback", browserFallback.toString());
+        smartLink.searchParams.set("adj_redirect", browserFallback.toString());
+        return smartLink.toString();
+      } catch (error) {}
+    }
+
+    return "";
+  }
+
+  function fillActionContent(control, action, icon, link) {
+    control.innerHTML = '<span class="action-icon"></span><span><strong></strong><span></span></span><span class="chevron" aria-hidden="true">›</span>';
+    const iconNode = control.querySelector(".action-icon");
     iconNode.classList.add(iconClassFor(action));
     iconNode.textContent = icon;
-    anchor.querySelector("strong").textContent = text(link.buttonLabel, action);
-    anchor.querySelector("span span").textContent = text(link.helperText, "Open delivery link");
+    control.querySelector("strong").textContent = text(link.buttonLabel, action);
+    control.querySelector("span span").textContent = text(link.helperText, "Open delivery link");
+  }
+
+  function getGlovoLoginAction(glovoTarget) {
+    const localeMatch = glovoTarget.pathname.match(/^\/([a-z]{2}(?:-[a-z]{2})?)(?:\/|$)/i);
+    const localePrefix = localeMatch ? "/" + localeMatch[1] : "/en";
+    return glovoTarget.origin + localePrefix + "/login";
+  }
+
+  function buildGlovoSignInOption(glovoTarget) {
+    const panel = document.createElement("div");
+    panel.className = "glovo-signin-option";
+
+    const copy = document.createElement("p");
+    copy.innerHTML = "<strong>Not signed in to Glovo?</strong><span>Start here and choose Email on Android. Google can open the app and lose the product.</span>";
+    panel.appendChild(copy);
+
+    const form = document.createElement("form");
+    form.className = "glovo-signin-form";
+    form.method = "get";
+    form.action = getGlovoLoginAction(glovoTarget);
+
+    const returnPath = document.createElement("input");
+    returnPath.type = "hidden";
+    returnPath.name = "returnPath";
+    returnPath.value = glovoTarget.pathname + glovoTarget.search;
+    form.appendChild(returnPath);
+
+    const button = document.createElement("button");
+    button.type = "submit";
+    button.textContent = "Sign in first with Email";
+    form.appendChild(button);
+    panel.appendChild(form);
+    return panel;
+  }
+
+  function buildAction(link, action, icon, primary, hub) {
+    const glovoTarget = action === "glovo_click" ? getGlovoProductUrl(link) : null;
+    if (glovoTarget) {
+      const stack = document.createElement("div");
+      stack.className = "glovo-action-stack";
+      const form = document.createElement("form");
+      form.className = "action-card-form";
+      form.method = "get";
+      form.action = glovoTarget.origin + glovoTarget.pathname;
+      glovoTarget.searchParams.forEach(function (value, name) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      });
+
+      const button = document.createElement("button");
+      button.type = "submit";
+      button.className = "action-card" + (primary ? " primary" : "");
+      fillActionContent(button, action, icon, link);
+      button.querySelector("span span").textContent = "Already signed in? Open the exact product";
+      form.appendChild(button);
+      form.addEventListener("submit", function () { recordLocal(action, hub); });
+      stack.appendChild(form);
+      stack.appendChild(buildGlovoSignInOption(glovoTarget));
+      return stack;
+    }
+
+    const anchor = document.createElement("a");
+    anchor.className = "action-card" + (primary ? " primary" : "");
+    const yandexSmartUrl = action === "yandex_click" ? buildYandexGoSmartUrl(link) : "";
+    anchor.href = safeHref(yandexSmartUrl || link.convertedUrl || link.originalUrl);
+    anchor.rel = "noopener noreferrer";
+    fillActionContent(anchor, action, icon, link);
     anchor.addEventListener("click", function () { recordLocal(action, hub); });
     return anchor;
   }

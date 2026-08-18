@@ -102,6 +102,136 @@ export function sanitizeProductExternalUrl(value) {
     }
 }
 
+var YANDEX_GO_ADJUST_TOKENS = 'gm2aavy_wjqyew0';
+var YANDEX_BISHKEK_LATITUDE = '42.8778';
+var YANDEX_BISHKEK_LONGITUDE = '74.5688';
+
+function getYandexSearchQuery(candidate) {
+    var pathname = String(candidate && candidate.pathname ? candidate.pathname : '');
+    if (!/(?:^|\/)search\/?$/i.test(pathname)) return '';
+    return String(
+        candidate.searchParams.get('query')
+        || candidate.searchParams.get('text')
+        || candidate.searchParams.get('search')
+        || ''
+    ).trim();
+}
+
+export function buildYandexGoSmartUrl(value) {
+    var safeUrl = sanitizeProductExternalUrl(value);
+    if (!safeUrl) return '';
+
+    try {
+        var source = new URL(safeUrl);
+        var sourceHost = source.hostname.replace(/\.$/, '').toLowerCase();
+
+        // Preserve links that have already been converted by this app.
+        if (sourceHost === '8jxm.adj.st' && source.pathname === '/external') {
+            return source.toString();
+        }
+
+        if (sourceHost !== 'eda.yandex.kg' && sourceHost !== 'www.eda.yandex.kg') {
+            return '';
+        }
+
+        var query = getYandexSearchQuery(source);
+        if (!query) return '';
+
+        var appDestination = new URL('https://eda.yandex.kg/search');
+        appDestination.searchParams.set('query', query);
+
+        var browserFallback = new URL('https://eda.yandex.kg/en-kg/search');
+        browserFallback.searchParams.set('hideSelector', 'true');
+        browserFallback.searchParams.set('query', query);
+        browserFallback.searchParams.set('type', 'all');
+
+        var nativeLink = 'yandextaxi://external?service=eats'
+            + '&href=' + encodeURIComponent(appDestination.toString())
+            + '&delivery_lat=' + YANDEX_BISHKEK_LATITUDE
+            + '&delivery_lon=' + YANDEX_BISHKEK_LONGITUDE;
+
+        var smartLink = new URL('https://8jxm.adj.st/external');
+        smartLink.searchParams.set('adj_deeplink', nativeLink);
+        smartLink.searchParams.set('adjust_t', YANDEX_GO_ADJUST_TOKENS);
+        smartLink.searchParams.set('service', 'eats');
+        smartLink.searchParams.set('adj_fallback', browserFallback.toString());
+        smartLink.searchParams.set('adj_redirect', browserFallback.toString());
+        return smartLink.toString();
+    } catch (error) {
+        return '';
+    }
+}
+
+export function getProductExternalLinkNavigation(link) {
+    var url = sanitizeProductExternalUrl(link && link.url ? link.url : '');
+    var type = String(link && link.type ? link.type : '').trim().toLowerCase();
+    var glovoTarget = null;
+    var yandexSmartUrl = type === 'yandex' ? buildYandexGoSmartUrl(url) : '';
+
+    if (yandexSmartUrl) {
+        return {
+            kind: 'link',
+            url: yandexSmartUrl,
+            action: '',
+            fields: [],
+            loginAction: '',
+            loginFields: [],
+            openInNewTab: false
+        };
+    }
+
+    if (type === 'glovo' && url) {
+        try {
+            var candidate = new URL(url);
+            var normalizedHost = candidate.hostname.replace(/\.$/, '').toLowerCase();
+            if (normalizedHost === 'glovoapp.com' || normalizedHost === 'www.glovoapp.com') {
+                candidate.protocol = 'https:';
+                candidate.hostname = 'glovoapp.com';
+                candidate.port = '';
+                glovoTarget = candidate;
+            }
+        } catch (error) {
+            glovoTarget = null;
+        }
+    }
+
+    if (glovoTarget) {
+        // Android hands normal links for this verified host to the Glovo app,
+        // which currently drops product parameters. A user-submitted GET form
+        // stays in the browser and preserves the exact product query.
+        var fields = [];
+        glovoTarget.searchParams.forEach(function appendField(value, name) {
+            fields.push({ name: name, value: value });
+        });
+
+        var localeMatch = glovoTarget.pathname.match(/^\/([a-z]{2}(?:-[a-z]{2})?)(?:\/|$)/i);
+        var localePrefix = localeMatch ? '/' + localeMatch[1] : '/en';
+
+        return {
+            kind: 'form',
+            url: glovoTarget.toString(),
+            action: glovoTarget.origin + glovoTarget.pathname,
+            fields: fields,
+            loginAction: glovoTarget.origin + localePrefix + '/login',
+            loginFields: [{
+                name: 'returnPath',
+                value: glovoTarget.pathname + glovoTarget.search
+            }],
+            openInNewTab: false
+        };
+    }
+
+    return {
+        kind: 'link',
+        url: url,
+        action: '',
+        fields: [],
+        loginAction: '',
+        loginFields: [],
+        openInNewTab: true
+    };
+}
+
 export function validateProductExternalLinkInput(link) {
     var errors = [];
     var type = String(link && link.type ? link.type : '').trim().toLowerCase();

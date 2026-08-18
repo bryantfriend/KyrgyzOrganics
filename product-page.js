@@ -3,7 +3,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where } from "https://w
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl, getDisplayPrice, getDisplayPriceType } from './product-utils.js';
-import { getProductExternalLinkCtaLabel, getProductExternalLinkProviderName, getProductExternalLinks } from './product-external-links.mjs';
+import { getProductExternalLinkCtaLabel, getProductExternalLinkNavigation, getProductExternalLinkProviderName, getProductExternalLinks } from './product-external-links.mjs?v=2.3';
 import { trackProductExternalLinkClickIntent } from './product-external-links.service.js';
 import { addCartItem, formatPrice, loadCart, saveCart, saveCartDay } from './shop-utils.js';
 import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
@@ -203,7 +203,44 @@ function getProductLinkHelperText(link) {
     if (link.type === 'map') return 'Open map or location details';
     if (link.type === 'optima_payda') return 'Open Optima PayDa payment link';
     if (link.type === 'website') return 'Open the order page';
+    if (link.type === 'glovo') return 'Already signed in? Open this exact product';
     return 'Open ' + getProductExternalLinkProviderName(link) + ' to buy this product';
+}
+
+function renderExternalActionControl(link, ctaLabel) {
+    const navigation = getProductExternalLinkNavigation(link);
+    const content = '<span aria-hidden="true">' + escapeHtml(getProductLinkIcon(link.type)) + '</span>' +
+        '<div class="external-action-copy"><strong>' + escapeHtml(ctaLabel) + '</strong><small>' + escapeHtml(getProductLinkHelperText(link)) + '</small></div>';
+    const trackingAttribute = ' data-product-external-link-id="' + escapeHtml(link.id) + '"';
+
+    if (navigation.kind === 'form') {
+        const fields = navigation.fields.map((field) =>
+            '<input type="hidden" name="' + escapeHtml(field.name) + '" value="' + escapeHtml(field.value) + '">'
+        ).join('');
+
+        const loginFields = navigation.loginFields.map((field) =>
+            '<input type="hidden" name="' + escapeHtml(field.name) + '" value="' + escapeHtml(field.value) + '">'
+        ).join('');
+
+        return '<div class="glovo-action-stack">' +
+            '<form class="external-action-form" method="get" action="' + escapeHtml(navigation.action) + '">' +
+                fields +
+                '<button class="external-action ' + escapeHtml(link.type) + '" type="submit" aria-label="' + escapeHtml(ctaLabel) + '"' + trackingAttribute + '>' + content + '</button>' +
+            '</form>' +
+            '<div class="glovo-signin-option">' +
+                '<p><strong>Not signed in to Glovo?</strong><span>Start here and choose Email on Android. Google can open the app and lose the product.</span></p>' +
+                '<form class="glovo-signin-form" method="get" action="' + escapeHtml(navigation.loginAction) + '">' +
+                    loginFields +
+                    '<button type="submit">Sign in first with Email</button>' +
+                '</form>' +
+            '</div>' +
+        '</div>';
+    }
+
+    const targetAttribute = navigation.openInNewTab === false ? '' : ' target="_blank"';
+    return '<a class="external-action ' + escapeHtml(link.type) + '" href="' + escapeHtml(navigation.url) + '"' + targetAttribute + ' rel="noopener noreferrer" aria-label="' + escapeHtml(ctaLabel) + '"' + trackingAttribute + '>' +
+        content +
+    '</a>';
 }
 
 function renderExternalActions(product) {
@@ -219,9 +256,7 @@ function renderExternalActions(product) {
 
     links.forEach((link) => {
         const ctaLabel = getProductExternalLinkCtaLabel(link);
-        html += '<a class="external-action ' + escapeHtml(link.type) + '" href="' + escapeHtml(link.url) + '" target="_blank" rel="noopener noreferrer" aria-label="' + escapeHtml(ctaLabel) + '" data-product-external-link-id="' + escapeHtml(link.id) + '">' +
-            '<span aria-hidden="true">' + escapeHtml(getProductLinkIcon(link.type)) + '</span><div class="external-action-copy"><strong>' + escapeHtml(ctaLabel) + '</strong><small>' + escapeHtml(getProductLinkHelperText(link)) + '</small></div>' +
-        '</a>';
+        html += renderExternalActionControl(link, ctaLabel);
     });
 
     html += '</div></section>';

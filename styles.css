@@ -1678,6 +1678,15 @@ body.has-sticky-cart .footer {
     color: #ffffff;
 }
 
+.collection-page-buy-form {
+    margin: 0;
+}
+
+button.collection-page-buy-link {
+    cursor: pointer;
+    font: inherit;
+}
+
 .collection-page-buy-link:hover,
 .collection-page-buy-link:focus-visible {
     border-color: var(--color-accent);
@@ -2525,6 +2534,18 @@ body.has-sticky-cart .footer {
 }
 
 @media (max-width: 767px) {
+    .product-collections-section {
+        margin-top: 2rem;
+    }
+
+    #productCollectionsGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .collection-card {
+        padding: 0.85rem;
+    }
+
     .home-campaign-section {
         padding: 1.15rem;
     }
@@ -2700,6 +2721,65 @@ body.has-sticky-cart .footer {
     color: var(--color-text);
     text-decoration: none;
     transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.external-action-form {
+    margin: 0;
+}
+
+.external-action-form .external-action {
+    width: 100%;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+}
+
+.glovo-action-stack {
+    display: grid;
+    gap: 0.55rem;
+}
+
+.glovo-signin-option {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.75rem;
+    border: 1px solid #f0d24a;
+    border-radius: 14px;
+    background: #fffbea;
+}
+
+.glovo-signin-option p {
+    display: grid;
+    gap: 0.18rem;
+    margin: 0;
+    color: var(--color-text);
+    font-size: 0.86rem;
+    line-height: 1.35;
+}
+
+.glovo-signin-option p span {
+    color: var(--color-text-light);
+}
+
+.glovo-signin-form {
+    margin: 0;
+}
+
+.glovo-signin-form button {
+    width: 100%;
+    min-height: 42px;
+    padding: 0.62rem 0.85rem;
+    border: 1px solid #008f72;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #006b4f;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 800;
+}
+
+.glovo-signin-form button:hover {
+    background: #f4fffb;
 }
 
 .external-action:hover {

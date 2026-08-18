@@ -1,5 +1,5 @@
 (function () {
-  const sampleUrl = "https://glovoapp.com/en/kg/bishkek/stores/glovo-express-bsk?content=hleb-vypechka-sc.42969216%2Fsvezhiy-hleb-c.42969150&productId=4611686018602341182&externalProductId=470010";
+  const sampleUrl = "https://glovoapp.com/en/kg/bishkek/stores/glovo-express-bsk?content=hleb-vypechka-sc.42969216%2Fsvezhiy-hleb-c.42969150&search=biscot&productId=4611686018602342914&externalProductId=470024";
 
   const sourceUrl = document.getElementById("sourceUrl");
   const convertButton = document.getElementById("convertButton");
@@ -10,6 +10,9 @@
   const landingUrl = document.getElementById("landingUrl");
   const socialShortUrl = document.getElementById("socialShortUrl");
   const trailingDotUrl = document.getElementById("trailingDotUrl");
+  const oakoProductLinkResult = document.getElementById("oakoProductLinkResult");
+  const oakoProductUrl = document.getElementById("oakoProductUrl");
+  const oakoProductLinkNote = document.getElementById("oakoProductLinkNote");
   const statusCard = document.getElementById("statusCard");
   const statusText = document.getElementById("statusText");
   const qrCanvas = document.getElementById("qrCanvas");
@@ -214,7 +217,7 @@
   }
 
   function isYandexLikeHost(host) {
-    return /(^|.)yandex.[a-z.]+$/i.test(host) || /(^|.)yandexgo.[a-z.]+$/i.test(host) || host === "ya.cc";
+    return /(^|.)yandex.[a-z.]+$/i.test(host) || /(^|.)yandexgo.[a-z.]+$/i.test(host) || host === "ya.cc" || host === "8jxm.adj.st";
   }
 
   function assertSafeHttpUrl(url, label) {
@@ -222,6 +225,40 @@
       throw new Error(label + " must start with http:// or https://.");
     }
     return url;
+  }
+
+  function getYandexSearchQuery(url) {
+    if (!/(?:^|\/)search\/?$/i.test(url.pathname)) return "";
+    return String(url.searchParams.get("query") || url.searchParams.get("text") || url.searchParams.get("search") || "").trim();
+  }
+
+  function buildYandexGoSmartUrl(value) {
+    const source = value instanceof URL ? new URL(value.href) : new URL(String(value || "").trim());
+    assertSafeHttpUrl(source, "Yandex link");
+    const sourceHost = normalizeHost(source.hostname);
+    if (sourceHost === "8jxm.adj.st" && source.pathname === "/external") return source.href;
+    if (sourceHost !== "eda.yandex.kg" && sourceHost !== "www.eda.yandex.kg") return "";
+
+    const query = getYandexSearchQuery(source);
+    if (!query) return "";
+
+    const appDestination = new URL("https://eda.yandex.kg/search");
+    appDestination.searchParams.set("query", query);
+    const browserFallback = new URL("https://eda.yandex.kg/en-kg/search");
+    browserFallback.searchParams.set("hideSelector", "true");
+    browserFallback.searchParams.set("query", query);
+    browserFallback.searchParams.set("type", "all");
+
+    const nativeLink = "yandextaxi://external?service=eats"
+      + "&href=" + encodeURIComponent(appDestination.href)
+      + "&delivery_lat=42.8778&delivery_lon=74.5688";
+    const smartLink = new URL("https://8jxm.adj.st/external");
+    smartLink.searchParams.set("adj_deeplink", nativeLink);
+    smartLink.searchParams.set("adjust_t", "gm2aavy_wjqyew0");
+    smartLink.searchParams.set("service", "eats");
+    smartLink.searchParams.set("adj_fallback", browserFallback.href);
+    smartLink.searchParams.set("adj_redirect", browserFallback.href);
+    return smartLink.href;
   }
 
   function parseYandexDeliveryUrl(value) {
@@ -241,16 +278,20 @@
         parsed = null;
       }
     }
+    const searchQuery = getYandexSearchQuery(url);
+    const smartUrl = buildYandexGoSmartUrl(url);
     return {
       platform: "yandex-eats",
       url,
-      canonical: url.href,
-      route: parsed ? parsed.route : "external",
-      storeSlug: parsed ? parsed.storeSlug : host,
+      canonical: smartUrl || url.href,
+      smartUrl,
+      searchQuery,
+      route: parsed ? parsed.route : searchQuery ? "search" : "external",
+      storeSlug: parsed ? parsed.storeSlug : searchQuery || host,
       productId: "",
       externalProductId: "",
-      content: parsed ? parsed.content : "Yandex delivery link preserved as pasted",
-      exactProductSupport: !isEatsRestaurant,
+      content: parsed ? parsed.content : searchQuery ? "Yandex Go product search: " + searchQuery : "Yandex delivery link preserved as pasted",
+      exactProductSupport: Boolean(searchQuery),
     };
   }
 
@@ -334,11 +375,11 @@
     const glovoLink = glovoParsed ? {
       enabled: true,
       originalUrl: glovoParsed.url.href,
-      convertedUrl: buildLandingUrl(glovoParsed.canonical, settings, "glovo"),
+      convertedUrl: glovoParsed.canonical,
       buttonLabel: "Order on Glovo",
       helperText: "Open the product on Glovo",
       platformName: "Glovo",
-      openMode: "browser-preserved",
+      openMode: "browser-form",
       productId: glovoParsed.productId,
       externalProductId: glovoParsed.externalProductId,
       content: glovoParsed.content,
@@ -346,11 +387,11 @@
     const yandexLink = yandexParsed ? {
       enabled: true,
       originalUrl: yandexParsed.url.href,
-      convertedUrl: yandexParsed.canonical,
+      convertedUrl: yandexParsed.smartUrl || yandexParsed.canonical,
       buttonLabel: "Order on Yandex",
-      helperText: "Quick delivery to your door",
+      helperText: yandexParsed.searchQuery ? "Open this product search in Yandex Go" : "Quick delivery to your door",
       platformName: "Yandex",
-      openMode: "external-url",
+      openMode: yandexParsed.smartUrl ? "yandex-go-smart" : "external-url",
     } : { enabled: false };
 
     if (!productName) {
@@ -405,6 +446,7 @@
       if (!link || !link.enabled) return { enabled: false };
       return {
         enabled: true,
+        originalUrl: link.originalUrl,
         convertedUrl: link.convertedUrl,
         buttonLabel: link.buttonLabel,
         helperText: link.helperText,
@@ -969,7 +1011,9 @@
   function fillDefaultProductFields(parsed) {
     if (parsed.platform === "yandex-eats") {
       setAutoFilledField("productCode", "Yandex Eats");
-      if (parsed.storeSlug) {
+      if (parsed.searchQuery) {
+        setAutoFilledField("productName", parsed.searchQuery);
+      } else if (parsed.storeSlug) {
         setAutoFilledField("productName", humanizeSlug(parsed.storeSlug));
       }
       return;
@@ -1004,6 +1048,12 @@
       currentGlovoParsed = glovoParsed;
       currentYandexParsed = yandexParsed;
 
+      fields.storeSlug.textContent = primaryParsed ? primaryParsed.storeSlug : "-";
+      fields.productId.textContent = glovoParsed ? glovoParsed.productId : "Not supported";
+      fields.externalProductId.textContent = glovoParsed ? glovoParsed.externalProductId : "Not used";
+      fields.contentPath.textContent = primaryParsed ? primaryParsed.content || "-" : "-";
+      if (primaryParsed) fillDefaultProductFields(primaryParsed);
+
       const settings = getQrSettings();
       currentHub = createProductHub(glovoParsed, yandexParsed, settings);
       const publicUrl = buildProductHubUrl(currentHub);
@@ -1011,12 +1061,14 @@
       trailingDotUrl.value = glovoParsed ? buildTrailingDotUrl(glovoParsed.canonical) : yandexParsed ? yandexParsed.canonical : "";
       landingUrl.value = glovoParsed ? buildLandingUrl(glovoParsed.canonical, settings, "glovo") : "";
       socialShortUrl.value = publicUrl;
+      oakoProductUrl.value = glovoParsed ? glovoParsed.canonical : yandexParsed && yandexParsed.smartUrl ? yandexParsed.smartUrl : "";
+      oakoProductLinkResult.hidden = !oakoProductUrl.value;
+      if (oakoProductLinkNote) {
+        oakoProductLinkNote.innerHTML = glovoParsed
+          ? "<strong>Important:</strong> choose <strong>Glovo</strong> as the link type in OAKO. The product page submits this URL as a browser-safe form. Logged-out users also get a <strong>Sign in first with Email</strong> option that preserves the full product return path."
+          : "<strong>Important:</strong> choose <strong>Yandex</strong> as the link type in OAKO. This smart URL opens Yandex Go to the matching product search and falls back to the Yandex website when the app is unavailable.";
+      }
 
-      fields.storeSlug.textContent = primaryParsed ? primaryParsed.storeSlug : "-";
-      fields.productId.textContent = glovoParsed ? glovoParsed.productId : "Not supported";
-      fields.externalProductId.textContent = glovoParsed ? glovoParsed.externalProductId : "Not used";
-      fields.contentPath.textContent = primaryParsed ? primaryParsed.content || "-" : "-";
-      if (primaryParsed) fillDefaultProductFields(primaryParsed);
       updateHubPreview(currentHub);
       saveHubToHistory(currentHub, publicUrl);
 
@@ -1025,9 +1077,11 @@
       if (shortUrlStats) {
         shortUrlStats.textContent = "Landing page length: " + publicUrl.length + " characters. Use this full OAKO landing page URL for Instagram, TikTok, QR codes, and packaging.";
       }
-      setStatus("Full OAKO landing page ready", false);
+      setStatus(oakoProductUrl.value ? "OAKO product URL ready" : "Full OAKO landing page ready", false);
     } catch (error) {
       results.hidden = true;
+      oakoProductLinkResult.hidden = true;
+      oakoProductUrl.value = "";
       currentCanonicalUrl = "";
       currentParsedUrl = null;
       currentGlovoParsed = null;
@@ -1095,6 +1149,8 @@
   clearButton.addEventListener("click", () => {
     sourceUrl.value = "";
     results.hidden = true;
+    oakoProductLinkResult.hidden = true;
+    oakoProductUrl.value = "";
     currentCanonicalUrl = "";
     currentParsedUrl = null;
     currentGlovoParsed = null;
@@ -1132,6 +1188,7 @@
   });
 
   sourceUrl.addEventListener("input", function () {
+    oakoProductLinkResult.hidden = true;
     if (sourceUrl.value.trim()) setStatus("Ready to build", false);
     else setStatus("Ready", false);
   });
