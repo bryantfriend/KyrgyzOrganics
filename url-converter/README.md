@@ -48,6 +48,16 @@ The admin builder includes **Find on Glovo** and **Find on Yandex** buttons. The
 
 Browser security prevents this static app from reading the current URL inside a cross-origin Glovo/Yandex page automatically, and some provider pages block iframe embedding. The modal therefore uses the safest reliable workflow: open, navigate, paste/capture, validate, and convert.
 
+### Getting a Yandex Link
+
+Finding and copying a Yandex product search should normally be done on a desktop computer. On mobile, Yandex may hand the page to Yandex Go before the useful browser search URL can be copied.
+
+1. Open Yandex from **Find on Yandex** and set the delivery city to Bishkek.
+2. Search for `Kyrgyz Organic + product + flavor`. Russian flavor terms can match the catalog more accurately; for example, `Kyrgyz Organic гранола клубника` finds the strawberry granola.
+3. Confirm the exact Kyrgyz Organic product is visible in the results.
+4. Copy the complete URL from the desktop browser address bar. Do not use an `8jxm.adj.st` app/share link.
+5. Paste the result into **Yandex delivery link** and select **Convert Link & Build Hub**.
+
 ## Public Hub Links
 
 The generated customer link uses:

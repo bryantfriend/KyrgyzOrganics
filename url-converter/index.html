@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Product Link & QR Hub</title>
-  <link rel="stylesheet" href="styles.css?v=3.13">
+  <link rel="stylesheet" href="styles.css?v=3.15">
 </head>
 <body>
   <header class="mobile-topbar" aria-label="Mobile toolbar">
@@ -17,7 +17,7 @@
       <span class="brand-mark" aria-hidden="true">G</span>
       <div>
         <strong>Product Hub</strong>
-      <span class="app-version-pill">v3.13</span>
+      <span class="app-version-pill">v3.15</span>
       </div>
     </div>
     <button class="mobile-pill-button" type="button" data-open-modal="brand">Brand</button>
@@ -62,14 +62,14 @@
           <strong>Need help?</strong>
           <span>Build one mobile product hub link for Glovo, Yandex, pickup, Instagram, TikTok, and QR.</span>
         </div>
-        <p class="version">Version 3.13</p>
+        <p class="version">Version 3.15</p>
       </div>
     </aside>
 
     <main class="tool-shell" id="converter">
       <header class="page-header">
         <div>
-          <p class="eyebrow">Smart Product Link Hub <span class="app-version-pill">v3.13</span></p>
+          <p class="eyebrow">Smart Product Link Hub <span class="app-version-pill">v3.15</span></p>
           <h1>Product Link &amp; QR Hub</h1>
           <p class="lede">Convert a normal Glovo product URL into the validated URL used by OAKO product buttons, or create a mobile-first product hub and branded QR.</p>
         </div>
@@ -94,6 +94,24 @@
           <label class="field-label stacked-field" for="yandexUrl">Yandex delivery link</label>
           <input id="yandexUrl" spellcheck="false" inputmode="url" placeholder="https://eda.yandex.kg/en-kg/search?query=бискотти">
           <p class="helper-text">Paste a normal Yandex Eats search URL. It is converted into a Bishkek browser search that preserves the product query on iPhone.</p>
+
+          <aside class="yandex-link-guide" aria-labelledby="yandex-link-guide-heading">
+            <div class="yandex-link-guide-header">
+              <div>
+                <p class="eyebrow">How to get the link</p>
+                <h3 id="yandex-link-guide-heading">Find the product on Yandex</h3>
+              </div>
+              <span class="desktop-recommended-pill">Desktop recommended</span>
+            </div>
+            <p class="yandex-link-guide-intro">Do this on a desktop computer whenever possible. On a phone, Yandex may open Yandex Go before you can copy a useful search-results URL.</p>
+            <ol>
+              <li>Click <strong>Find on Yandex</strong> below and make sure the delivery city is Bishkek.</li>
+              <li>Search for <code>Kyrgyz Organic + product + flavor</code>. If English gives broad results, try Russian flavor words—for example, <code>Kyrgyz Organic гранола клубника</code>.</li>
+              <li>Confirm that the exact Kyrgyz Organic product appears, then stay on the search-results page.</li>
+              <li>Copy the full URL from the desktop browser address bar. Do not copy an <code>8jxm.adj.st</code> app/share link.</li>
+              <li>Return here, paste the URL into <strong>Yandex delivery link</strong>, then click <strong>Convert Link &amp; Build Hub</strong>.</li>
+            </ol>
+          </aside>
 
           <div class="finder-actions" aria-label="Find product links">
             <button type="button" class="secondary" data-open-link-finder="glovo">Find on Glovo</button>
@@ -385,14 +403,14 @@
           <button id="linkFinderOpenButton" type="button">Open website</button>
           <button id="linkFinderUseButton" type="button" class="secondary">Use this link</button>
         </div>
-        <p class="note">On desktop, copy the address from the provider tab. On phone, use Share or Copy Link, return here, then tap Paste.</p>
+        <p class="note"><strong>Desktop recommended:</strong> copy the address from the provider tab. For Yandex, mobile may open the app before you can copy the useful search-results URL.</p>
       </div>
     </article>
   </section>
 
   <script src="vendor/qrcode.min.js" defer></script>
   <script src="storageAdapter.js" defer></script>
-  <script src="app.js?v=3.13" defer></script>
+  <script src="app.js?v=3.15" defer></script>
   <script src="ui.js" defer></script>
 </body>
 </html>
