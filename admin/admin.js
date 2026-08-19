@@ -16,10 +16,10 @@ import { BusinessAccountsTab } from './tabs/BusinessAccountsTab.js?v=3.18';
 import { AuditTab } from './tabs/AuditTab.js';
 import { AnalyticsTab } from './tabs/AnalyticsTab.js';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
-import { StoresTab } from './tabs/StoresTab.js?v=3.14';
+import { StoresTab } from './tabs/StoresTab.js?v=3.15';
 import { GamesTab } from './tabs/GamesTab.js';
 
-const ADMIN_VERSION = '3.20';
+const ADMIN_VERSION = '3.22';
 const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
 const STORE_ADMIN_ROLES = new Set(['admin', 'owner', 'manager', 'orders', 'products', 'marketing']);
 const PLATFORM_TABS = new Set(['stores', 'analytics', 'audit']);

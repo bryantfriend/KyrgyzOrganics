@@ -78,6 +78,56 @@ const ROLE_PRESETS = [
 
 const ROLE_PRESET_MAP = new Map(ROLE_PRESETS.map((role) => [role.id, role]));
 
+const STORE_EDITOR_SECTION_META = {
+  'store essentials': { icon: '01', description: 'Identity, plan, and the details customers use to find you.' },
+  'public contact & social links': { icon: '02', description: 'Public contact channels and opening hours.' },
+  'hosting & domain planning': { icon: '03', description: 'Domain readiness, launch infrastructure, and internal notes.' },
+  'design starter': { icon: '04', description: 'Apply a coordinated visual direction before fine-tuning.' },
+  'public storefront theme': { icon: '05', description: 'Color, typography, shape, and the overall visual mood.' },
+  'header branding': { icon: '06', description: 'Logo assets used across the header and loading experience.' },
+  'storefront seo': { icon: '07', description: 'Search and social-sharing presentation.' },
+  'public storefront features': { icon: '08', description: 'Choose the capabilities and navigation customers can see.' },
+  'homepage layout sections': { icon: '09', description: 'Arrange the homepage visually and switch sections on or off.' },
+  'homepage hero content': { icon: '10', description: 'Create the first message and action visitors encounter.' },
+  'editorial navigation & visual cards': { icon: '11', description: 'Build story-led navigation and image card destinations.' },
+  'product display': { icon: '12', description: 'Control catalog headings, density, pricing, and stock labels.' },
+  'delivery banner content': { icon: '13', description: 'Set the delivery message shown across the storefront.' },
+  'cta section content': { icon: '14', description: 'Invite visitors to contact, book, collaborate, or order.' },
+  'quick actions content': { icon: '15', description: 'Add compact trust points and useful shortcuts.' }
+};
+
+const STORE_TOGGLE_DESCRIPTIONS = {
+  storeDomainPurchased: 'The domain has been secured.',
+  storeDnsConfigured: 'DNS records point to the hosting provider.',
+  storeHostingConnected: 'The custom domain resolves to this storefront.',
+  storeSslActive: 'HTTPS is active and verified.',
+  storeFinalTested: 'Desktop and mobile launch checks are complete.',
+  storeActive: 'Allow staff to operate this store workspace.',
+  storeFeatureCampaign: 'Show the campaign journey experience.',
+  storeFeatureInvestment: 'Show the investment or collaboration callout.',
+  storeFeatureQuickActions: 'Display a row of compact benefits or links.',
+  storeFeatureDelivery: 'Display the delivery announcement.',
+  storeFeatureCart: 'Enable shopping cart and checkout controls.',
+  storeFeatureWhatsapp: 'Offer direct WhatsApp support.',
+  storeFeatureSubscriptions: 'Show subscription-oriented purchase options.',
+  storeFeatureHeaderSearch: 'Let visitors search from the header.',
+  storeFeatureCategories: 'Show product category navigation.',
+  storeFeatureLanguage: 'Let visitors change storefront language.',
+  storeFeatureAccount: 'Show sign-in and customer account controls.',
+  storeFeatureFeaturedProducts: 'Show the available-today product area.',
+  storeFeatureCollections: 'Show curated product collections.',
+  storeFeatureFooter: 'Show the full standard footer.',
+  storeLayoutHero: 'Lead the page with the primary story and action.',
+  storeLayoutQuickActions: 'Add a compact benefits row.',
+  storeLayoutLinkCards: 'Add large visual destination cards.',
+  storeLayoutCampaign: 'Add the campaign or journey section.',
+  storeLayoutProducts: 'Add product browsing and purchasing.',
+  storeLayoutCta: 'Finish with a focused call to action.',
+  storeProductShowPrice: 'Display product prices on cards.',
+  storeProductShowBadges: 'Display promotional and category badges.',
+  storeProductShowStock: 'Display availability and stock labels.'
+};
+
 function toLocalDateId(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -413,9 +463,13 @@ export class StoresTab extends BaseTab {
     this.metricsActive = 0;
     this.metricsConcurrency = 4;
     this.mediaPickerTarget = null;
+    this.editorEnhanced = false;
+    this.editorDirty = false;
+    this.editorConfirmAction = null;
   }
 
   async init() {
+    this.enhanceStoreEditor();
     this.bindEvents();
     this.renderRolePresetControls();
     this.subscribeStores();
@@ -604,21 +658,25 @@ export class StoresTab extends BaseTab {
     if (this.form) {
       this.form.addEventListener('submit', (e) => this.saveStore(e));
       this.form.addEventListener('input', () => {
+        this.setEditorDirty(true);
         this.renderLaunchChecklist();
         this.renderHomepageBuilderPreview();
+        this.updateEditorSectionStatuses();
       });
       this.form.addEventListener('change', () => {
+        this.setEditorDirty(true);
         this.renderLaunchChecklist();
         this.renderHomepageBuilderPreview();
+        this.updateEditorSectionStatuses();
       });
     }
 
     if (this.cancelBtn) {
-      this.cancelBtn.addEventListener('click', () => this.resetForm());
+      this.cancelBtn.addEventListener('click', () => this.requestEditorCancel());
     }
 
     if (this.applyPresetBtn) {
-      this.applyPresetBtn.addEventListener('click', () => this.applySelectedThemePreset());
+      this.applyPresetBtn.addEventListener('click', () => this.requestThemePreset());
     }
 
     if (this.previewBtn) {
@@ -629,15 +687,15 @@ export class StoresTab extends BaseTab {
     }
 
     if (this.wizardBakeryBtn) {
-      this.wizardBakeryBtn.addEventListener('click', () => this.applyStarter('bakery'));
+      this.wizardBakeryBtn.addEventListener('click', () => this.requestStarter('bakery'));
     }
 
     if (this.wizardOrganicBtn) {
-      this.wizardOrganicBtn.addEventListener('click', () => this.applyStarter('organic'));
+      this.wizardOrganicBtn.addEventListener('click', () => this.requestStarter('organic'));
     }
 
     if (this.wizardEditorialBtn) {
-      this.wizardEditorialBtn.addEventListener('click', () => this.applyStarter('editorial'));
+      this.wizardEditorialBtn.addEventListener('click', () => this.requestStarter('editorial'));
     }
 
     if (this.logoUpload) {
@@ -683,6 +741,352 @@ export class StoresTab extends BaseTab {
     if (this.profileDrawer) {
       this.profileDrawer.addEventListener('click', (e) => this.handlePeopleAction(e));
     }
+  }
+
+  enhanceStoreEditor() {
+    if (!this.form || this.editorEnhanced) return;
+    this.editorEnhanced = true;
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'store-editor-toolbar';
+    toolbar.innerHTML = `
+      <div class="store-editor-state" aria-live="polite">
+        <span class="store-editor-state-dot" aria-hidden="true"></span>
+        <span id="storeEditorStateText">No unsaved changes</span>
+      </div>
+      <nav class="store-editor-nav" aria-label="Store editor sections"></nav>
+      <button type="button" class="store-editor-expand" aria-expanded="false">Expand all</button>
+    `;
+    this.setupSummary?.insertAdjacentElement('afterend', toolbar);
+    this.editorToolbar = toolbar;
+    this.editorStateText = toolbar.querySelector('#storeEditorStateText');
+    this.editorNav = toolbar.querySelector('.store-editor-nav');
+    this.editorExpandBtn = toolbar.querySelector('.store-editor-expand');
+
+    const stopNode = this.launchChecklist;
+    const candidates = Array.from(this.form.children);
+    const startIndex = Math.max(0, candidates.indexOf(toolbar) + 1);
+    const stopIndex = candidates.indexOf(stopNode);
+    const editorNodes = candidates.slice(startIndex, stopIndex > startIndex ? stopIndex : candidates.length);
+    const groups = [];
+    let current = { title: 'Store essentials', heading: null, nodes: [] };
+
+    editorNodes.forEach((node) => {
+      if (node.matches?.('.store-save-bar')) return;
+      if (node.tagName === 'H4') {
+        if (current.nodes.length) groups.push(current);
+        current = { title: String(node.textContent || '').trim(), heading: node, nodes: [] };
+        return;
+      }
+      current.nodes.push(node);
+    });
+    if (current.nodes.length) groups.push(current);
+
+    groups.forEach((group, index) => {
+      const titleKey = group.title.toLowerCase();
+      const meta = STORE_EDITOR_SECTION_META[titleKey] || {
+        icon: String(index + 1).padStart(2, '0'),
+        description: 'Configure this part of the public storefront.'
+      };
+      const sectionId = `store-editor-${titleKey.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+      const section = document.createElement('section');
+      section.id = sectionId;
+      section.className = `store-editor-section${index === 0 ? ' is-open' : ''}`;
+      section.dataset.editorSection = titleKey;
+      section.innerHTML = `
+        <button type="button" class="store-editor-section-head" aria-expanded="${index === 0 ? 'true' : 'false'}" aria-controls="${sectionId}-body">
+          <span class="store-editor-section-number">${escapeHtml(meta.icon)}</span>
+          <span class="store-editor-section-copy">
+            <strong>${escapeHtml(group.title)}</strong>
+            <small>${escapeHtml(meta.description)}</small>
+          </span>
+          <span class="store-editor-section-status">Not started</span>
+          <span class="store-editor-section-chevron" aria-hidden="true"></span>
+        </button>
+        <div class="store-editor-section-body" id="${sectionId}-body"></div>
+      `;
+      const body = section.querySelector('.store-editor-section-body');
+      group.nodes.forEach((node) => body.appendChild(node));
+      group.heading?.remove();
+      this.form.insertBefore(section, stopNode);
+
+      const navButton = document.createElement('button');
+      navButton.type = 'button';
+      navButton.className = index === 0 ? 'is-active' : '';
+      navButton.dataset.editorTarget = sectionId;
+      navButton.textContent = group.title.replace(' Content', '');
+      this.editorNav?.appendChild(navButton);
+    });
+
+    this.form.querySelectorAll('.store-editor-section-head').forEach((button) => {
+      button.addEventListener('click', () => {
+        const section = button.closest('.store-editor-section');
+        this.setEditorSectionOpen(section, !section?.classList.contains('is-open'));
+      });
+    });
+
+    this.editorNav?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-editor-target]');
+      if (!button) return;
+      const section = document.getElementById(button.dataset.editorTarget || '');
+      if (!section) return;
+      this.setEditorSectionOpen(section, true);
+      this.editorNav.querySelectorAll('button').forEach((item) => item.classList.toggle('is-active', item === button));
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    this.editorExpandBtn?.addEventListener('click', () => {
+      const shouldOpen = this.editorExpandBtn.getAttribute('aria-expanded') !== 'true';
+      this.form.querySelectorAll('.store-editor-section').forEach((section) => this.setEditorSectionOpen(section, shouldOpen));
+      this.editorExpandBtn.setAttribute('aria-expanded', String(shouldOpen));
+      this.editorExpandBtn.textContent = shouldOpen ? 'Collapse all' : 'Expand all';
+    });
+
+    this.enhanceEditorToggles();
+    this.enhanceEditorFields();
+    this.enhanceLayoutOrderField();
+
+    this.homepageBuilderPreview?.addEventListener('click', (event) => {
+      const actionButton = event.target.closest('button[data-layout-action]');
+      if (!actionButton) return;
+      const type = actionButton.dataset.layoutSection;
+      const action = actionButton.dataset.layoutAction;
+      if (action === 'toggle') this.toggleLayoutSection(type);
+      if (action === 'up' || action === 'down') this.moveLayoutSection(type, action);
+    });
+
+    this.getOrCreateEditorConfirmModal();
+    this.setEditorDirty(false);
+    this.updateEditorSectionStatuses();
+  }
+
+  enhanceEditorToggles() {
+    this.form?.querySelectorAll('label').forEach((label) => {
+      const checkbox = label.querySelector(':scope > input[type="checkbox"]');
+      if (!checkbox || label.classList.contains('editor-toggle')) return;
+      const labelText = String(label.textContent || '').trim();
+      Array.from(label.childNodes).forEach((node) => {
+        if (node !== checkbox) node.remove();
+      });
+      label.removeAttribute('style');
+      label.classList.add('editor-toggle');
+      const track = document.createElement('span');
+      track.className = 'editor-toggle-track';
+      track.setAttribute('aria-hidden', 'true');
+      track.innerHTML = '<span></span>';
+      const copy = document.createElement('span');
+      copy.className = 'editor-toggle-copy';
+      copy.innerHTML = `
+        <strong>${escapeHtml(labelText)}</strong>
+        <small>${escapeHtml(STORE_TOGGLE_DESCRIPTIONS[checkbox.id] || 'Show or hide this option for the store.')}</small>
+      `;
+      label.append(track, copy);
+    });
+  }
+
+  enhanceEditorFields() {
+    this.form?.querySelectorAll('select').forEach((select) => {
+      select.closest('.form-group')?.classList.add('editor-select-field');
+    });
+
+    this.form?.querySelectorAll('input[type="color"]').forEach((input) => {
+      const group = input.closest('.form-group');
+      if (!group || group.classList.contains('editor-color-field')) return;
+      group.classList.add('editor-color-field');
+      const value = document.createElement('span');
+      value.className = 'editor-color-value';
+      value.textContent = String(input.value || '').toUpperCase();
+      input.insertAdjacentElement('afterend', value);
+      input.addEventListener('input', () => {
+        value.textContent = String(input.value || '').toUpperCase();
+      });
+    });
+  }
+
+  enhanceLayoutOrderField() {
+    const row = this.layoutOrder?.closest('.form-row');
+    if (!row || row.closest('details')) return;
+    const toggleRow = this.layoutHero?.closest('.form-row');
+    const details = document.createElement('details');
+    details.className = 'store-editor-advanced';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Advanced layout controls';
+    row.parentNode?.insertBefore(details, row);
+    details.append(summary);
+    if (toggleRow && toggleRow !== row) details.append(toggleRow);
+    details.append(row);
+  }
+
+  setEditorSectionOpen(section, shouldOpen) {
+    if (!section) return;
+    section.classList.toggle('is-open', shouldOpen);
+    section.querySelector('.store-editor-section-head')?.setAttribute('aria-expanded', String(shouldOpen));
+  }
+
+  updateEditorSectionStatuses() {
+    this.form?.querySelectorAll('.store-editor-section').forEach((section) => {
+      const controls = Array.from(section.querySelectorAll('input:not([type="hidden"]), select, textarea'))
+        .filter((control) => !control.disabled);
+      const checkboxes = controls.filter((control) => control.type === 'checkbox');
+      const fields = controls.filter((control) => control.type !== 'checkbox' && control.type !== 'file');
+      const filled = fields.filter((control) => String(control.value || '').trim()).length;
+      const enabled = checkboxes.filter((control) => control.checked).length;
+      const status = section.querySelector('.store-editor-section-status');
+      if (!status) return;
+      if (fields.length && checkboxes.length) status.textContent = `${filled} set · ${enabled} on`;
+      else if (fields.length) status.textContent = `${filled}/${fields.length} set`;
+      else if (checkboxes.length) status.textContent = `${enabled} enabled`;
+      else status.textContent = 'Ready';
+      status.classList.toggle('is-complete', fields.length ? filled === fields.length : true);
+    });
+  }
+
+  setEditorDirty(isDirty) {
+    this.editorDirty = Boolean(isDirty);
+    this.formCard?.classList.toggle('has-unsaved-changes', this.editorDirty);
+    if (this.editorStateText) this.editorStateText.textContent = this.editorDirty ? 'Unsaved changes' : 'No unsaved changes';
+    if (this.saveBtn && !this.saveBtn.disabled) this.saveBtn.textContent = this.editorDirty ? 'Save changes' : 'Save Store';
+  }
+
+  getOrCreateEditorConfirmModal() {
+    let modal = document.getElementById('storeEditorConfirmModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'storeEditorConfirmModal';
+    modal.className = 'modal hidden store-editor-confirm-modal';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `
+      <div class="modal-panel store-editor-confirm-panel" role="dialog" aria-modal="true" aria-labelledby="storeEditorConfirmTitle">
+        <div class="store-editor-confirm-visual" aria-hidden="true"><span>✦</span></div>
+        <div class="store-editor-confirm-copy">
+          <span class="eyebrow" id="storeEditorConfirmEyebrow">Review change</span>
+          <h3 id="storeEditorConfirmTitle">Apply this change?</h3>
+          <p id="storeEditorConfirmBody"></p>
+        </div>
+        <div class="store-editor-confirm-actions">
+          <button type="button" class="btn-secondary" data-confirm-cancel>Keep editing</button>
+          <button type="button" class="btn-primary" data-confirm-accept>Apply change</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    const close = () => this.closeEditorConfirmModal();
+    modal.addEventListener('click', (event) => {
+      if (event.target === modal || event.target.closest('[data-confirm-cancel]')) close();
+      if (event.target.closest('[data-confirm-accept]')) {
+        const action = this.editorConfirmAction;
+        close();
+        action?.();
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !modal.classList.contains('hidden')) close();
+    });
+    return modal;
+  }
+
+  openEditorConfirmModal({ eyebrow = 'Review change', title, body, confirmLabel = 'Apply change', action, tone = 'default' }) {
+    const modal = this.getOrCreateEditorConfirmModal();
+    modal.dataset.tone = tone;
+    modal.querySelector('#storeEditorConfirmEyebrow').textContent = eyebrow;
+    modal.querySelector('#storeEditorConfirmTitle').textContent = title;
+    modal.querySelector('#storeEditorConfirmBody').textContent = body;
+    modal.querySelector('[data-confirm-accept]').textContent = confirmLabel;
+    this.editorConfirmAction = action;
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    this.updateModalBodyLock();
+    window.setTimeout(() => modal.querySelector('[data-confirm-accept]')?.focus(), 30);
+  }
+
+  closeEditorConfirmModal() {
+    const modal = document.getElementById('storeEditorConfirmModal');
+    modal?.classList.add('hidden');
+    modal?.setAttribute('aria-hidden', 'true');
+    this.editorConfirmAction = null;
+    this.updateModalBodyLock();
+  }
+
+  updateModalBodyLock() {
+    const hasOpenModal = Boolean(document.querySelector('.modal:not(.hidden)'));
+    document.body.classList.toggle('modal-open', hasOpenModal);
+  }
+
+  requestEditorCancel() {
+    if (!this.editorDirty) return this.resetForm();
+    this.openEditorConfirmModal({
+      eyebrow: 'Unsaved changes',
+      title: 'Discard this editing session?',
+      body: 'Your latest storefront, content, and layout changes have not been saved.',
+      confirmLabel: 'Discard changes',
+      tone: 'danger',
+      action: () => this.resetForm()
+    });
+  }
+
+  requestStarter(type) {
+    const labels = { bakery: 'Bakery', organic: 'Organic market', editorial: 'Creative / spiritual' };
+    const descriptions = {
+      bakery: 'This replaces the current theme, homepage sections, and starter copy with a warm bakery direction.',
+      organic: 'This replaces the current theme, homepage sections, and starter copy with an organic commerce direction.',
+      editorial: 'This replaces the current theme, homepage sections, and starter copy with a story-led editorial direction.'
+    };
+    this.openEditorConfirmModal({
+      eyebrow: 'Design starter',
+      title: `Apply the ${labels[type] || 'selected'} starter?`,
+      body: descriptions[type] || 'This will replace the current design settings and starter content.',
+      confirmLabel: 'Apply starter',
+      action: () => this.applyStarter(type)
+    });
+  }
+
+  requestThemePreset() {
+    const presetKey = this.themePreset?.value;
+    if (!presetKey) return this.showToast('Choose a theme preset first.', 'warning');
+    const label = this.themePreset?.selectedOptions?.[0]?.textContent || presetKey;
+    this.openEditorConfirmModal({
+      eyebrow: 'Theme preset',
+      title: `Apply ${label}?`,
+      body: 'The color palette, typography, border radius, button style, and storefront style will update together.',
+      confirmLabel: 'Apply theme',
+      action: () => this.applySelectedThemePreset()
+    });
+  }
+
+  getLayoutOrder() {
+    const allSections = ['hero', 'quickActions', 'linkCards', 'campaign', 'products', 'cta'];
+    const requested = String(this.layoutOrder?.value || '').split(',').map((item) => item.trim()).filter(Boolean);
+    return [...requested.filter((item, index) => allSections.includes(item) && requested.indexOf(item) === index), ...allSections.filter((item) => !requested.includes(item))];
+  }
+
+  moveLayoutSection(type, direction) {
+    const order = this.getLayoutOrder();
+    const index = order.indexOf(type);
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (index < 0 || targetIndex < 0 || targetIndex >= order.length) return;
+    [order[index], order[targetIndex]] = [order[targetIndex], order[index]];
+    if (this.layoutOrder) this.layoutOrder.value = order.join(',');
+    this.setEditorDirty(true);
+    this.renderHomepageBuilderPreview();
+    this.updateEditorSectionStatuses();
+  }
+
+  toggleLayoutSection(type) {
+    const inputs = {
+      hero: this.layoutHero,
+      quickActions: this.layoutQuickActions,
+      linkCards: this.layoutLinkCards,
+      campaign: this.layoutCampaign,
+      products: this.layoutProducts,
+      cta: this.layoutCta
+    };
+    const input = inputs[type];
+    if (!input) return;
+    input.checked = !input.checked;
+    this.setEditorDirty(true);
+    this.renderHomepageBuilderPreview();
+    this.renderLaunchChecklist();
+    this.updateEditorSectionStatuses();
   }
 
   hydrateUserCompanyInput() {
@@ -1119,8 +1523,14 @@ export class StoresTab extends BaseTab {
 
   setPreviewMode(mode = 'desktop') {
     if (!this.previewShell) return;
+    const safeMode = ['desktop', 'tablet', 'mobile'].includes(mode) ? mode : 'desktop';
     this.previewShell.classList.remove('desktop', 'tablet', 'mobile');
-    this.previewShell.classList.add(['desktop', 'tablet', 'mobile'].includes(mode) ? mode : 'desktop');
+    this.previewShell.classList.add(safeMode);
+    document.querySelectorAll('[data-preview-mode]').forEach((button) => {
+      const isActive = button.dataset.previewMode === safeMode;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', String(isActive));
+    });
   }
 
   async loadStoreActivityTimeline() {
@@ -1592,11 +2002,16 @@ export class StoresTab extends BaseTab {
     this.refreshPreview();
     this.renderLaunchChecklist();
     this.renderHomepageBuilderPreview();
+    this.updateEditorSectionStatuses();
+    this.setEditorDirty(false);
     this.hideStoreForm();
   }
 
   showStoreForm() {
-    if (this.formCard) this.formCard.hidden = false;
+    if (!this.formCard) return;
+    this.formCard.hidden = false;
+    this.formCard.classList.remove('is-entering');
+    window.requestAnimationFrame(() => this.formCard?.classList.add('is-entering'));
   }
 
   hideStoreForm() {
@@ -1612,6 +2027,7 @@ export class StoresTab extends BaseTab {
     this.updateCreateStoreModalState();
     this.createStoreModal.classList.remove('hidden', 'is-creating', 'is-complete');
     this.createStoreModal.setAttribute('aria-hidden', 'false');
+    this.updateModalBodyLock();
     window.setTimeout(() => this.newStoreNameInput?.focus(), 30);
   }
 
@@ -1620,6 +2036,7 @@ export class StoresTab extends BaseTab {
     this.createStoreModal.classList.add('hidden');
     this.createStoreModal.classList.remove('is-creating', 'is-complete');
     this.createStoreModal.setAttribute('aria-hidden', 'true');
+    this.updateModalBodyLock();
     this.clearCreateStoreError();
     this.setCreateStoreProgress('starter');
     if (this.confirmCreateStoreBtn) this.confirmCreateStoreBtn.disabled = false;
@@ -1999,6 +2416,8 @@ export class StoresTab extends BaseTab {
     this.refreshPreview();
     this.renderLaunchChecklist();
     this.renderHomepageBuilderPreview();
+    this.updateEditorSectionStatuses();
+    this.setEditorDirty(false);
     this.form?.scrollIntoView?.({ behavior: 'smooth' });
   }
 
@@ -2127,6 +2546,7 @@ export class StoresTab extends BaseTab {
     if (this.brandStrip) this.brandStrip.value = config.content?.brandStrip || '';
     this.renderLaunchChecklist();
     this.renderHomepageBuilderPreview();
+    this.updateEditorSectionStatuses();
   }
 
   applyThemePreset(presetKey) {
@@ -2148,8 +2568,11 @@ export class StoresTab extends BaseTab {
 
   applySelectedThemePreset() {
     const presetKey = this.themePreset?.value;
-    if (!presetKey) return alert('Choose a theme preset first.');
+    if (!presetKey) return this.showToast('Choose a theme preset first.', 'warning');
     this.applyThemePreset(presetKey);
+    this.setEditorDirty(true);
+    this.updateEditorSectionStatuses();
+    this.showToast('Theme preset applied. Save when the preview feels right.', 'success');
   }
 
   async uploadLogo() {
@@ -2187,6 +2610,8 @@ export class StoresTab extends BaseTab {
     this.applyThemePreset(normalized);
     this.renderLaunchChecklist();
     this.renderHomepageBuilderPreview();
+    this.updateEditorSectionStatuses();
+    this.setEditorDirty(true);
     const label = normalized === 'editorial' ? 'Creative / spiritual' : `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`;
     this.showToast(`${label} starter applied.`, 'success');
   }
@@ -2218,6 +2643,8 @@ export class StoresTab extends BaseTab {
     if (this.launchStatus) this.launchStatus.value = 'draft';
     this.renderLaunchChecklist();
     this.renderHomepageBuilderPreview();
+    this.updateEditorSectionStatuses();
+    this.setEditorDirty(true);
     this.companyId?.focus();
     this.form?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   }
@@ -2357,10 +2784,17 @@ export class StoresTab extends BaseTab {
       </div>
       <div class="homepage-section-stack">
         ${finalOrder.map((type, index) => `
-          <div class="homepage-section-pill ${enabled[type] ? 'is-enabled' : 'is-disabled'}">
-            <span>${index + 1}</span>
-            <strong>${escapeHtml(labels[type])}</strong>
-            <small>${escapeHtml(type)} ${enabled[type] ? 'on' : 'off'}</small>
+          <div class="homepage-section-pill ${enabled[type] ? 'is-enabled' : 'is-disabled'}" data-layout-card="${escapeHtml(type)}">
+            <span class="homepage-section-index">${index + 1}</span>
+            <span class="homepage-section-copy">
+              <strong>${escapeHtml(labels[type])}</strong>
+              <small>${enabled[type] ? 'Visible on the homepage' : 'Hidden from visitors'}</small>
+            </span>
+            <span class="homepage-section-actions">
+              <button type="button" data-layout-action="up" data-layout-section="${escapeHtml(type)}" aria-label="Move ${escapeHtml(labels[type])} up" ${index === 0 ? 'disabled' : ''}>↑</button>
+              <button type="button" data-layout-action="down" data-layout-section="${escapeHtml(type)}" aria-label="Move ${escapeHtml(labels[type])} down" ${index === finalOrder.length - 1 ? 'disabled' : ''}>↓</button>
+              <button type="button" class="homepage-visibility-toggle" data-layout-action="toggle" data-layout-section="${escapeHtml(type)}" aria-pressed="${enabled[type] ? 'true' : 'false'}" aria-label="${enabled[type] ? 'Hide' : 'Show'} ${escapeHtml(labels[type])}"><span></span></button>
+            </span>
           </div>
         `).join('')}
       </div>
@@ -2591,6 +3025,8 @@ export class StoresTab extends BaseTab {
       this.saveBtn.disabled = true;
       this.saveBtn.textContent = 'Saving store...';
     }
+    this.formCard?.classList.add('is-saving');
+    if (this.editorStateText) this.editorStateText.textContent = 'Saving changes…';
 
     try {
       const ref = doc(db, 'companies', companyId);
@@ -2621,6 +3057,7 @@ export class StoresTab extends BaseTab {
         this.saveBtn.disabled = false;
         this.saveBtn.textContent = previousSaveLabel;
       }
+      this.formCard?.classList.remove('is-saving');
     }
   }
 
