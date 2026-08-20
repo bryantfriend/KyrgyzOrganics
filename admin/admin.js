@@ -16,7 +16,7 @@ import { BusinessAccountsTab } from './tabs/BusinessAccountsTab.js?v=3.18';
 import { AuditTab } from './tabs/AuditTab.js';
 import { AnalyticsTab } from './tabs/AnalyticsTab.js';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
-import { StoresTab } from './tabs/StoresTab.js?v=3.15';
+import { StoresTab } from './tabs/StoresTab.js?v=3.16';
 import { GamesTab } from './tabs/GamesTab.js';
 import { getStorePublicUrl } from './storefront-link.js?v=1.0';
 
