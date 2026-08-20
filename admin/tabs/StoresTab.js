@@ -1,5 +1,6 @@
 import { BaseTab } from './BaseTab.js';
-import { auth, db, storage, functions, httpsCallable } from '../../firebase-config.js';
+import { auth, db, storage } from '../../firebase-config.js';
+import { invokeAuthenticatedCallable } from '../../authenticated-callable.js';
 import { COMPANY_ID } from '../../company-config.js';
 import { getSelectedCompanyId, setSelectedCompany } from '../../store-context.js';
 import { getInventoryDocId } from '../../firestore-paths.js';
@@ -3499,8 +3500,12 @@ export class StoresTab extends BaseTab {
     }
 
     try {
-      const createStoreOwner = httpsCallable(functions, 'createStoreOwnerUser');
-      const result = await createStoreOwner({ email, displayName, companyId });
+      const result = await invokeAuthenticatedCallable({
+        auth,
+        projectId: auth.app.options.projectId,
+        functionName: 'createStoreOwnerUser',
+        data: { email, displayName, companyId }
+      });
       const uid = result?.data?.uid;
 
       this.createOwnerForm?.reset?.();
