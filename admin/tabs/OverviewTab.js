@@ -1,6 +1,7 @@
 import { db } from '../../firebase-config.js';
 import { getSelectedCompanyId } from '../../store-context.js';
 import { getInventoryDocId } from '../../firestore-paths.js';
+import { getStorePublicUrl } from '../storefront-link.js?v=1.0';
 import { BaseTab } from './BaseTab.js';
 import { subscribeToOrders } from '../../services/orderListener.js';
 import { normalizeOrderStatus, updateOrderStatus } from '../../services/orderActions.js';
@@ -88,20 +89,6 @@ function slugify(value) {
         .replace(/^-+|-+$/g, '');
 }
 
-function ensureAbsoluteUrl(value) {
-    const raw = String(value || '').trim();
-    if (!raw) return '';
-    if (/^https?:\/\//i.test(raw)) return raw;
-
-    try {
-        if (raw.startsWith('/')) return new URL(raw, window.location.origin).href;
-        if (/^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(raw)) return `https://${raw.replace(/^\/+/, '')}`;
-        return new URL(raw, window.location.origin).href;
-    } catch (_) {
-        return `https://${raw.replace(/^\/+/, '')}`;
-    }
-}
-
 function sortByFieldDesc(items, fieldName) {
     return [...items].sort((a, b) => timestampToMillis(b?.[fieldName]) - timestampToMillis(a?.[fieldName]));
 }
@@ -112,19 +99,6 @@ function uniqueById(records = []) {
         if (record?.id) map.set(record.id, record);
     });
     return [...map.values()];
-}
-
-function getStorePublicUrl(store = {}, companyId = '') {
-    const launchStatus = String(store.launchStatus || store.status || '').toLowerCase();
-    const explicitUrl = launchStatus && launchStatus !== 'live'
-        ? store.previewUrl || store.website || store.publicUrl || store.domain || store.customDomain
-        : store.website || store.publicUrl || store.previewUrl || store.domain || store.customDomain;
-    if (explicitUrl) return ensureAbsoluteUrl(explicitUrl);
-
-    const slug = store.slug || store.storeSlug || companyId;
-    if (!slug || slug === 'kyrgyz-organics') return ensureAbsoluteUrl('/');
-    const previewParam = launchStatus && launchStatus !== 'live' ? '&preview=1' : '';
-    return ensureAbsoluteUrl(`/?company=${encodeURIComponent(slug)}${previewParam}`);
 }
 
 function getStoreInitials(store = {}, companyId = '') {
@@ -384,6 +358,8 @@ export class OverviewTab extends BaseTab {
         this.qrPreviewEl = document.getElementById('overviewQrPreview');
         this.previewUrlEl = document.getElementById('overviewPreviewUrl');
         this.previewStatusEl = document.getElementById('overviewPreviewStatus');
+        this.heroViewSiteLinkEl = document.getElementById('overviewViewSiteBtn');
+        this.previewViewSiteLinkEl = document.getElementById('overviewPreviewViewBtn');
         this.activityEl = document.getElementById('overviewActivity');
         this.activityMetaEl = document.getElementById('overviewActivityMeta');
         this.openToggleBtn = document.getElementById('overviewOpenToggleBtn');
@@ -428,11 +404,6 @@ export class OverviewTab extends BaseTab {
 
             if (event.target.closest('#overviewDownloadQrBtn, #overviewPreviewDownloadQrBtn')) {
                 this.downloadQrCode();
-                return;
-            }
-
-            if (event.target.closest('#overviewPreviewViewBtn')) {
-                window.adminApp?.openSelectedStorefront?.();
                 return;
             }
 
@@ -678,6 +649,7 @@ export class OverviewTab extends BaseTab {
         }
         this.setMetaText(this.urlEl, publicUrl);
         this.setMetaText(this.slugEl, slug);
+        if (this.heroViewSiteLinkEl) this.heroViewSiteLinkEl.href = publicUrl;
         this.setMetaText(this.heroModeEl, `${RANGE_CONFIG[this.rangeKey]?.label || 'Today'} mode`);
         if (this.heroStatusEl) {
             this.heroStatusEl.textContent = isActive ? 'Active' : 'Inactive';
@@ -986,6 +958,7 @@ export class OverviewTab extends BaseTab {
 
         if (this.previewUrlEl) this.previewUrlEl.textContent = publicUrl;
         if (this.urlEl) this.urlEl.textContent = publicUrl;
+        if (this.previewViewSiteLinkEl) this.previewViewSiteLinkEl.href = publicUrl;
 
         if (this.qrPreviewEl) {
             this.qrPreviewEl.innerHTML = `

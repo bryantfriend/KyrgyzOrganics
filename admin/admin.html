@@ -6,7 +6,7 @@
   <title>OA Kyrgyz Organic – Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="stylesheet" href="/admin/adminStyles.css?v=3.22" />
+  <link rel="stylesheet" href="/admin/adminStyles.css?v=3.24" />
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 </head>
@@ -48,7 +48,7 @@
       </div>
       <div class="admin-header-actions">
         <button id="selectStoreBtn" class="btn-secondary" type="button" style="display:none;">Switch Store</button>
-        <button id="viewStorefrontBtn" class="btn-secondary" type="button">View Site</button>
+        <a id="viewStorefrontBtn" class="btn-secondary view-site-link" href="/" target="_blank" rel="noopener">View Site</a>
         <button id="saveCurrentSectionBtn" class="btn-primary" type="button">Save</button>
         <button id="logoutBtn">Logout</button>
       </div>
@@ -130,7 +130,7 @@
           </div>
           <div class="overview-hero-actions">
             <button type="button" id="overviewRefreshBtn" class="btn-secondary">Refresh</button>
-            <button type="button" id="overviewViewSiteBtn" class="btn-primary">View Site</button>
+            <a id="overviewViewSiteBtn" class="btn-primary view-site-link" href="/" target="_blank" rel="noopener">View Site</a>
             <button type="button" id="overviewCopyLinkBtn" class="btn-secondary">Copy Store Link</button>
             <button type="button" id="overviewQrBtn" class="btn-secondary">View QR Code</button>
             <button type="button" id="overviewDownloadQrBtn" class="btn-secondary">Download QR</button>
@@ -340,7 +340,7 @@
                   </div>
                   <div class="overview-preview-actions">
                     <button type="button" id="overviewPreviewCopyBtn" class="btn-secondary">Copy Link</button>
-                    <button type="button" id="overviewPreviewViewBtn" class="btn-primary">View Site</button>
+                    <a id="overviewPreviewViewBtn" class="btn-primary view-site-link" href="/" target="_blank" rel="noopener">View Site</a>
                     <button type="button" id="overviewPreviewDownloadQrBtn" class="btn-secondary">Download QR</button>
                   </div>
                 </div>
@@ -2317,7 +2317,7 @@
     <div id="adminToast" class="admin-toast" role="status" aria-live="polite"></div>
   </div>
 
-  <script type="module" src="/admin/admin.js?v=3.22"></script>
+  <script type="module" src="/admin/admin.js?v=3.24"></script>
   <script type="module">
     // One-time migration runner: only loads when explicitly requested via URL flag.
     // Example: /admin/admin.html?runCompanyIdMigration=true

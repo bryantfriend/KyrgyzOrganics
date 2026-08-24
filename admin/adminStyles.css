@@ -918,6 +918,13 @@ button[type="submit"]:hover {
   border-color: #bbb;
 }
 
+.view-site-link {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  text-decoration: none;
+}
+
 /* Auth Screen */
 .login-box {
   background: white;
