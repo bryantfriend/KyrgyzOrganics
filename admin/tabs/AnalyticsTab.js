@@ -2,6 +2,14 @@ import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getSelectedCompanyId } from '../../store-context.js';
+import {
+    COLLECTION_ANALYTICS_SERIES,
+    buildCollectionTimeline,
+    collectionEventIdentity,
+    getCollectionEvents,
+    getCollectionSummary,
+    getProductCollectionBreakdown
+} from '../../collection-analytics.mjs';
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -74,9 +82,13 @@ export class AnalyticsTab extends BaseTab {
         this.btnRefresh = document.getElementById('btnRefreshAnalytics');
         this.rangeSelect = document.getElementById('analyticsRange');
         this.scopeSelect = document.getElementById('analyticsScope');
+        this.collectionAnalyticsData = { collections: [], products: [], events: [] };
+        this.activeCollectionId = '';
+        this.collectionGranularity = 'day';
     }
 
     async init() {
+        this.ensureCollectionAnalyticsModal();
         if (this.btnRefresh) this.btnRefresh.addEventListener('click', () => this.generateReport());
         if (this.rangeSelect) this.rangeSelect.addEventListener('change', () => this.generateReport());
         if (this.scopeSelect) this.scopeSelect.addEventListener('change', () => this.generateReport());
@@ -125,12 +137,13 @@ export class AnalyticsTab extends BaseTab {
         `;
 
         try {
-            const [ordersRaw, productsRaw, eventsRaw, campaignEventsRaw, storesRaw] = await Promise.all([
+            const [ordersRaw, productsRaw, eventsRaw, campaignEventsRaw, storesRaw, collectionsRaw] = await Promise.all([
                 this.getDocsSafe('orders', selectedCompanyId, scope),
                 this.getDocsSafe('products', selectedCompanyId, scope),
                 this.getDocsSafe('storefront_events', selectedCompanyId, scope),
                 this.getDocsSafe('campaign_events', selectedCompanyId, scope),
-                getDocs(collection(db, 'companies')).then((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))).catch(() => [])
+                getDocs(collection(db, 'companies')).then((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))).catch(() => []),
+                this.getDocsSafe('product_collections', selectedCompanyId, scope)
             ]);
 
             const orders = ordersRaw.filter((order) => {
@@ -147,6 +160,14 @@ export class AnalyticsTab extends BaseTab {
                 return !cutoff || !createdAt || createdAt >= cutoff;
             });
             const products = productsRaw;
+            const allCollectionEvents = getCollectionEvents(eventsRaw, campaignEventsRaw);
+            const collectionEvents = allCollectionEvents.filter((event) => !cutoff || !event.analyticsDate || event.analyticsDate >= cutoff);
+
+            this.collectionAnalyticsData = {
+                collections: collectionsRaw,
+                products,
+                events: allCollectionEvents
+            };
 
             this.reportDiv.innerHTML = this.renderReport({
                 scope,
@@ -155,15 +176,18 @@ export class AnalyticsTab extends BaseTab {
                 orders,
                 products,
                 events,
-                qrEvents
+                qrEvents,
+                collections: collectionsRaw,
+                collectionEvents
             });
+            this.bindCollectionAnalyticsOverview();
         } catch (e) {
             console.error(e);
             this.reportDiv.innerHTML = `<div class="inline-alert error">Analytics error: ${escapeHtml(e.message)}</div>`;
         }
     }
 
-    renderReport({ scope, selectedCompanyId, stores, orders, products, events, qrEvents }) {
+    renderReport({ scope, selectedCompanyId, stores, orders, products, events, qrEvents, collections, collectionEvents }) {
         const revenue = orders.reduce((sum, order) => {
             const value = Number(order.total ?? order.price ?? order.amount ?? 0);
             return sum + (Number.isFinite(value) ? value : 0);
@@ -243,6 +267,8 @@ export class AnalyticsTab extends BaseTab {
                 ${this.renderKpi('Stores', scope === 'all' ? stores.length : 1, scope === 'all' ? 'Compared below' : selectedCompanyId)}
             </div>
 
+            ${this.renderCollectionAnalyticsOverview(collections, collectionEvents)}
+
             <div class="analytics-grid">
                 ${this.renderTable('QR Clicks by Day', ['Date', 'Clicks'], Object.entries(qrDaily)
                     .sort((a, b) => b[0].localeCompare(a[0]))
@@ -278,6 +304,340 @@ export class AnalyticsTab extends BaseTab {
                 ${this.renderTable('Storefront Events', ['Event', 'Count'], topRows(eventTypes, 10))}
             </div>
         `;
+    }
+
+    renderCollectionAnalyticsOverview(collections = [], events = []) {
+        const rows = collections.map((collectionData) => {
+            const collectionEvents = this.getEventsForCollection(collectionData, events);
+            const summary = getCollectionSummary(collectionEvents);
+            return { collectionData, summary };
+        }).sort((first, second) => {
+            const firstTotal = first.summary.collectionClicks + first.summary.visits + first.summary.productClicks + first.summary.glovoClicks;
+            const secondTotal = second.summary.collectionClicks + second.summary.visits + second.summary.productClicks + second.summary.glovoClicks;
+            return secondTotal - firstTotal || String(first.collectionData.name || '').localeCompare(String(second.collectionData.name || ''));
+        });
+
+        const body = rows.length ? rows.map(({ collectionData, summary }) => `
+            <article class="collection-analytics-row">
+                <div class="collection-analytics-name">
+                    <span>${collectionData.active === false ? 'Inactive collection' : 'Collection'}</span>
+                    <strong>${escapeHtml(collectionData.name || collectionData.slug || collectionData.id)}</strong>
+                </div>
+                <div class="collection-analytics-stat">
+                    <span>Collection clicks</span>
+                    <strong>${number(summary.collectionClicks)}</strong>
+                </div>
+                <div class="collection-analytics-stat">
+                    <span>Product clicks</span>
+                    <strong>${number(summary.productClicks)}</strong>
+                </div>
+                <div class="collection-analytics-stat glovo">
+                    <span>Glovo clicks</span>
+                    <strong>${number(summary.glovoClicks)}</strong>
+                </div>
+                <button type="button" class="btn-secondary collection-analytics-open" data-collection-analytics-id="${escapeHtml(collectionData.id)}">View analytics</button>
+            </article>
+        `).join('') : `
+            <div class="collection-analytics-empty">
+                <strong>No collections yet</strong>
+                <span>Create a product collection and its activity will appear here.</span>
+            </div>
+        `;
+
+        return `
+            <section class="collection-analytics-overview" aria-labelledby="collectionAnalyticsHeading">
+                <div class="collection-analytics-overview-header">
+                    <div>
+                        <span class="eyebrow">Collection Analytics</span>
+                        <h4 id="collectionAnalyticsHeading">See what turns browsing into Glovo sales</h4>
+                        <p>Collection visits, product interest, and every Buy Now on Glovo click are attributed here.</p>
+                    </div>
+                    <span class="collection-analytics-live-badge">Tracking live</span>
+                </div>
+                <div class="collection-analytics-list">${body}</div>
+            </section>
+        `;
+    }
+
+    bindCollectionAnalyticsOverview() {
+        this.reportDiv?.querySelectorAll('[data-collection-analytics-id]').forEach((button) => {
+            button.addEventListener('click', () => this.openCollectionAnalytics(button.dataset.collectionAnalyticsId));
+        });
+    }
+
+    getEventsForCollection(collectionData, sourceEvents = this.collectionAnalyticsData.events) {
+        const identities = new Set([String(collectionData?.id || ''), String(collectionData?.slug || '')].filter(Boolean));
+        return (sourceEvents || []).filter((event) => identities.has(collectionEventIdentity(event)));
+    }
+
+    ensureCollectionAnalyticsModal() {
+        if (document.getElementById('collectionAnalyticsModal')) return;
+        const modal = document.createElement('div');
+        modal.id = 'collectionAnalyticsModal';
+        modal.className = 'modal hidden collection-analytics-modal';
+        modal.setAttribute('aria-hidden', 'true');
+        modal.innerHTML = `
+            <div class="modal-panel collection-analytics-panel" role="dialog" aria-modal="true" aria-labelledby="collectionAnalyticsTitle">
+                <div class="modal-header collection-analytics-modal-header">
+                    <div>
+                        <span class="modal-kicker">Collection performance</span>
+                        <h3 id="collectionAnalyticsTitle">Collection analytics</h3>
+                        <p id="collectionAnalyticsSubtitle">Clicks and buying intent over time.</p>
+                    </div>
+                    <button type="button" class="icon-button" data-close-collection-analytics aria-label="Close collection analytics">&times;</button>
+                </div>
+                <div id="collectionAnalyticsBody" class="collection-analytics-body"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal || event.target.closest('[data-close-collection-analytics]')) {
+                this.closeCollectionAnalytics();
+                return;
+            }
+
+            const rangeButton = event.target.closest('[data-collection-granularity]');
+            if (rangeButton) {
+                this.collectionGranularity = rangeButton.dataset.collectionGranularity || 'day';
+                modal.querySelectorAll('[data-collection-granularity]').forEach((button) => {
+                    button.classList.toggle('active', button === rangeButton);
+                });
+                this.drawCollectionAnalyticsChart();
+            }
+        });
+
+        modal.addEventListener('change', (event) => {
+            if (event.target.matches('[data-collection-series]')) this.drawCollectionAnalyticsChart();
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !modal.classList.contains('hidden')) this.closeCollectionAnalytics();
+        });
+    }
+
+    openCollectionAnalytics(collectionId) {
+        const collectionData = this.collectionAnalyticsData.collections.find((item) => item.id === collectionId);
+        const modal = document.getElementById('collectionAnalyticsModal');
+        const body = document.getElementById('collectionAnalyticsBody');
+        if (!collectionData || !modal || !body) return;
+
+        this.activeCollectionId = collectionId;
+        this.collectionGranularity = 'day';
+        const collectionEvents = this.getEventsForCollection(collectionData);
+        const summary = getCollectionSummary(collectionEvents);
+        const productRows = getProductCollectionBreakdown(collectionEvents, this.collectionAnalyticsData.products);
+        const buttonRows = this.getCollectionButtonBreakdown(collectionEvents);
+
+        document.getElementById('collectionAnalyticsTitle').textContent = collectionData.name || collectionData.slug || 'Collection analytics';
+        document.getElementById('collectionAnalyticsSubtitle').textContent = 'Track attention from the collection page through to external buying buttons.';
+        body.innerHTML = `
+            <div class="collection-analytics-summary">
+                ${this.renderCollectionMetric('Collection link clicks', summary.collectionClicks, 'Homepage collection links')}
+                ${this.renderCollectionMetric('Collection visits', summary.visits, 'Collection page loads')}
+                ${this.renderCollectionMetric('Product clicks', summary.productClicks, 'Products explored')}
+                ${this.renderCollectionMetric('Glovo clicks', summary.glovoClicks, 'Buy Now on Glovo', 'glovo')}
+                ${this.renderCollectionMetric('Other buy clicks', summary.otherBuyClicks, 'Other external links')}
+            </div>
+            <section class="collection-chart-card">
+                <div class="collection-chart-toolbar">
+                    <div>
+                        <span class="eyebrow">Click trend</span>
+                        <h4>Engagement over time</h4>
+                    </div>
+                    <div class="collection-range-toggle" aria-label="Chart grouping">
+                        ${['day', 'week', 'month', 'year'].map((range) => `<button type="button" data-collection-granularity="${range}" class="${range === 'day' ? 'active' : ''}">${range[0].toUpperCase() + range.slice(1)}</button>`).join('')}
+                    </div>
+                </div>
+                <div class="collection-series-toggles" aria-label="Visible chart lines">
+                    ${COLLECTION_ANALYTICS_SERIES.map((series) => `
+                        <label style="--series-color:${series.color}">
+                            <input type="checkbox" data-collection-series="${series.key}" checked>
+                            <span></span>${escapeHtml(series.label)}
+                        </label>
+                    `).join('')}
+                </div>
+                <div class="collection-chart-wrap">
+                    <canvas id="collectionAnalyticsChart" height="330" role="img" aria-label="Line chart showing collection clicks over time"></canvas>
+                    <div id="collectionChartEmpty" class="collection-chart-empty" hidden>No tracked clicks in this period yet.</div>
+                </div>
+                <p class="collection-chart-note">Day shows 30 days, week shows 12 weeks, month shows 12 months, and year shows 5 years.</p>
+            </section>
+            <section class="collection-product-breakdown">
+                <div>
+                    <span class="eyebrow">Click detail</span>
+                    <h4>Which products and buttons are getting clicked?</h4>
+                </div>
+                <div class="collection-breakdown-grid">
+                    ${this.renderProductBreakdownTable(productRows)}
+                    ${this.renderButtonBreakdownTable(buttonRows)}
+                </div>
+            </section>
+        `;
+
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        requestAnimationFrame(() => this.drawCollectionAnalyticsChart());
+        modal.querySelector('[data-close-collection-analytics]')?.focus();
+    }
+
+    closeCollectionAnalytics() {
+        const modal = document.getElementById('collectionAnalyticsModal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+        this.activeCollectionId = '';
+    }
+
+    renderCollectionMetric(label, value, hint, tone = '') {
+        return `
+            <article class="collection-analytics-metric ${tone}">
+                <span>${escapeHtml(label)}</span>
+                <strong>${number(value)}</strong>
+                <small>${escapeHtml(hint)}</small>
+            </article>
+        `;
+    }
+
+    renderProductBreakdownTable(rows) {
+        const tableRows = rows.length ? rows.map((row) => `
+            <tr>
+                <td><strong>${escapeHtml(row.productName)}</strong><small>${escapeHtml(row.productId)}</small></td>
+                <td>${number(row.productClicks)}</td>
+                <td class="glovo-value">${number(row.glovoClicks)}</td>
+                <td>${number(row.otherBuyClicks)}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="4">No product clicks have been tracked for this collection yet.</td></tr>';
+
+        return `
+            <div class="collection-product-table-wrap">
+                <h5>Products</h5>
+                <table>
+                    <thead><tr><th>Product</th><th>Product clicks</th><th>Glovo clicks</th><th>Other buy clicks</th></tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    getCollectionButtonBreakdown(events) {
+        const rows = new Map();
+        events.forEach((event) => {
+            if (event.analyticsSeries === 'visits') return;
+            const typeLabel = ({
+                collectionClicks: 'Collection link',
+                productClicks: 'Product',
+                glovoClicks: 'Glovo',
+                otherBuyClicks: event.linkType || 'External link',
+                linkCopies: 'Share'
+            })[event.analyticsSeries] || 'Click';
+            const buttonName = event.buttonName || event.linkLabel || event.source || typeLabel;
+            const key = `${typeLabel}:${buttonName}`;
+            if (!rows.has(key)) rows.set(key, { typeLabel, buttonName, clicks: 0 });
+            rows.get(key).clicks += 1;
+        });
+        return [...rows.values()].sort((first, second) => second.clicks - first.clicks || first.buttonName.localeCompare(second.buttonName));
+    }
+
+    renderButtonBreakdownTable(rows) {
+        const tableRows = rows.length ? rows.map((row) => `
+            <tr>
+                <td><strong>${escapeHtml(row.buttonName)}</strong><small>${escapeHtml(row.typeLabel)}</small></td>
+                <td class="${row.typeLabel === 'Glovo' ? 'glovo-value' : ''}">${number(row.clicks)}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="2">No button clicks have been tracked for this collection yet.</td></tr>';
+
+        return `
+            <div class="collection-product-table-wrap">
+                <h5>Buttons</h5>
+                <table>
+                    <thead><tr><th>Button clicked</th><th>Clicks</th></tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    drawCollectionAnalyticsChart() {
+        const collectionData = this.collectionAnalyticsData.collections.find((item) => item.id === this.activeCollectionId);
+        const canvas = document.getElementById('collectionAnalyticsChart');
+        if (!collectionData || !canvas) return;
+
+        const selectedSeries = [...document.querySelectorAll('#collectionAnalyticsModal [data-collection-series]:checked')].map((input) => input.dataset.collectionSeries);
+        const timeline = buildCollectionTimeline(this.getEventsForCollection(collectionData), this.collectionGranularity);
+        const hasData = timeline.some((bucket) => selectedSeries.some((key) => bucket[key] > 0));
+        const empty = document.getElementById('collectionChartEmpty');
+        if (empty) empty.hidden = hasData;
+
+        const cssWidth = Math.max(640, Math.round(canvas.parentElement?.clientWidth || 900));
+        const cssHeight = 330;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = cssWidth * pixelRatio;
+        canvas.height = cssHeight * pixelRatio;
+        canvas.style.width = `${cssWidth}px`;
+        canvas.style.height = `${cssHeight}px`;
+
+        const context = canvas.getContext('2d');
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.clearRect(0, 0, cssWidth, cssHeight);
+
+        const padding = { top: 22, right: 24, bottom: 48, left: 46 };
+        const chartWidth = cssWidth - padding.left - padding.right;
+        const chartHeight = cssHeight - padding.top - padding.bottom;
+        const maximum = Math.max(1, ...timeline.flatMap((bucket) => selectedSeries.map((key) => bucket[key] || 0)));
+        const axisMaximum = maximum <= 5 ? 5 : Math.ceil(maximum / 5) * 5;
+
+        context.font = '12px Inter, system-ui, sans-serif';
+        context.textBaseline = 'middle';
+        for (let grid = 0; grid <= 5; grid += 1) {
+            const y = padding.top + (chartHeight * grid / 5);
+            const value = Math.round(axisMaximum * (1 - grid / 5));
+            context.strokeStyle = '#e8eee9';
+            context.lineWidth = 1;
+            context.beginPath();
+            context.moveTo(padding.left, y);
+            context.lineTo(cssWidth - padding.right, y);
+            context.stroke();
+            context.fillStyle = '#718077';
+            context.textAlign = 'right';
+            context.fillText(String(value), padding.left - 10, y);
+        }
+
+        const labelStep = Math.max(1, Math.ceil(timeline.length / 7));
+        timeline.forEach((bucket, index) => {
+            if (index % labelStep !== 0 && index !== timeline.length - 1) return;
+            const x = padding.left + (timeline.length === 1 ? chartWidth / 2 : chartWidth * index / (timeline.length - 1));
+            context.fillStyle = '#718077';
+            context.textAlign = index === 0 ? 'left' : index === timeline.length - 1 ? 'right' : 'center';
+            context.fillText(bucket.label, x, cssHeight - 22);
+        });
+
+        COLLECTION_ANALYTICS_SERIES.filter((series) => selectedSeries.includes(series.key)).forEach((series) => {
+            context.strokeStyle = series.color;
+            context.fillStyle = series.color;
+            context.lineWidth = series.key === 'glovoClicks' ? 3.5 : 2.5;
+            context.lineJoin = 'round';
+            context.lineCap = 'round';
+            context.beginPath();
+            timeline.forEach((bucket, index) => {
+                const x = padding.left + (timeline.length === 1 ? chartWidth / 2 : chartWidth * index / (timeline.length - 1));
+                const y = padding.top + chartHeight - ((bucket[series.key] || 0) / axisMaximum) * chartHeight;
+                if (index === 0) context.moveTo(x, y);
+                else context.lineTo(x, y);
+            });
+            context.stroke();
+
+            timeline.forEach((bucket, index) => {
+                if (!bucket[series.key]) return;
+                const x = padding.left + (timeline.length === 1 ? chartWidth / 2 : chartWidth * index / (timeline.length - 1));
+                const y = padding.top + chartHeight - (bucket[series.key] / axisMaximum) * chartHeight;
+                context.beginPath();
+                context.arc(x, y, series.key === 'glovoClicks' ? 4 : 3, 0, Math.PI * 2);
+                context.fill();
+            });
+        });
     }
 
     renderKpi(label, value, hint) {

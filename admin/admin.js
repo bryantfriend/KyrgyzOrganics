@@ -14,13 +14,13 @@ import { SettingsTab } from './tabs/SettingsTab.js';
 import { OrdersTab } from './tabs/OrdersTab.js';
 import { BusinessAccountsTab } from './tabs/BusinessAccountsTab.js?v=3.18';
 import { AuditTab } from './tabs/AuditTab.js';
-import { AnalyticsTab } from './tabs/AnalyticsTab.js';
+import { AnalyticsTab } from './tabs/AnalyticsTab.js?v=3.25';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js?v=3.16';
 import { GamesTab } from './tabs/GamesTab.js';
 import { getStorePublicUrl } from './storefront-link.js?v=1.0';
 
-const ADMIN_VERSION = '3.24';
+const ADMIN_VERSION = '3.25';
 const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
 const STORE_ADMIN_ROLES = new Set(['admin', 'owner', 'manager', 'orders', 'products', 'marketing']);
 const PLATFORM_TABS = new Set(['stores', 'analytics', 'audit']);

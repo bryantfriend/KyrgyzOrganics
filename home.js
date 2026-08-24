@@ -615,9 +615,9 @@ function renderProductCollections() {
     productCollectionsGrid.innerHTML = visible.map(collectionItem => {
         const collectionPageUrl = buildCollectionPageUrl(collectionItem);
         return `
-        <article class="collection-card" data-collection-id="${escapeHtml(collectionItem.id)}">
+        <article class="collection-card" data-collection-id="${escapeHtml(collectionItem.id)}" data-collection-name="${escapeHtml(collectionItem.name || 'Collection')}" data-collection-slug="${escapeHtml(collectionItem.slug || '')}">
             <div>
-                <h3><a class="collection-card-title-link" href="${escapeHtml(collectionPageUrl)}">${escapeHtml(collectionItem.name || 'Collection')}</a></h3>
+                <h3><a class="collection-card-title-link" href="${escapeHtml(collectionPageUrl)}" data-collection-open="title">${escapeHtml(collectionItem.name || 'Collection')}</a></h3>
                 ${collectionItem.description ? `<p>${escapeHtml(collectionItem.description)}</p>` : ''}
             </div>
             <div class="collection-card-products">
@@ -628,7 +628,7 @@ function renderProductCollections() {
                     </button>
                 `).join('')}
             </div>
-            <a class="collection-card-view-link" href="${escapeHtml(collectionPageUrl)}">View Collection →</a>
+            <a class="collection-card-view-link" href="${escapeHtml(collectionPageUrl)}" data-collection-open="view_collection">View Collection →</a>
         </article>
     `;
     }).join('');
@@ -636,13 +636,38 @@ function renderProductCollections() {
     productCollectionsGrid.querySelectorAll('[data-collection-product-id]').forEach((button) => {
         button.addEventListener('click', () => {
             const product = products.find((item) => item.id === button.dataset.collectionProductId);
+            const collectionCard = button.closest('.collection-card');
             if (!product) return;
 
             trackStoreEvent('collection_product_click', product.id, {
                 collectionId: button.dataset.collectionId || '',
-                productName: loc(product, 'name')
+                collectionSlug: collectionCard?.dataset.collectionSlug || '',
+                collectionName: collectionCard?.dataset.collectionName || '',
+                productId: product.id,
+                productName: loc(product, 'name'),
+                buttonName: 'product_preview',
+                source: 'homepage_collection_card'
             });
             openModal(product, button);
+        });
+    });
+
+    productCollectionsGrid.querySelectorAll('[data-collection-open]').forEach((link) => {
+        link.addEventListener('click', async (event) => {
+            const collectionCard = link.closest('.collection-card');
+            if (!collectionCard) return;
+            const tracking = trackStoreEvent('collection_open_click', collectionCard.dataset.collectionId || '', {
+                collectionId: collectionCard.dataset.collectionId || '',
+                collectionSlug: collectionCard.dataset.collectionSlug || '',
+                collectionName: collectionCard.dataset.collectionName || '',
+                buttonName: link.dataset.collectionOpen || 'view_collection',
+                source: 'homepage_collection_card'
+            });
+            if (event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+                event.preventDefault();
+                await Promise.race([tracking, new Promise((resolve) => setTimeout(resolve, 650))]);
+                window.location.assign(link.href);
+            }
         });
     });
 }
@@ -1642,7 +1667,7 @@ function renderModalExternalActions(product) {
     `;
 }
 
-function bindModalExternalLinkTracking(product) {
+function bindModalExternalLinkTracking(product, collectionContext = {}) {
     const links = getProductExternalLinks(product);
     const linkById = new Map(links.map((link) => [link.id, link]));
     const params = new URLSearchParams(window.location.search);
@@ -1659,7 +1684,11 @@ function bindModalExternalLinkTracking(product) {
                 linkId: link.id,
                 linkType: link.type,
                 linkLabel: link.label,
+                buttonName: getProductExternalLinkCtaLabel(link),
                 destinationUrl: link.url,
+                collectionId: collectionContext.collectionId || '',
+                collectionSlug: collectionContext.collectionSlug || '',
+                collectionName: collectionContext.collectionName || '',
                 trackingSlug: params.get('trackingSlug') || '',
                 campaignId: params.get('campaignId') || params.get('campaign') || '',
                 influencerId: params.get('influencerId') || '',
@@ -1674,11 +1703,15 @@ function bindModalExternalLinkTracking(product) {
 function openModal(product, returnTarget = null) {
     productModalReturnScrollY = window.scrollY;
     productModalReturnTarget = returnTarget || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-    const returnCollectionName = returnTarget
-        ?.closest('.collection-card')
-        ?.querySelector('h3')
-        ?.textContent
-        ?.trim() || '';
+    const returnCollectionCard = returnTarget?.closest('.collection-card');
+    const returnCollectionName = returnCollectionCard?.dataset.collectionName
+        || returnCollectionCard?.querySelector('h3')?.textContent?.trim()
+        || '';
+    const collectionContext = {
+        collectionId: returnCollectionCard?.dataset.collectionId || '',
+        collectionSlug: returnCollectionCard?.dataset.collectionSlug || '',
+        collectionName: returnCollectionName
+    };
     const categoryName = categoriesMap[product.categoryId] ? loc(categoriesMap[product.categoryId], 'name') : (product.category || 'Other');
     const productPageUrl = buildProductPageUrl(product);
     const displayPrice = getDisplayPrice(product, currentUserProfile);
@@ -1788,7 +1821,7 @@ function openModal(product, returnTarget = null) {
     `;
     modal.style.display = 'flex';
     syncBodyScroll();
-    bindModalExternalLinkTracking(product);
+    bindModalExternalLinkTracking(product, collectionContext);
 
     const backToCollectionBtn = document.getElementById('backToCollectionBtn');
     if (backToCollectionBtn) backToCollectionBtn.addEventListener('click', closeModalFn);
