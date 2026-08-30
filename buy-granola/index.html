@@ -247,6 +247,16 @@
   </main>
 
   <script>
+    window.QR_ANALYTICS_CONFIG = {
+      mode: 'firestore-rest',
+      projectId: 'oa-kyrgyz-organic',
+      apiKey: 'AIzaSyB2azgMx3VRCqKTVj4zhdqv51o6w1cAtxI',
+      collection: 'campaign_events',
+      actionType: 'granola_purchase_click'
+    };
+  </script>
+  <script src="../url-converter/analytics.js"></script>
+  <script>
     (function () {
       var yandexAppUrl = 'https://8jxm.adj.st/external?adj_deeplink=yandextaxi%3A%2F%2Fexternal%3Fservice%3Deats&adjust_t=gm2aavy&service=eats';
       var glovoAppUrl = 'https://glovo.go.link/open?link_type=store&store_id=394642&adjust_t=s321jkn';
@@ -261,6 +271,7 @@
       var providers = {
         yandex: {
           name: 'Yandex Go',
+          analyticsPlatform: 'yandex',
           button: 'Copy search & open Yandex Go',
           className: 'yandex',
           href: yandexAppUrl,
@@ -268,16 +279,17 @@
           steps: ['Tap a yellow product button.', 'Close any offer in Yandex Go with the ×.', 'Tap Search, choose Paste, and search.'],
           note: 'Yandex Go currently ignores product searches in its public iPhone handoff. The exact phrase is copied before Food opens.',
           products: [
-            { name: 'All Kyrgyz Organic granola', meta: 'See all available products from Alma Go', query: 'Kyrgyz Organic гранола', image: 'assorted' },
-            { name: 'Light Granola Chocolate', meta: '459 som when last checked', query: 'Kyrgyz Organic гранола Light шоколадная', image: 'assorted' },
-            { name: 'Granola in Dark Chocolate', meta: '476 som when last checked', query: 'Kyrgyz Organic гранола в темном шоколаде', image: 'assorted' },
-            { name: 'Honey and Nuts', meta: '479 som when last checked', query: 'Kyrgyz Organic гранола обжаренная с медом и орехами', image: 'nuts' },
-            { name: 'Honey and Fruits', meta: '459 som when last checked', query: 'Kyrgyz Organic гранола обжаренная с медом и фруктами', image: 'fruit' },
-            { name: 'Honey and Strawberries', meta: '459 som when last checked', query: 'Kyrgyz Organic гранола обжаренная с медом и клубникой', image: 'strawberry' }
+            { id: 'all-granola', name: 'All Kyrgyz Organic granola', meta: 'See all available products from Alma Go', query: 'Kyrgyz Organic гранола', image: 'assorted' },
+            { id: 'light-chocolate', name: 'Light Granola Chocolate', meta: '459 som when last checked', query: 'Kyrgyz Organic гранола Light шоколадная', image: 'assorted' },
+            { id: 'dark-chocolate', name: 'Granola in Dark Chocolate', meta: '476 som when last checked', query: 'Kyrgyz Organic гранола в темном шоколаде', image: 'assorted' },
+            { id: 'honey-nuts', name: 'Honey and Nuts', meta: '479 som when last checked', query: 'Kyrgyz Organic гранола обжаренная с медом и орехами', image: 'nuts' },
+            { id: 'honey-fruits', name: 'Honey and Fruits', meta: '459 som when last checked', query: 'Kyrgyz Organic гранола обжаренная с медом и фруктами', image: 'fruit' },
+            { id: 'honey-strawberries', name: 'Honey and Strawberries', meta: '459 som when last checked', query: 'Kyrgyz Organic гранола обжаренная с медом и клубникой', image: 'strawberry' }
           ]
         },
         glovo: {
           name: 'Glovo',
+          analyticsPlatform: 'glovo',
           button: 'Copy best search & open Glovo',
           className: 'glovo',
           href: glovoAppUrl,
@@ -285,12 +297,12 @@
           steps: ['Tap an orange product button.', 'Confirm your Bishkek delivery address if Glovo asks.', 'In Glovo Express, tap Search and Paste.'],
           note: 'Glovo ranks long product names poorly. The tested two-word search “Organic granola” places all five Kyrgyz Organic granolas in the first five results, so choose your selected flavor there.',
           products: [
-            { name: 'All Kyrgyz Organic granola', meta: 'All five products appear first', query: 'Organic granola', image: 'assorted' },
-            { name: 'Strawberry Granola · 350 g', meta: '353 KGS · appears first', query: 'Organic granola', image: 'strawberry' },
-            { name: 'Nut Paradise · 500 g', meta: '627 KGS · appears second', query: 'Organic granola', image: 'nuts' },
-            { name: 'Nut Paradise · 280 g', meta: '421 KGS · appears fifth', query: 'Organic granola', image: 'nuts' },
-            { name: 'Natural Chocolate · 500 g', meta: '626 KGS · appears third', query: 'Organic granola', image: 'assorted' },
-            { name: 'Fruit Garden · 350 g', meta: '352 KGS · appears fourth', query: 'Organic granola', image: 'fruit' }
+            { id: 'all-granola', name: 'All Kyrgyz Organic granola', meta: 'All five products appear first', query: 'Organic granola', image: 'assorted' },
+            { id: 'strawberry-350', name: 'Strawberry Granola · 350 g', meta: '353 KGS · appears first', query: 'Organic granola', image: 'strawberry' },
+            { id: 'nut-paradise-500', name: 'Nut Paradise · 500 g', meta: '627 KGS · appears second', query: 'Organic granola', image: 'nuts' },
+            { id: 'nut-paradise-280', name: 'Nut Paradise · 280 g', meta: '421 KGS · appears fifth', query: 'Organic granola', image: 'nuts' },
+            { id: 'natural-chocolate-500', name: 'Natural Chocolate · 500 g', meta: '626 KGS · appears third', query: 'Organic granola', image: 'assorted' },
+            { id: 'fruit-garden-350', name: 'Fruit Garden · 350 g', meta: '352 KGS · appears fourth', query: 'Organic granola', image: 'fruit' }
           ]
         }
       };
@@ -314,6 +326,23 @@
         try { copied = document.execCommand('copy'); } catch (error) {}
         input.remove();
         return copied;
+      }
+
+      function trackGranolaEvent(actionType, payload) {
+        if (!window.QRAnalytics || typeof window.QRAnalytics.trackClick !== 'function') return;
+        var config = window.QR_ANALYTICS_CONFIG || {};
+        var previousAction = config.actionType;
+        config.actionType = actionType;
+        try {
+          window.QRAnalytics.trackClick({
+            companyId: 'kyrgyz-organics',
+            brand: 'Kyrgyz Organic',
+            landingPath: window.location.pathname,
+            ...payload
+          });
+        } finally {
+          config.actionType = previousAction;
+        }
       }
 
       function productCard(product, provider) {
@@ -341,6 +370,14 @@
         status.className = 'status';
         status.setAttribute('aria-live', 'polite');
         link.addEventListener('click', function () {
+          trackGranolaEvent('granola_purchase_click', {
+            linkId: 'granola-chooser-' + provider.analyticsPlatform + '-' + product.id,
+            label: product.name,
+            code: product.query,
+            platform: provider.analyticsPlatform,
+            targetUrl: provider.href,
+            productId: product.id
+          });
           status.textContent = copySearchSync(product.query)
             ? 'Copied: “' + product.query + '” · Opening ' + provider.name + '…'
             : 'Opening ' + provider.name + '. Return here if you need to copy the search.';
@@ -357,6 +394,13 @@
       function selectProvider(key) {
         var provider = providers[key];
         if (!provider) return;
+        trackGranolaEvent('granola_provider_select', {
+          linkId: 'granola-chooser-provider-' + provider.analyticsPlatform,
+          label: provider.name,
+          code: 'provider-select',
+          platform: provider.analyticsPlatform,
+          targetUrl: window.location.href
+        });
         document.querySelectorAll('[data-provider]').forEach(function (button) {
           button.setAttribute('aria-pressed', button.dataset.provider === key ? 'true' : 'false');
         });

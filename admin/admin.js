@@ -14,7 +14,7 @@ import { SettingsTab } from './tabs/SettingsTab.js';
 import { OrdersTab } from './tabs/OrdersTab.js';
 import { BusinessAccountsTab } from './tabs/BusinessAccountsTab.js?v=3.18';
 import { AuditTab } from './tabs/AuditTab.js';
-import { AnalyticsTab } from './tabs/AnalyticsTab.js?v=3.25';
+import { AnalyticsTab } from './tabs/AnalyticsTab.js?v=3.26';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js?v=3.16';
 import { GamesTab } from './tabs/GamesTab.js';

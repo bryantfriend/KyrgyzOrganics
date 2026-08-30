@@ -10,6 +10,10 @@ import {
     getCollectionSummary,
     getProductCollectionBreakdown
 } from '../../collection-analytics.mjs';
+import {
+    isGranolaAnalyticsEvent,
+    summarizeGranolaAnalytics
+} from '../../granola-purchase-analytics.mjs';
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -159,6 +163,11 @@ export class AnalyticsTab extends BaseTab {
                 const createdAt = toDate(event.createdAt || event.timestamp);
                 return !cutoff || !createdAt || createdAt >= cutoff;
             });
+            const granolaEvents = campaignEventsRaw.filter((event) => {
+                if (!isGranolaAnalyticsEvent(event)) return false;
+                const createdAt = toDate(event.createdAt || event.timestamp);
+                return !cutoff || !createdAt || createdAt >= cutoff;
+            });
             const products = productsRaw;
             const allCollectionEvents = getCollectionEvents(eventsRaw, campaignEventsRaw);
             const collectionEvents = allCollectionEvents.filter((event) => !cutoff || !event.analyticsDate || event.analyticsDate >= cutoff);
@@ -177,6 +186,7 @@ export class AnalyticsTab extends BaseTab {
                 products,
                 events,
                 qrEvents,
+                granolaEvents,
                 collections: collectionsRaw,
                 collectionEvents
             });
@@ -187,7 +197,7 @@ export class AnalyticsTab extends BaseTab {
         }
     }
 
-    renderReport({ scope, selectedCompanyId, stores, orders, products, events, qrEvents, collections, collectionEvents }) {
+    renderReport({ scope, selectedCompanyId, stores, orders, products, events, qrEvents, granolaEvents, collections, collectionEvents }) {
         const revenue = orders.reduce((sum, order) => {
             const value = Number(order.total ?? order.price ?? order.amount ?? 0);
             return sum + (Number.isFinite(value) ? value : 0);
@@ -196,6 +206,7 @@ export class AnalyticsTab extends BaseTab {
         const conversion = pageViews > 0 ? `${((orders.length / pageViews) * 100).toFixed(1)}%` : 'n/a';
         const activeProducts = products.filter((product) => product.active !== false).length;
         const averageOrder = orders.length ? revenue / orders.length : 0;
+        const granolaAnalytics = summarizeGranolaAnalytics(granolaEvents);
 
         const daily = {};
         const status = {};
@@ -261,11 +272,14 @@ export class AnalyticsTab extends BaseTab {
                 ${this.renderKpi('Revenue', money(revenue), `Avg order ${money(averageOrder)}`)}
                 ${this.renderKpi('Orders', orders.length, `${Object.keys(status).length || 0} statuses`)}
                 ${this.renderKpi('QR Clicks', number(totalQrClicks), `${number(todayQrClicks)} today`)}
+                ${this.renderKpi('Granola Clicks', number(granolaAnalytics.totalClicks), `${number(granolaAnalytics.launches)} app launches`)}
                 ${this.renderKpi('Visits', pageViews, `${events.length} total events`)}
                 ${this.renderKpi('Conversion', conversion, 'Orders / visits')}
                 ${this.renderKpi('Products', products.length, `${activeProducts} active`)}
                 ${this.renderKpi('Stores', scope === 'all' ? stores.length : 1, scope === 'all' ? 'Compared below' : selectedCompanyId)}
             </div>
+
+            ${this.renderGranolaPurchaseAnalytics(granolaAnalytics)}
 
             ${this.renderCollectionAnalyticsOverview(collections, collectionEvents)}
 
@@ -303,6 +317,55 @@ export class AnalyticsTab extends BaseTab {
 
                 ${this.renderTable('Storefront Events', ['Event', 'Count'], topRows(eventTypes, 10))}
             </div>
+        `;
+    }
+
+    renderGranolaPurchaseAnalytics(summary) {
+        const yandex = summary.providerRows.find((row) => row.provider === 'Yandex Go');
+        const glovo = summary.providerRows.find((row) => row.provider === 'Glovo');
+        return `
+            <section class="collection-analytics-overview granola-purchase-analytics" aria-labelledby="granolaPurchaseAnalyticsHeading">
+                <div class="collection-analytics-overview-header">
+                    <div>
+                        <span class="eyebrow">Granola Purchase Chooser</span>
+                        <h4 id="granolaPurchaseAnalyticsHeading">Yandex and Glovo click performance</h4>
+                        <p>Every delivery-app choice and every product button on the granola demo is counted here.</p>
+                    </div>
+                    <span class="collection-analytics-live-badge">Tracking live</span>
+                </div>
+
+                <div class="analytics-kpi-grid granola-analytics-kpis">
+                    ${this.renderKpi('All clicks', number(summary.totalClicks), 'Selections + app launches')}
+                    ${this.renderKpi('App launches', number(summary.launches), 'Product purchase buttons')}
+                    ${this.renderKpi('Provider choices', number(summary.selections), 'Yandex or Glovo selected')}
+                    ${this.renderKpi('Unique sessions', number(summary.uniqueSessions), 'Approximate visitors')}
+                    ${this.renderKpi('Yandex launches', number(yandex?.launches || 0), 'Product button clicks')}
+                    ${this.renderKpi('Glovo launches', number(glovo?.launches || 0), 'Product button clicks')}
+                </div>
+
+                <div class="analytics-grid granola-analytics-grid">
+                    ${this.renderTable('Clicks by Delivery App', ['App', 'Provider Choices', 'App Launches', 'All Clicks'], summary.providerRows.map((row) => [
+                        row.provider,
+                        number(row.selections),
+                        number(row.launches),
+                        number(row.total)
+                    ]))}
+
+                    ${this.renderTable('Clicks by Product Button', ['Product', 'App', 'Clicks', 'Copied Search'], summary.productRows.map((row) => [
+                        row.product,
+                        row.provider,
+                        number(row.clicks),
+                        row.search || '-'
+                    ]))}
+
+                    ${this.renderTable('Granola Clicks by Day', ['Date', 'Provider Choices', 'App Launches', 'All Clicks'], summary.dailyRows.slice(0, 14).map((row) => [
+                        row.date,
+                        number(row.selections),
+                        number(row.launches),
+                        number(row.total)
+                    ]))}
+                </div>
+            </section>
         `;
     }
 

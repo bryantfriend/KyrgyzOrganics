@@ -4847,6 +4847,27 @@ button[type="submit"]:hover {
   box-shadow: 0 0 0 4px rgba(43, 157, 85, 0.12);
 }
 
+.granola-purchase-analytics {
+  border-color: #ead9a8;
+  background: linear-gradient(145deg, #fffaf0 0%, #ffffff 58%, #f3faf5 100%);
+}
+
+.granola-purchase-analytics .collection-analytics-overview-header {
+  border-bottom-color: #eee3c6;
+}
+
+.granola-analytics-kpis {
+  padding: 0 1.35rem;
+}
+
+.granola-analytics-grid {
+  padding: 0 1.35rem 1.35rem;
+}
+
+.granola-analytics-grid .analytics-panel:nth-child(2) {
+  grid-column: 1 / -1;
+}
+
 .collection-analytics-list {
   display: grid;
 }
