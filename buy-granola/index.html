@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#f7f2e7">
+  <title>Choose where to buy Kyrgyz Organic granola</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #213127;
+      --muted: #687269;
+      --cream: #f7f2e7;
+      --paper: #fffdf8;
+      --line: #e6decf;
+      --leaf: #2f6d4c;
+      --leaf-dark: #214f37;
+      --yandex: #ffdc34;
+      --glovo: #ffc244;
+      --glovo-green: #007f68;
+      --shadow: 0 18px 45px rgba(49, 52, 40, 0.10);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 100% 0, rgba(255, 194, 68, 0.22), transparent 28rem),
+        radial-gradient(circle at 0 16rem, rgba(74, 128, 82, 0.13), transparent 24rem),
+        var(--cream);
+    }
+
+    button, a { -webkit-tap-highlight-color: transparent; }
+    button { font: inherit; }
+    .shell { width: min(100% - 28px, 720px); margin: 0 auto; padding: 22px 0 46px; }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--leaf-dark);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
+      background: var(--leaf);
+      color: white;
+      font-size: 14px;
+      letter-spacing: -.04em;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(170px, .75fr);
+      gap: 22px;
+      align-items: center;
+      padding: 26px 0 20px;
+    }
+    .eyebrow { margin: 0 0 9px; color: var(--leaf); font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { margin: 0; max-width: 520px; font-size: clamp(34px, 7vw, 56px); line-height: .98; letter-spacing: -.045em; }
+    .lede { margin: 16px 0 0; max-width: 520px; color: var(--muted); font-size: 17px; line-height: 1.55; }
+    .hero-image {
+      display: grid;
+      place-items: center;
+      min-height: 250px;
+      overflow: hidden;
+      border: 1px solid rgba(47, 109, 76, .14);
+      border-radius: 30px;
+      background: linear-gradient(145deg, #dce7c9, #f8e5bc);
+      box-shadow: var(--shadow);
+    }
+    .hero-image img { width: 86%; height: 270px; object-fit: contain; filter: drop-shadow(0 18px 18px rgba(40, 44, 29, .18)); }
+    .provider-heading { margin: 18px 0 12px; }
+    .provider-heading h2, .catalog-head h2 { margin: 0; font-size: 23px; letter-spacing: -.02em; }
+    .provider-heading p, .catalog-head p { margin: 7px 0 0; color: var(--muted); line-height: 1.5; }
+    .providers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .provider {
+      position: relative;
+      min-height: 178px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      color: var(--ink);
+      background: var(--paper);
+      box-shadow: 0 10px 30px rgba(45, 48, 38, .06);
+      text-align: left;
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .provider:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+    .provider:focus-visible, .buy:focus-visible, .back:focus-visible { outline: 3px solid rgba(47, 109, 76, .35); outline-offset: 3px; }
+    .provider[aria-pressed="true"] { border-color: var(--leaf); box-shadow: 0 0 0 2px rgba(47, 109, 76, .12), var(--shadow); }
+    .provider-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .provider-logo { display: grid; place-items: center; min-width: 52px; height: 52px; padding: 0 13px; border-radius: 17px; font-size: 16px; font-weight: 900; }
+    .provider-logo.yandex { background: var(--yandex); color: #151515; }
+    .provider-logo.glovo { background: var(--glovo); color: var(--glovo-green); }
+    .arrow { font-size: 28px; color: var(--leaf); }
+    .provider strong { display: block; margin-top: 15px; font-size: 20px; }
+    .provider small { display: block; margin-top: 5px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+    .catalog { margin-top: 20px; padding-top: 8px; }
+    .catalog[hidden] { display: none; }
+    .catalog-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 14px;
+    }
+    .back { border: 0; padding: 8px 0; color: var(--leaf); background: transparent; font-weight: 800; cursor: pointer; white-space: nowrap; }
+    .steps {
+      margin: 0 0 14px;
+      padding: 14px 18px 14px 38px;
+      border: 1px solid #e9dfbe;
+      border-radius: 18px;
+      background: #fff8dc;
+      color: #625731;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .products { display: grid; gap: 11px; }
+    .product {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      gap: 15px;
+      align-items: center;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--paper);
+      box-shadow: 0 8px 26px rgba(44, 48, 36, .055);
+    }
+    .product-image { display: grid; place-items: center; width: 88px; height: 104px; overflow: hidden; border-radius: 16px; background: #f1ebdd; }
+    .product-image img { width: 94%; height: 98px; object-fit: contain; }
+    .product-copy { min-width: 0; }
+    .product h3 { margin: 0; font-size: 17px; line-height: 1.28; }
+    .meta { margin: 5px 0 11px; color: var(--muted); font-size: 13px; line-height: 1.4; }
+    .buy {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 48px;
+      border: 0;
+      border-radius: 15px;
+      color: #1b241e;
+      font-weight: 850;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .buy.yandex { background: var(--yandex); }
+    .buy.glovo { background: var(--glovo); color: #173d34; }
+    .status { min-height: 18px; margin: 8px 2px 0; color: var(--leaf); font-size: 12px; font-weight: 700; }
+    .note { margin: 16px 0 0; padding: 15px 17px; border-radius: 18px; background: rgba(255, 255, 255, .58); color: var(--muted); font-size: 13px; line-height: 1.5; }
+    footer { margin-top: 28px; color: #7c827b; font-size: 12px; text-align: center; }
+
+    @media (max-width: 590px) {
+      .shell { width: min(100% - 22px, 720px); padding-top: 14px; }
+      .hero { grid-template-columns: 1fr 124px; gap: 8px; padding-top: 20px; }
+      .hero-image { min-height: 178px; border-radius: 24px; }
+      .hero-image img { width: 118%; height: 190px; }
+      h1 { font-size: clamp(32px, 10vw, 43px); }
+      .lede { font-size: 15px; }
+      .providers { gap: 9px; }
+      .provider { min-height: 176px; padding: 15px; border-radius: 21px; }
+      .provider-logo { min-width: 47px; height: 47px; padding: 0 10px; font-size: 14px; }
+      .provider strong { font-size: 18px; }
+      .product { grid-template-columns: 75px minmax(0, 1fr); gap: 12px; padding: 11px; }
+      .product-image { width: 75px; height: 94px; }
+      .product-image img { height: 88px; }
+      .catalog-head { align-items: flex-start; }
+    }
+
+    @media (max-width: 410px) {
+      .hero { display: block; }
+      .hero-image { height: 150px; min-height: 0; margin-top: 18px; }
+      .hero-image img { height: 180px; width: 65%; }
+      .provider { min-height: 186px; }
+      .arrow { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .provider { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">OA</span> Kyrgyz Organic</div>
+
+    <section class="hero" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">Granola delivery</p>
+        <h1 id="page-title">Choose where to buy</h1>
+        <p class="lede">Select a delivery app, choose your granola, and we’ll copy the right search before opening the app.</p>
+      </div>
+      <div class="hero-image">
+        <img src="../Granola/гранола лайт ассорти .png" alt="Kyrgyz Organic Light assorted granola">
+      </div>
+    </section>
+
+    <section id="providerPicker" aria-labelledby="provider-title">
+      <div class="provider-heading">
+        <h2 id="provider-title">Where would you like to order?</h2>
+        <p>Both options are designed for an iPhone handoff.</p>
+      </div>
+      <div class="providers">
+        <button class="provider" type="button" data-provider="yandex" aria-pressed="false">
+          <span class="provider-top"><span class="provider-logo yandex">Y</span><span class="arrow" aria-hidden="true">›</span></span>
+          <strong>Yandex Go</strong>
+          <small>Opens Food and copies the selected search.</small>
+        </button>
+        <button class="provider" type="button" data-provider="glovo" aria-pressed="false">
+          <span class="provider-top"><span class="provider-logo glovo">Glovo</span><span class="arrow" aria-hidden="true">›</span></span>
+          <strong>Glovo</strong>
+          <small>Opens Glovo Express and copies the selected search.</small>
+        </button>
+      </div>
+    </section>
+
+    <section class="catalog" id="catalog" hidden aria-labelledby="catalog-title">
+      <div class="catalog-head">
+        <div>
+          <p class="eyebrow" id="catalog-provider">Delivery app</p>
+          <h2 id="catalog-title">Choose your granola</h2>
+          <p id="catalog-subtitle"></p>
+        </div>
+        <button class="back" id="backButton" type="button">Change app</button>
+      </div>
+      <ol class="steps" id="steps"></ol>
+      <div class="products" id="products"></div>
+      <p class="note" id="provider-note"></p>
+    </section>
+
+    <footer>Demo purchase chooser · Kyrgyz Organic</footer>
+  </main>
+
+  <script>
+    (function () {
+      var yandexAppUrl = 'https://8jxm.adj.st/external?adj_deeplink=yandextaxi%3A%2F%2Fexternal%3Fservice%3Deats&adjust_t=gm2aavy&service=eats';
+      var glovoAppUrl = 'https://glovo.go.link/open?link_type=store&store_id=394642&adjust_t=s321jkn';
+
+      var images = {
+        assorted: '../Granola/гранола лайт ассорти .png',
+        strawberry: '../Granola/гранола лайт клубничная.png',
+        nuts: '../Granola/гранола лайт ореховая.png',
+        fruit: '../Granola/гранола лайт фруктовая.png'
+      };
+
+      var providers = {
+        yandex: {
+          name: 'Yandex Go',
+          button: 'Copy search & open Yandex Go',
+          className: 'yandex',
+          href: yandexAppUrl,
+          subtitle: 'Choose a product, then finish the search inside Food.',
+          steps: ['Tap a yellow product button.', 'Close any offer in Yandex Go with the ×.', 'Tap Search, choose Paste, and search.'],
+          note: 'Yandex Go currently ignores product searches in its public iPhone handoff. The exact phrase is copied before Food opens.',
+          products: [
+            { name: 'All Kyrgyz Organic granola', meta: 'See all available products from Alma Go', query: 'Kyrgyz Organic гранола', image: 'assorted' },
+            { name: 'Light Granola Chocolate', meta: '459 som when last checked', query: 'Kyrgyz Organic гранола Light шоколадная', image: 'assorted' },
+            { name: 'Granola in Dark Chocolate', meta: '476 som when last checked', query: 'Kyrgyz Organic гранола в темном шоколаде', image: 'assorted' },
+            { name: 'Honey and Nuts', meta: '479 som when last checked', query: 'Kyrgyz Organic гранола обжаренная с медом и орехами', image: 'nuts' },
+            { name: 'Honey and Fruits', meta: '459 som when last checked', query: 'Kyrgyz Organic гранола обжаренная с медом и фруктами', image: 'fruit' },
+            { name: 'Honey and Strawberries', meta: '459 som when last checked', query: 'Kyrgyz Organic гранола обжаренная с медом и клубникой', image: 'strawberry' }
+          ]
+        },
+        glovo: {
+          name: 'Glovo',
+          button: 'Copy search & open Glovo',
+          className: 'glovo',
+          href: glovoAppUrl,
+          subtitle: 'Choose a product, then finish the search in Glovo Express.',
+          steps: ['Tap an orange product button.', 'Confirm your Bishkek delivery address if Glovo asks.', 'In Glovo Express, tap Search and Paste.'],
+          note: 'Glovo’s public app handoff opens the Glovo Express store rather than a guaranteed product screen. The exact product phrase is copied first.',
+          products: [
+            { name: 'All Kyrgyz Organic granola', meta: 'See all current Glovo Express results', query: 'Kyrgyz Organic granola', image: 'assorted' },
+            { name: 'Strawberry Granola · 350 g', meta: '353 KGS when last checked', query: 'Гранола С душистой клубникой Kyrgyz Organic 350 гр', image: 'strawberry' },
+            { name: 'Nut Paradise · 500 g', meta: '627 KGS when last checked', query: 'Гранола Ореховый рай Kyrgyz Organic 500 гр', image: 'nuts' },
+            { name: 'Nut Paradise · 280 g', meta: '421 KGS when last checked', query: 'Гранола Ореховый рай Kyrgyz Organic 280 гр', image: 'nuts' },
+            { name: 'Natural Chocolate · 500 g', meta: '626 KGS when last checked', query: 'Гранола В натуральном шоколаде Kyrgyz Organic 500 гр', image: 'assorted' },
+            { name: 'Fruit Garden · 350 g', meta: '352 KGS when last checked', query: 'Гранола Фруктовый сад Kyrgyz Organic 350 гр', image: 'fruit' }
+          ]
+        }
+      };
+
+      var picker = document.getElementById('providerPicker');
+      var catalog = document.getElementById('catalog');
+      var productsNode = document.getElementById('products');
+      var stepsNode = document.getElementById('steps');
+
+      function copySearchSync(value) {
+        var input = document.createElement('textarea');
+        input.value = value;
+        input.setAttribute('readonly', '');
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        input.style.pointerEvents = 'none';
+        document.body.appendChild(input);
+        input.select();
+        input.setSelectionRange(0, input.value.length);
+        var copied = false;
+        try { copied = document.execCommand('copy'); } catch (error) {}
+        input.remove();
+        return copied;
+      }
+
+      function productCard(product, provider) {
+        var article = document.createElement('article');
+        article.className = 'product';
+        var imageWrap = document.createElement('div');
+        imageWrap.className = 'product-image';
+        var image = document.createElement('img');
+        image.src = images[product.image];
+        image.alt = '';
+        image.loading = 'lazy';
+        imageWrap.appendChild(image);
+        var copy = document.createElement('div');
+        copy.className = 'product-copy';
+        var title = document.createElement('h3');
+        title.textContent = product.name;
+        var meta = document.createElement('p');
+        meta.className = 'meta';
+        meta.textContent = product.meta;
+        var link = document.createElement('a');
+        link.className = 'buy ' + provider.className;
+        link.href = provider.href;
+        link.textContent = provider.button;
+        var status = document.createElement('div');
+        status.className = 'status';
+        status.setAttribute('aria-live', 'polite');
+        link.addEventListener('click', function () {
+          status.textContent = copySearchSync(product.query)
+            ? 'Copied: “' + product.query + '” · Opening ' + provider.name + '…'
+            : 'Opening ' + provider.name + '. Return here if you need to copy the search.';
+        });
+        copy.appendChild(title);
+        copy.appendChild(meta);
+        copy.appendChild(link);
+        copy.appendChild(status);
+        article.appendChild(imageWrap);
+        article.appendChild(copy);
+        return article;
+      }
+
+      function selectProvider(key) {
+        var provider = providers[key];
+        if (!provider) return;
+        document.querySelectorAll('[data-provider]').forEach(function (button) {
+          button.setAttribute('aria-pressed', button.dataset.provider === key ? 'true' : 'false');
+        });
+        document.getElementById('catalog-provider').textContent = provider.name;
+        document.getElementById('catalog-subtitle').textContent = provider.subtitle;
+        document.getElementById('provider-note').textContent = provider.note;
+        stepsNode.replaceChildren();
+        provider.steps.forEach(function (step) {
+          var item = document.createElement('li');
+          item.textContent = step;
+          stepsNode.appendChild(item);
+        });
+        productsNode.replaceChildren();
+        provider.products.forEach(function (product) {
+          productsNode.appendChild(productCard(product, provider));
+        });
+        catalog.hidden = false;
+        window.setTimeout(function () { catalog.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 30);
+      }
+
+      document.querySelectorAll('[data-provider]').forEach(function (button) {
+        button.addEventListener('click', function () { selectProvider(button.dataset.provider); });
+      });
+      document.getElementById('backButton').addEventListener('click', function () {
+        catalog.hidden = true;
+        document.querySelectorAll('[data-provider]').forEach(function (button) { button.setAttribute('aria-pressed', 'false'); });
+        picker.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    })();
+  </script>
+</body>
+</html>
