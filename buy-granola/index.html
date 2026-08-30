@@ -278,19 +278,19 @@
         },
         glovo: {
           name: 'Glovo',
-          button: 'Copy search & open Glovo',
+          button: 'Copy best search & open Glovo',
           className: 'glovo',
           href: glovoAppUrl,
-          subtitle: 'Choose a product, then finish the search in Glovo Express.',
+          subtitle: 'The tested search places all five Kyrgyz Organic granolas first in Glovo Express.',
           steps: ['Tap an orange product button.', 'Confirm your Bishkek delivery address if Glovo asks.', 'In Glovo Express, tap Search and Paste.'],
-          note: 'Glovo’s public app handoff opens the Glovo Express store rather than a guaranteed product screen. The exact product phrase is copied first.',
+          note: 'Glovo ranks long product names poorly. The tested two-word search “Organic granola” places all five Kyrgyz Organic granolas in the first five results, so choose your selected flavor there.',
           products: [
-            { name: 'All Kyrgyz Organic granola', meta: 'See all current Glovo Express results', query: 'Kyrgyz Organic granola', image: 'assorted' },
-            { name: 'Strawberry Granola · 350 g', meta: '353 KGS when last checked', query: 'Гранола С душистой клубникой Kyrgyz Organic 350 гр', image: 'strawberry' },
-            { name: 'Nut Paradise · 500 g', meta: '627 KGS when last checked', query: 'Гранола Ореховый рай Kyrgyz Organic 500 гр', image: 'nuts' },
-            { name: 'Nut Paradise · 280 g', meta: '421 KGS when last checked', query: 'Гранола Ореховый рай Kyrgyz Organic 280 гр', image: 'nuts' },
-            { name: 'Natural Chocolate · 500 g', meta: '626 KGS when last checked', query: 'Гранола В натуральном шоколаде Kyrgyz Organic 500 гр', image: 'assorted' },
-            { name: 'Fruit Garden · 350 g', meta: '352 KGS when last checked', query: 'Гранола Фруктовый сад Kyrgyz Organic 350 гр', image: 'fruit' }
+            { name: 'All Kyrgyz Organic granola', meta: 'All five products appear first', query: 'Organic granola', image: 'assorted' },
+            { name: 'Strawberry Granola · 350 g', meta: '353 KGS · appears first', query: 'Organic granola', image: 'strawberry' },
+            { name: 'Nut Paradise · 500 g', meta: '627 KGS · appears second', query: 'Organic granola', image: 'nuts' },
+            { name: 'Nut Paradise · 280 g', meta: '421 KGS · appears fifth', query: 'Organic granola', image: 'nuts' },
+            { name: 'Natural Chocolate · 500 g', meta: '626 KGS · appears third', query: 'Organic granola', image: 'assorted' },
+            { name: 'Fruit Garden · 350 g', meta: '352 KGS · appears fourth', query: 'Organic granola', image: 'fruit' }
           ]
         }
       };
