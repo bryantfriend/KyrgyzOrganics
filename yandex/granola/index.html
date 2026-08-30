@@ -96,7 +96,8 @@
 
   <script>
     var query = 'Kyrgyz Organic гранола';
-    var searchUrl = new URL('https://eda.yandex.kg/en-kg/search');
+    // Yandex Go's native Eats handoff expects the unlocalized app route.
+    var searchUrl = new URL('https://eda.yandex.kg/search');
     searchUrl.searchParams.set('query', query);
     var nativeTarget = new URL('yandextaxi://external');
     nativeTarget.searchParams.set('service', 'eats');
