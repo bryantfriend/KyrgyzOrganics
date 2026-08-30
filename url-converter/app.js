@@ -265,7 +265,8 @@
     const query = getYandexSearchQueryFromUrl(source);
     if (!query) return "";
 
-    const browserUrl = new URL("https://eda.yandex.kg/en-kg/Bishkek/search");
+    const browserUrl = new URL("https://eda.yandex.kg/en-kg/search");
+    browserUrl.searchParams.set("hideSelector", "true");
     browserUrl.searchParams.set("query", query);
     return browserUrl.href;
   }
