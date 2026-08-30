@@ -86,7 +86,7 @@ Native Glovo exact product deep linking is intentionally not forced because test
 
 ## Yandex iPhone Behavior
 
-Yandex Go on Android accepts an Eats search in the `yandextaxi://external` route, but the iOS app launches and discards that nested search. The converter therefore generates `https://eda.yandex.kg/en-kg/search?hideSelector=true&query=...` instead of an Adjust app link. This is the same route used by Yandex's own Eats search interface; the city-prefixed search route resolves to the home page.
+Yandex Go on Android accepts an Eats search in the `yandextaxi://external` route, but the iOS app launches and discards that nested search. The converter therefore generates `https://eda.yandex.kg/en-kg/search?query=...` instead of an Adjust app link. This matches Yandex's own initial Eats search navigation; the city-prefixed search route resolves to the home page. Yandex may add internal display parameters after the search page initializes.
 
 The OAKO storefront submits the search as a GET form rather than following a normal Universal Link. This keeps Safari on the Yandex website, where the customer can enter a delivery address while `query=бискотти` remains in the URL. Older OAKO products and generated hubs that still contain an `8jxm.adj.st` link are unwrapped at runtime and sent through the same browser-safe route.
 
@@ -113,7 +113,7 @@ If one pickup location exists, the public map button opens its `mapUrl` directly
 6. Copy the public product hub link and open it on desktop.
 7. Open the same link at mobile width around 360px.
 8. Tap Order on Glovo and confirm it reaches the existing Glovo web product flow.
-9. Tap Order on Yandex from an iPhone and confirm Safari stays open with `/en-kg/search?hideSelector=true&query=...`.
+9. Tap Order on Yandex from an iPhone and confirm Safari stays open with `/en-kg/search?query=...` and loads the requested results.
 9. Tap Order on Yandex and confirm it opens the saved Yandex URL.
 10. Tap View map locations with one and multiple pickup locations.
 11. Test geolocation allowed and denied.

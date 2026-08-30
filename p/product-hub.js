@@ -139,7 +139,6 @@
         if (!query) continue;
 
         const browserTarget = new URL("https://eda.yandex.kg/en-kg/search");
-        browserTarget.searchParams.set("hideSelector", "true");
         browserTarget.searchParams.set("query", query);
         return browserTarget;
       } catch (error) {}

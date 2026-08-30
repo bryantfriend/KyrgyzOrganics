@@ -162,9 +162,9 @@ export function buildYandexEatsBrowserUrl(value) {
 
         // Yandex Go on iOS launches for the old Adjust link but drops the
         // nested Eats search. The city-prefixed route resolves to the home
-        // page; Yandex's own search UI uses /en-kg/search with hideSelector.
+        // page; Yandex's own search UI initially uses /en-kg/search?query=...
+        // and adds internal display flags only after the page initializes.
         var browserUrl = new URL('https://eda.yandex.kg/en-kg/search');
-        browserUrl.searchParams.set('hideSelector', 'true');
         browserUrl.searchParams.set('query', query);
         return browserUrl.toString();
     } catch (error) {

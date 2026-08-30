@@ -85,7 +85,7 @@ const yandexBrowserUrl = buildYandexEatsBrowserUrl(normalYandexSearchUrl);
 const yandexBrowser = new URL(yandexBrowserUrl);
 assert.equal(yandexBrowser.origin, 'https://eda.yandex.kg');
 assert.equal(yandexBrowser.pathname, '/en-kg/search');
-assert.equal(yandexBrowser.searchParams.get('hideSelector'), 'true');
+assert.equal(yandexBrowser.searchParams.has('hideSelector'), false);
 assert.equal(yandexBrowser.searchParams.get('query'), 'бискотти');
 assert.equal(buildYandexEatsBrowserUrl(yandexBrowserUrl), yandexBrowserUrl);
 assert.equal(buildYandexGoSmartUrl(normalYandexSearchUrl), yandexBrowserUrl);
@@ -104,7 +104,6 @@ assert.equal(yandexNavigation.kind, 'form');
 assert.equal(yandexNavigation.url, yandexBrowserUrl);
 assert.equal(yandexNavigation.action, 'https://eda.yandex.kg/en-kg/search');
 assert.deepEqual(yandexNavigation.fields, [
-  { name: 'hideSelector', value: 'true' },
   { name: 'query', value: 'бискотти' }
 ]);
 assert.equal(yandexNavigation.loginAction, '');
