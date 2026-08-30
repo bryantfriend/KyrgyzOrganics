@@ -50,7 +50,7 @@
     .card h2 { margin: 0 0 6px; font-size: 18px; line-height: 1.3; }
     .card p { margin: 0 0 14px; color: #6c6b62; font-size: 14px; line-height: 1.45; }
     .actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
-    button {
+    button, .open {
       min-height: 50px;
       border-radius: 15px;
       font: inherit;
@@ -63,6 +63,11 @@
       padding: 0 16px;
       background: #ffdc34;
       color: #191a17;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      text-decoration: none;
     }
     .copy {
       border: 1px solid #ddd8c9;
@@ -87,11 +92,11 @@
     <header>
       <div class="mark" aria-hidden="true">Y</div>
       <h1>Buy granola through Yandex</h1>
-      <p>Yandex removes searches from iPhone links, so this page copies the correct search for you.</p>
+      <p>On iPhone, each yellow button copies the correct search and hands you to the Yandex Go app.</p>
       <ol class="steps">
-        <li>Tap a yellow button below.</li>
-        <li>When Yandex opens, tap its search box.</li>
-        <li>Choose <strong>Paste</strong>, then search.</li>
+        <li>Tap <strong>Copy &amp; open Yandex Go</strong>.</li>
+        <li>If the product opens, select it and order.</li>
+        <li>If the app opens to Eats home, tap search and choose <strong>Paste</strong>.</li>
       </ol>
     </header>
 
@@ -99,7 +104,7 @@
       <h2>All Kyrgyz Organic granola</h2>
       <p>Shows all five available products from Alma Go.</p>
       <div class="actions">
-        <button class="open" type="button" data-open="Kyrgyz Organic гранола">Copy &amp; open Yandex</button>
+        <a class="open" href="https://8jxm.adj.st/external?adj_deeplink=yandextaxi%3A%2F%2Fexternal%3Fservice%3Deats&amp;adjust_t=gm2aavy&amp;service=eats" data-app-open="Kyrgyz Organic гранола">Copy &amp; open Yandex Go</a>
         <button class="copy" type="button" data-copy="Kyrgyz Organic гранола">Copy</button>
       </div>
       <div class="status" aria-live="polite"></div>
@@ -109,7 +114,7 @@
       <h2>Light Granola Chocolate</h2>
       <p>459 som when last checked.</p>
       <div class="actions">
-        <button class="open" type="button" data-open="Kyrgyz Organic гранола Light шоколадная">Copy &amp; open Yandex</button>
+        <a class="open" href="https://8jxm.adj.st/external?adj_deeplink=yandextaxi%3A%2F%2Fexternal%3Fservice%3Deats&amp;adjust_t=gm2aavy&amp;service=eats" data-app-open="Kyrgyz Organic гранола Light шоколадная">Copy &amp; open Yandex Go</a>
         <button class="copy" type="button" data-copy="Kyrgyz Organic гранола Light шоколадная">Copy</button>
       </div>
       <div class="status" aria-live="polite"></div>
@@ -119,7 +124,7 @@
       <h2>Granola in Dark Chocolate</h2>
       <p>476 som when last checked.</p>
       <div class="actions">
-        <button class="open" type="button" data-open="Kyrgyz Organic гранола в темном шоколаде">Copy &amp; open Yandex</button>
+        <a class="open" href="https://8jxm.adj.st/external?adj_deeplink=yandextaxi%3A%2F%2Fexternal%3Fservice%3Deats&amp;adjust_t=gm2aavy&amp;service=eats" data-app-open="Kyrgyz Organic гранола в темном шоколаде">Copy &amp; open Yandex Go</a>
         <button class="copy" type="button" data-copy="Kyrgyz Organic гранола в темном шоколаде">Copy</button>
       </div>
       <div class="status" aria-live="polite"></div>
@@ -129,7 +134,7 @@
       <h2>Honey and Nuts</h2>
       <p>479 som when last checked.</p>
       <div class="actions">
-        <button class="open" type="button" data-open="Kyrgyz Organic гранола обжаренная с медом и орехами">Copy &amp; open Yandex</button>
+        <a class="open" href="https://8jxm.adj.st/external?adj_deeplink=yandextaxi%3A%2F%2Fexternal%3Fservice%3Deats&amp;adjust_t=gm2aavy&amp;service=eats" data-app-open="Kyrgyz Organic гранола обжаренная с медом и орехами">Copy &amp; open Yandex Go</a>
         <button class="copy" type="button" data-copy="Kyrgyz Organic гранола обжаренная с медом и орехами">Copy</button>
       </div>
       <div class="status" aria-live="polite"></div>
@@ -139,7 +144,7 @@
       <h2>Honey and Fruits</h2>
       <p>459 som when last checked.</p>
       <div class="actions">
-        <button class="open" type="button" data-open="Kyrgyz Organic гранола обжаренная с медом и фруктами">Copy &amp; open Yandex</button>
+        <a class="open" href="https://8jxm.adj.st/external?adj_deeplink=yandextaxi%3A%2F%2Fexternal%3Fservice%3Deats&amp;adjust_t=gm2aavy&amp;service=eats" data-app-open="Kyrgyz Organic гранола обжаренная с медом и фруктами">Copy &amp; open Yandex Go</a>
         <button class="copy" type="button" data-copy="Kyrgyz Organic гранола обжаренная с медом и фруктами">Copy</button>
       </div>
       <div class="status" aria-live="polite"></div>
@@ -149,36 +154,57 @@
       <h2>Honey and Strawberries</h2>
       <p>459 som when last checked.</p>
       <div class="actions">
-        <button class="open" type="button" data-open="Kyrgyz Organic гранола обжаренная с медом и клубникой">Copy &amp; open Yandex</button>
+        <a class="open" href="https://8jxm.adj.st/external?adj_deeplink=yandextaxi%3A%2F%2Fexternal%3Fservice%3Deats&amp;adjust_t=gm2aavy&amp;service=eats" data-app-open="Kyrgyz Organic гранола обжаренная с медом и клубникой">Copy &amp; open Yandex Go</a>
         <button class="copy" type="button" data-copy="Kyrgyz Organic гранола обжаренная с медом и клубникой">Copy</button>
       </div>
       <div class="status" aria-live="polite"></div>
     </section>
 
     <div class="help">
-      The empty Yandex search box is expected on iPhone. Your selected search phrase will already be copied and ready to paste.
+      If Yandex Go ignores the product search, your selected phrase is already copied. Paste it into the app search—the method confirmed to work on your iPhone.
     </div>
   </main>
 
   <script>
+    function copySearchSync(value) {
+      var input = document.createElement('textarea');
+      input.value = value;
+      input.setAttribute('readonly', '');
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.select();
+      input.setSelectionRange(0, input.value.length);
+      var copied = false;
+      try { copied = document.execCommand('copy'); } catch (error) {}
+      input.remove();
+      return copied;
+    }
+
     async function copySearch(value) {
+      if (copySearchSync(value)) return true;
       try {
         await navigator.clipboard.writeText(value);
         return true;
-      } catch (clipboardError) {
-        var input = document.createElement('textarea');
-        input.value = value;
-        input.setAttribute('readonly', '');
-        input.style.position = 'fixed';
-        input.style.opacity = '0';
-        document.body.appendChild(input);
-        input.select();
-        input.setSelectionRange(0, input.value.length);
-        var copied = false;
-        try { copied = document.execCommand('copy'); } catch (error) {}
-        input.remove();
-        return copied;
+      } catch (error) {
+        return false;
       }
+    }
+
+    function buildYandexGoLink(query) {
+      var searchUrl = new URL('https://eda.yandex.kg/en-kg/search');
+      searchUrl.searchParams.set('query', query);
+
+      var nativeTarget = new URL('yandextaxi://external');
+      nativeTarget.searchParams.set('service', 'eats');
+      nativeTarget.searchParams.set('href', searchUrl.toString());
+
+      var appLink = new URL('https://8jxm.adj.st/external');
+      appLink.searchParams.set('adj_deeplink', nativeTarget.toString());
+      appLink.searchParams.set('adjust_t', 'gm2aavy');
+      appLink.searchParams.set('service', 'eats');
+      appLink.searchParams.set('adj_fallback', 'https://eda.yandex.kg/en-kg/');
+      return appLink.toString();
     }
 
     document.querySelectorAll('[data-copy]').forEach(function (button) {
@@ -193,19 +219,15 @@
       });
     });
 
-    document.querySelectorAll('[data-open]').forEach(function (button) {
-      button.addEventListener('click', async function () {
-        var status = button.closest('.card').querySelector('.status');
-        if (!await copySearch(button.dataset.open)) {
-          status.textContent = 'Copy failed. Tap the Copy button before opening Yandex.';
-          return;
+    document.querySelectorAll('[data-app-open]').forEach(function (link) {
+      link.href = buildYandexGoLink(link.dataset.appOpen);
+      link.addEventListener('click', function () {
+        var status = link.closest('.card').querySelector('.status');
+        if (copySearchSync(link.dataset.appOpen)) {
+          status.textContent = 'Copied. Opening Yandex Go…';
+        } else {
+          status.textContent = 'Opening Yandex Go. If needed, return and tap Copy.';
         }
-
-        status.textContent = 'Copied. Opening Yandex — tap its search box and choose Paste.';
-        button.textContent = 'Copied — opening Yandex…';
-        window.setTimeout(function () {
-          window.location.assign('https://eda.yandex.kg/en-kg/');
-        }, 700);
       });
     });
   </script>
