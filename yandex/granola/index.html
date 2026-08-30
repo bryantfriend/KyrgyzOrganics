@@ -89,24 +89,19 @@
   <main>
     <div class="mark" aria-hidden="true">Y</div>
     <h1>Open granola on Yandex</h1>
-    <p>Tap below to copy the search and hand off to Yandex Go.</p>
-    <a class="app-link" id="copyAndOpen" href="https://8jxm.adj.st/external?adj_deeplink=yandextaxi%3A%2F%2Fexternal%3Fservice%3Deats&amp;adjust_t=gm2aavy&amp;service=eats">Copy &amp; open Yandex Go</a>
+    <p>Tap below to copy the search and open Food in Yandex Go. Close any offer, tap Search, then Paste.</p>
+    <a class="app-link" id="copyAndOpen" href="https://8jxm.adj.st/external?adj_deeplink=yandextaxi%3A%2F%2Fexternal%3Fservice%3Deats&amp;adjust_t=gm2aavy&amp;service=eats">Copy search &amp; open Yandex Go</a>
     <p class="note" id="status">Search phrase: “Kyrgyz Organic гранола”</p>
   </main>
 
   <script>
     var query = 'Kyrgyz Organic гранола';
-    // Yandex Go's native Eats handoff expects the unlocalized app route.
-    var searchUrl = new URL('https://eda.yandex.kg/search');
-    searchUrl.searchParams.set('query', query);
     var nativeTarget = new URL('yandextaxi://external');
     nativeTarget.searchParams.set('service', 'eats');
-    nativeTarget.searchParams.set('href', searchUrl.toString());
     var appLink = new URL('https://8jxm.adj.st/external');
     appLink.searchParams.set('adj_deeplink', nativeTarget.toString());
     appLink.searchParams.set('adjust_t', 'gm2aavy');
     appLink.searchParams.set('service', 'eats');
-    appLink.searchParams.set('adj_fallback', 'https://eda.yandex.kg/en-kg/');
 
     var openLink = document.getElementById('copyAndOpen');
     openLink.href = appLink.toString();
