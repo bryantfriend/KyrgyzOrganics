@@ -256,10 +256,16 @@
     };
   </script>
   <script src="../url-converter/analytics.js"></script>
-  <script>
+  <script type="module">
+    import {
+      getGranolaProviderHref,
+      isAndroidDevice,
+      YANDEX_RESULT_QUERY
+    } from '../granola-app-links.mjs';
+
     (function () {
-      var yandexAppUrl = 'https://8jxm.adj.st/external?adj_deeplink=yandextaxi%3A%2F%2Fexternal%3Fservice%3Deats&adjust_t=gm2aavy&service=eats';
-      var glovoAppUrl = 'https://glovo.go.link/open?link_type=store&store_id=394642&adjust_t=s321jkn';
+      var devicePlatform = navigator.userAgentData && navigator.userAgentData.platform ? navigator.userAgentData.platform : '';
+      var androidDevice = isAndroidDevice(navigator.userAgent, devicePlatform);
 
       var images = {
         assorted: '../Granola/гранола лайт ассорти .png',
@@ -273,11 +279,21 @@
           name: 'Yandex Go',
           analyticsPlatform: 'yandex',
           button: 'Copy search & open Yandex Go',
+          androidButton: 'Open results in Yandex Go',
           className: 'yandex',
-          href: yandexAppUrl,
+          getHref: function () {
+            return getGranolaProviderHref('yandex', {
+              userAgent: navigator.userAgent,
+              platform: devicePlatform,
+              query: YANDEX_RESULT_QUERY
+            });
+          },
           subtitle: 'Choose a product, then finish the search inside Food.',
+          androidSubtitle: 'Android opens Yandex Go directly and requests the Kyrgyz Organic results.',
           steps: ['Tap a yellow product button.', 'Close any offer in Yandex Go with the ×.', 'Tap Search, choose Paste, and search.'],
+          androidSteps: ['Tap a yellow product button.', 'Yandex Go opens Food and requests the Kyrgyz Organic results.', 'If your app version lands on Food home, tap Search and Paste—the exact product phrase is already copied.'],
           note: 'Yandex Go currently ignores product searches in its public iPhone handoff. The exact phrase is copied before Food opens.',
+          androidNote: 'Android uses a direct Yandex Go intent instead of the broken iPhone fallback. It requests the tested Kyrgyz Organic results page; the copied phrase remains available if that app version ignores the result route.',
           products: [
             { id: 'all-granola', name: 'All Kyrgyz Organic granola', meta: 'See all available products from Alma Go', query: 'Kyrgyz Organic гранола', image: 'assorted' },
             { id: 'light-chocolate', name: 'Light Granola Chocolate', meta: '459 som when last checked', query: 'Kyrgyz Organic гранола Light шоколадная', image: 'assorted' },
@@ -291,11 +307,20 @@
           name: 'Glovo',
           analyticsPlatform: 'glovo',
           button: 'Copy best search & open Glovo',
+          androidButton: 'Open Glovo Express',
           className: 'glovo',
-          href: glovoAppUrl,
+          getHref: function () {
+            return getGranolaProviderHref('glovo', {
+              userAgent: navigator.userAgent,
+              platform: devicePlatform
+            });
+          },
           subtitle: 'The tested search places all five Kyrgyz Organic granolas first in Glovo Express.',
+          androidSubtitle: 'Android opens Glovo Express directly; the best product search is copied as backup.',
           steps: ['Tap an orange product button.', 'Confirm your Bishkek delivery address if Glovo asks.', 'In Glovo Express, tap Search and Paste.'],
+          androidSteps: ['Tap an orange product button.', 'Glovo opens the tested Express store directly.', 'Tap Search and Paste “Organic granola” to place all five Kyrgyz Organic products first.'],
           note: 'Glovo ranks long product names poorly. The tested two-word search “Organic granola” places all five Kyrgyz Organic granolas in the first five results, so choose your selected flavor there.',
+          androidNote: 'Android uses Glovo’s direct app intent for the tested Express store. Glovo does not expose a dependable product-search deep link, so “Organic granola” is copied before the store opens.',
           products: [
             { id: 'all-granola', name: 'All Kyrgyz Organic granola', meta: 'All five products appear first', query: 'Organic granola', image: 'assorted' },
             { id: 'strawberry-350', name: 'Strawberry Granola · 350 g', meta: '353 KGS · appears first', query: 'Organic granola', image: 'strawberry' },
@@ -346,6 +371,7 @@
       }
 
       function productCard(product, provider) {
+        var targetHref = provider.getHref(product);
         var article = document.createElement('article');
         article.className = 'product';
         var imageWrap = document.createElement('div');
@@ -364,8 +390,8 @@
         meta.textContent = product.meta;
         var link = document.createElement('a');
         link.className = 'buy ' + provider.className;
-        link.href = provider.href;
-        link.textContent = provider.button;
+        link.href = targetHref;
+        link.textContent = androidDevice ? provider.androidButton : provider.button;
         var status = document.createElement('div');
         status.className = 'status';
         status.setAttribute('aria-live', 'polite');
@@ -375,12 +401,13 @@
             label: product.name,
             code: product.query,
             platform: provider.analyticsPlatform,
-            targetUrl: provider.href,
+            targetUrl: targetHref,
             productId: product.id
           });
-          status.textContent = copySearchSync(product.query)
-            ? 'Copied: “' + product.query + '” · Opening ' + provider.name + '…'
-            : 'Opening ' + provider.name + '. Return here if you need to copy the search.';
+          var copied = copySearchSync(product.query);
+          status.textContent = androidDevice
+            ? (copied ? 'Opening ' + provider.name + ' · Backup search copied.' : 'Opening ' + provider.name + '…')
+            : (copied ? 'Copied: “' + product.query + '” · Opening ' + provider.name + '…' : 'Opening ' + provider.name + '. Return here if you need to copy the search.');
         });
         copy.appendChild(title);
         copy.appendChild(meta);
@@ -405,10 +432,10 @@
           button.setAttribute('aria-pressed', button.dataset.provider === key ? 'true' : 'false');
         });
         document.getElementById('catalog-provider').textContent = provider.name;
-        document.getElementById('catalog-subtitle').textContent = provider.subtitle;
-        document.getElementById('provider-note').textContent = provider.note;
+        document.getElementById('catalog-subtitle').textContent = androidDevice ? provider.androidSubtitle : provider.subtitle;
+        document.getElementById('provider-note').textContent = androidDevice ? provider.androidNote : provider.note;
         stepsNode.replaceChildren();
-        provider.steps.forEach(function (step) {
+        (androidDevice ? provider.androidSteps : provider.steps).forEach(function (step) {
           var item = document.createElement('li');
           item.textContent = step;
           stepsNode.appendChild(item);
