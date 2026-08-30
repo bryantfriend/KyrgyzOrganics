@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>Opening Granola on Yandex</title>
+  <title>Open Granola on Yandex</title>
   <style>
     :root {
       color-scheme: light;
@@ -54,6 +54,11 @@
       line-height: 1.5;
     }
 
+    .note {
+      margin: 14px 0 0;
+      font-size: 14px;
+    }
+
     button {
       width: 100%;
       min-height: 52px;
@@ -70,21 +75,14 @@
 <body>
   <main>
     <div class="mark" aria-hidden="true">Y</div>
-    <h1>Opening Yandex</h1>
-    <p>Searching Alma Go for Kyrgyz Organic granola.</p>
+    <h1>Open granola on Yandex</h1>
+    <p>On iPhone, tap the yellow button so WhatsApp keeps the Yandex search.</p>
     <form id="yandexGranolaSearch" method="get" action="https://eda.yandex.kg/en-kg/search">
       <input type="hidden" name="hideSelector" value="true">
       <input type="hidden" name="query" value="Kyrgyz Organic гранола">
       <button type="submit">Open granola on Yandex</button>
     </form>
+    <p class="note">Yandex should open with “Kyrgyz Organic гранола” already entered.</p>
   </main>
-
-  <script>
-    window.setTimeout(function () {
-      var form = document.getElementById('yandexGranolaSearch');
-      if (typeof form.requestSubmit === 'function') form.requestSubmit();
-      else form.submit();
-    }, 200);
-  </script>
 </body>
 </html>
