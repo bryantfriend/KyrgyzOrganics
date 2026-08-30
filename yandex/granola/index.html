@@ -76,12 +76,27 @@
   <main>
     <div class="mark" aria-hidden="true">Y</div>
     <h1>Open granola on Yandex</h1>
-    <p>On iPhone, tap the yellow button so WhatsApp keeps the Yandex search.</p>
-    <form id="yandexGranolaSearch" method="get" action="https://eda.yandex.kg/en-kg/search">
-      <input type="hidden" name="query" value="Kyrgyz Organic гранола">
-      <button type="submit">Open granola on Yandex</button>
-    </form>
-    <p class="note">Yandex should open with “Kyrgyz Organic гранола” already entered.</p>
+    <p>Tap below to copy the search. In Yandex, tap its search box and choose Paste.</p>
+    <button id="copyAndOpen" type="button">Copy search &amp; open Yandex</button>
+    <p class="note" id="status">Search phrase: “Kyrgyz Organic гранола”</p>
   </main>
+
+  <script>
+    document.getElementById('copyAndOpen').addEventListener('click', async function () {
+      var button = this;
+      var status = document.getElementById('status');
+      try {
+        await navigator.clipboard.writeText('Kyrgyz Organic гранола');
+        status.textContent = 'Copied. In Yandex, tap the search box and choose Paste.';
+        button.textContent = 'Copied — opening Yandex…';
+        window.setTimeout(function () {
+          window.location.assign('https://eda.yandex.kg/en-kg/');
+        }, 700);
+      } catch (error) {
+        status.textContent = 'Copy failed. Open the full granola chooser and use its Copy button.';
+        window.location.assign('https://oako.kg/yandex/?v=5');
+      }
+    });
+  </script>
 </body>
 </html>

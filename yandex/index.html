@@ -30,6 +30,15 @@
     }
     h1 { margin: 0 0 10px; font-size: 27px; line-height: 1.15; }
     header p { margin: 0; color: #6c6b62; line-height: 1.5; }
+    .steps {
+      margin: 16px 0 0;
+      padding: 14px 16px 14px 36px;
+      border-radius: 16px;
+      background: #fff8d8;
+      color: #5d5120;
+      text-align: left;
+      line-height: 1.55;
+    }
     .card {
       margin-top: 14px;
       padding: 18px;
@@ -78,17 +87,19 @@
     <header>
       <div class="mark" aria-hidden="true">Y</div>
       <h1>Buy granola through Yandex</h1>
-      <p>For iPhone and WhatsApp: choose a granola, then tap the yellow button.</p>
+      <p>Yandex removes searches from iPhone links, so this page copies the correct search for you.</p>
+      <ol class="steps">
+        <li>Tap a yellow button below.</li>
+        <li>When Yandex opens, tap its search box.</li>
+        <li>Choose <strong>Paste</strong>, then search.</li>
+      </ol>
     </header>
 
     <section class="card">
       <h2>All Kyrgyz Organic granola</h2>
       <p>Shows all five available products from Alma Go.</p>
       <div class="actions">
-        <form method="get" action="https://eda.yandex.kg/en-kg/search">
-          <input type="hidden" name="query" value="Kyrgyz Organic гранола">
-          <button class="open" type="submit">Open on Yandex</button>
-        </form>
+        <button class="open" type="button" data-open="Kyrgyz Organic гранола">Copy &amp; open Yandex</button>
         <button class="copy" type="button" data-copy="Kyrgyz Organic гранола">Copy</button>
       </div>
       <div class="status" aria-live="polite"></div>
@@ -98,10 +109,7 @@
       <h2>Light Granola Chocolate</h2>
       <p>459 som when last checked.</p>
       <div class="actions">
-        <form method="get" action="https://eda.yandex.kg/en-kg/search">
-          <input type="hidden" name="query" value="Kyrgyz Organic гранола Light шоколадная">
-          <button class="open" type="submit">Open on Yandex</button>
-        </form>
+        <button class="open" type="button" data-open="Kyrgyz Organic гранола Light шоколадная">Copy &amp; open Yandex</button>
         <button class="copy" type="button" data-copy="Kyrgyz Organic гранола Light шоколадная">Copy</button>
       </div>
       <div class="status" aria-live="polite"></div>
@@ -111,10 +119,7 @@
       <h2>Granola in Dark Chocolate</h2>
       <p>476 som when last checked.</p>
       <div class="actions">
-        <form method="get" action="https://eda.yandex.kg/en-kg/search">
-          <input type="hidden" name="query" value="Kyrgyz Organic гранола в темном шоколаде">
-          <button class="open" type="submit">Open on Yandex</button>
-        </form>
+        <button class="open" type="button" data-open="Kyrgyz Organic гранола в темном шоколаде">Copy &amp; open Yandex</button>
         <button class="copy" type="button" data-copy="Kyrgyz Organic гранола в темном шоколаде">Copy</button>
       </div>
       <div class="status" aria-live="polite"></div>
@@ -124,10 +129,7 @@
       <h2>Honey and Nuts</h2>
       <p>479 som when last checked.</p>
       <div class="actions">
-        <form method="get" action="https://eda.yandex.kg/en-kg/search">
-          <input type="hidden" name="query" value="Kyrgyz Organic гранола обжаренная с медом и орехами">
-          <button class="open" type="submit">Open on Yandex</button>
-        </form>
+        <button class="open" type="button" data-open="Kyrgyz Organic гранола обжаренная с медом и орехами">Copy &amp; open Yandex</button>
         <button class="copy" type="button" data-copy="Kyrgyz Organic гранола обжаренная с медом и орехами">Copy</button>
       </div>
       <div class="status" aria-live="polite"></div>
@@ -137,10 +139,7 @@
       <h2>Honey and Fruits</h2>
       <p>459 som when last checked.</p>
       <div class="actions">
-        <form method="get" action="https://eda.yandex.kg/en-kg/search">
-          <input type="hidden" name="query" value="Kyrgyz Organic гранола обжаренная с медом и фруктами">
-          <button class="open" type="submit">Open on Yandex</button>
-        </form>
+        <button class="open" type="button" data-open="Kyrgyz Organic гранола обжаренная с медом и фруктами">Copy &amp; open Yandex</button>
         <button class="copy" type="button" data-copy="Kyrgyz Organic гранола обжаренная с медом и фруктами">Copy</button>
       </div>
       <div class="status" aria-live="polite"></div>
@@ -150,31 +149,63 @@
       <h2>Honey and Strawberries</h2>
       <p>459 som when last checked.</p>
       <div class="actions">
-        <form method="get" action="https://eda.yandex.kg/en-kg/search">
-          <input type="hidden" name="query" value="Kyrgyz Organic гранола обжаренная с медом и клубникой">
-          <button class="open" type="submit">Open on Yandex</button>
-        </form>
+        <button class="open" type="button" data-open="Kyrgyz Organic гранола обжаренная с медом и клубникой">Copy &amp; open Yandex</button>
         <button class="copy" type="button" data-copy="Kyrgyz Organic гранола обжаренная с медом и клубникой">Copy</button>
       </div>
       <div class="status" aria-live="polite"></div>
     </section>
 
     <div class="help">
-      If Yandex ever opens with an empty search box, tap <strong>Copy</strong>, open Yandex, and paste the copied product name into its search box.
+      The empty Yandex search box is expected on iPhone. Your selected search phrase will already be copied and ready to paste.
     </div>
   </main>
 
   <script>
+    async function copySearch(value) {
+      try {
+        await navigator.clipboard.writeText(value);
+        return true;
+      } catch (clipboardError) {
+        var input = document.createElement('textarea');
+        input.value = value;
+        input.setAttribute('readonly', '');
+        input.style.position = 'fixed';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
+        input.select();
+        input.setSelectionRange(0, input.value.length);
+        var copied = false;
+        try { copied = document.execCommand('copy'); } catch (error) {}
+        input.remove();
+        return copied;
+      }
+    }
+
     document.querySelectorAll('[data-copy]').forEach(function (button) {
       button.addEventListener('click', async function () {
         var status = button.closest('.card').querySelector('.status');
-        try {
-          await navigator.clipboard.writeText(button.dataset.copy);
+        if (await copySearch(button.dataset.copy)) {
           status.textContent = 'Copied — paste this into Yandex if needed.';
           button.textContent = 'Copied';
-        } catch (error) {
+        } else {
           status.textContent = 'Press and hold the product name above to copy it.';
         }
+      });
+    });
+
+    document.querySelectorAll('[data-open]').forEach(function (button) {
+      button.addEventListener('click', async function () {
+        var status = button.closest('.card').querySelector('.status');
+        if (!await copySearch(button.dataset.open)) {
+          status.textContent = 'Copy failed. Tap the Copy button before opening Yandex.';
+          return;
+        }
+
+        status.textContent = 'Copied. Opening Yandex — tap its search box and choose Paste.';
+        button.textContent = 'Copied — opening Yandex…';
+        window.setTimeout(function () {
+          window.location.assign('https://eda.yandex.kg/en-kg/');
+        }, 700);
       });
     });
   </script>
