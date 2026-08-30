@@ -46,6 +46,26 @@
     root.querySelector("p:last-child").textContent = message;
   }
 
+  function autoSubmitYandexSearch() {
+    if (params.get("auto") !== "yandex") return;
+
+    const form = root.querySelector('form.action-card-form[action^="https://eda.yandex.kg/"]');
+    if (!form) return;
+
+    const button = form.querySelector('button[type="submit"]');
+    if (button) {
+      button.querySelector("strong").textContent = "Opening Yandex…";
+      button.querySelector("span span").textContent = "Tap here if Yandex does not open automatically";
+    }
+
+    // A form navigation keeps the Eats query in Safari on iOS. A normal
+    // Universal Link can be handed to Yandex Go, where the query is lost.
+    window.setTimeout(function () {
+      if (typeof form.requestSubmit === "function") form.requestSubmit();
+      else form.submit();
+    }, 250);
+  }
+
   function iconClassFor(action) {
     if (action === "glovo_click") return "glovo";
     if (action === "yandex_click") return "yandex";
@@ -365,6 +385,7 @@
     }
     if (!actions.children.length) showState("Product link not ready", "No order or pickup action is available yet.");
     recordLocal("page_view", hub);
+    autoSubmitYandexSearch();
   }
 
   try {
