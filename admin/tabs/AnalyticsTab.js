@@ -11,6 +11,8 @@ import {
     getProductCollectionBreakdown
 } from '../../collection-analytics.mjs';
 import {
+    buildGranolaTimeline,
+    GRANOLA_ANALYTICS_SERIES,
     isGranolaAnalyticsEvent,
     summarizeGranolaAnalytics
 } from '../../granola-purchase-analytics.mjs';
@@ -89,10 +91,14 @@ export class AnalyticsTab extends BaseTab {
         this.collectionAnalyticsData = { collections: [], products: [], events: [] };
         this.activeCollectionId = '';
         this.collectionGranularity = 'day';
+        this.granolaAnalyticsEvents = [];
+        this.granolaGranularity = 'day';
+        this.granolaModalTrigger = null;
     }
 
     async init() {
         this.ensureCollectionAnalyticsModal();
+        this.ensureGranolaAnalyticsModal();
         if (this.btnRefresh) this.btnRefresh.addEventListener('click', () => this.generateReport());
         if (this.rangeSelect) this.rangeSelect.addEventListener('change', () => this.generateReport());
         if (this.scopeSelect) this.scopeSelect.addEventListener('change', () => this.generateReport());
@@ -168,6 +174,7 @@ export class AnalyticsTab extends BaseTab {
                 const createdAt = toDate(event.createdAt || event.timestamp);
                 return !cutoff || !createdAt || createdAt >= cutoff;
             });
+            this.granolaAnalyticsEvents = granolaEvents;
             const products = productsRaw;
             const allCollectionEvents = getCollectionEvents(eventsRaw, campaignEventsRaw);
             const collectionEvents = allCollectionEvents.filter((event) => !cutoff || !event.analyticsDate || event.analyticsDate >= cutoff);
@@ -190,6 +197,7 @@ export class AnalyticsTab extends BaseTab {
                 collections: collectionsRaw,
                 collectionEvents
             });
+            this.bindGranolaAnalyticsOverview();
             this.bindCollectionAnalyticsOverview();
         } catch (e) {
             console.error(e);
@@ -321,8 +329,7 @@ export class AnalyticsTab extends BaseTab {
     }
 
     renderGranolaPurchaseAnalytics(summary) {
-        const yandex = summary.providerRows.find((row) => row.provider === 'Yandex Go');
-        const glovo = summary.providerRows.find((row) => row.provider === 'Glovo');
+        const leadingProvider = summary.providerRows[0];
         return `
             <section class="collection-analytics-overview granola-purchase-analytics" aria-labelledby="granolaPurchaseAnalyticsHeading">
                 <div class="collection-analytics-overview-header">
@@ -333,40 +340,253 @@ export class AnalyticsTab extends BaseTab {
                     </div>
                     <span class="collection-analytics-live-badge">Tracking live</span>
                 </div>
-
-                <div class="analytics-kpi-grid granola-analytics-kpis">
-                    ${this.renderKpi('All clicks', number(summary.totalClicks), 'Selections + app launches')}
-                    ${this.renderKpi('App launches', number(summary.launches), 'Product purchase buttons')}
-                    ${this.renderKpi('Provider choices', number(summary.selections), 'Yandex or Glovo selected')}
-                    ${this.renderKpi('Unique sessions', number(summary.uniqueSessions), 'Approximate visitors')}
-                    ${this.renderKpi('Yandex launches', number(yandex?.launches || 0), 'Product button clicks')}
-                    ${this.renderKpi('Glovo launches', number(glovo?.launches || 0), 'Product button clicks')}
-                </div>
-
-                <div class="analytics-grid granola-analytics-grid">
-                    ${this.renderTable('Clicks by Delivery App', ['App', 'Provider Choices', 'App Launches', 'All Clicks'], summary.providerRows.map((row) => [
-                        row.provider,
-                        number(row.selections),
-                        number(row.launches),
-                        number(row.total)
-                    ]))}
-
-                    ${this.renderTable('Clicks by Product Button', ['Product', 'App', 'Clicks', 'Copied Search'], summary.productRows.map((row) => [
-                        row.product,
-                        row.provider,
-                        number(row.clicks),
-                        row.search || '-'
-                    ]))}
-
-                    ${this.renderTable('Granola Clicks by Day', ['Date', 'Provider Choices', 'App Launches', 'All Clicks'], summary.dailyRows.slice(0, 14).map((row) => [
-                        row.date,
-                        number(row.selections),
-                        number(row.launches),
-                        number(row.total)
-                    ]))}
+                <div class="granola-analytics-preview">
+                    <div class="granola-preview-stat featured">
+                        <span>Total tracked clicks</span>
+                        <strong>${number(summary.totalClicks)}</strong>
+                        <small>${number(summary.launches)} purchase-app launches</small>
+                    </div>
+                    <div class="granola-preview-stat">
+                        <span>Unique sessions</span>
+                        <strong>${number(summary.uniqueSessions)}</strong>
+                        <small>Approximate visitors</small>
+                    </div>
+                    <div class="granola-preview-stat">
+                        <span>Leading channel</span>
+                        <strong>${escapeHtml(leadingProvider?.provider || 'No data yet')}</strong>
+                        <small>${number(leadingProvider?.launches || 0)} app launches</small>
+                    </div>
+                    <button type="button" class="granola-analytics-open" data-open-granola-analytics>
+                        <span>Explore performance</span>
+                        <strong>View analytics</strong>
+                        <span aria-hidden="true">↗</span>
+                    </button>
                 </div>
             </section>
         `;
+    }
+
+    bindGranolaAnalyticsOverview() {
+        this.reportDiv?.querySelector('[data-open-granola-analytics]')?.addEventListener('click', (event) => {
+            this.granolaModalTrigger = event.currentTarget;
+            this.openGranolaAnalytics();
+        });
+    }
+
+    ensureGranolaAnalyticsModal() {
+        if (document.getElementById('granolaAnalyticsModal')) return;
+        const modal = document.createElement('div');
+        modal.id = 'granolaAnalyticsModal';
+        modal.className = 'modal hidden collection-analytics-modal granola-analytics-modal';
+        modal.setAttribute('aria-hidden', 'true');
+        modal.innerHTML = `
+            <div class="modal-panel collection-analytics-panel granola-analytics-panel" role="dialog" aria-modal="true" aria-labelledby="granolaAnalyticsTitle">
+                <div class="modal-header collection-analytics-modal-header granola-analytics-modal-header">
+                    <div>
+                        <span class="modal-kicker">Granola purchase intelligence</span>
+                        <h3 id="granolaAnalyticsTitle">Yandex &amp; Glovo performance</h3>
+                        <p id="granolaAnalyticsSubtitle">Clicks, product interest, and app launches over time.</p>
+                    </div>
+                    <button type="button" class="icon-button" data-close-granola-analytics aria-label="Close granola analytics">&times;</button>
+                </div>
+                <div id="granolaAnalyticsBody" class="collection-analytics-body granola-analytics-body"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal || event.target.closest('[data-close-granola-analytics]')) {
+                this.closeGranolaAnalytics();
+                return;
+            }
+
+            const rangeButton = event.target.closest('[data-granola-granularity]');
+            if (rangeButton) {
+                this.granolaGranularity = rangeButton.dataset.granolaGranularity || 'day';
+                modal.querySelectorAll('[data-granola-granularity]').forEach((button) => {
+                    button.classList.toggle('active', button === rangeButton);
+                });
+                this.drawGranolaAnalyticsChart();
+            }
+        });
+
+        modal.addEventListener('change', (event) => {
+            if (event.target.matches('[data-granola-series]')) this.drawGranolaAnalyticsChart();
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !modal.classList.contains('hidden')) this.closeGranolaAnalytics();
+        });
+
+        window.addEventListener('resize', () => {
+            if (!modal.classList.contains('hidden')) this.drawGranolaAnalyticsChart();
+        });
+    }
+
+    openGranolaAnalytics() {
+        const modal = document.getElementById('granolaAnalyticsModal');
+        const body = document.getElementById('granolaAnalyticsBody');
+        if (!modal || !body) return;
+
+        const summary = summarizeGranolaAnalytics(this.granolaAnalyticsEvents);
+        const rangeLabel = this.rangeSelect?.selectedOptions?.[0]?.textContent?.trim() || 'selected period';
+        this.granolaGranularity = 'day';
+        document.getElementById('granolaAnalyticsSubtitle').textContent = `${rangeLabel} · Website clicks and app launches, grouped in Bishkek time.`;
+        body.innerHTML = `
+            <div class="collection-analytics-summary granola-modal-summary">
+                ${this.renderCollectionMetric('All clicks', summary.totalClicks, 'Every tracked interaction', 'granola-total')}
+                ${this.renderCollectionMetric('App launches', summary.launches, 'Product purchase buttons', 'granola-launch')}
+                ${this.renderCollectionMetric('Provider choices', summary.selections, 'Yandex or Glovo selected')}
+                ${this.renderCollectionMetric('Unique sessions', summary.uniqueSessions, 'Approximate visitors')}
+                ${this.renderCollectionMetric('Products clicked', summary.productRows.length, 'Distinct product buttons')}
+            </div>
+            <section class="collection-chart-card granola-chart-card">
+                <div class="collection-chart-toolbar">
+                    <div>
+                        <span class="eyebrow">Performance trend</span>
+                        <h4>Delivery app engagement</h4>
+                    </div>
+                    <div class="collection-range-toggle granola-range-toggle" aria-label="Granola chart grouping">
+                        ${['day', 'week', 'month', 'year'].map((range) => `<button type="button" data-granola-granularity="${range}" class="${range === 'day' ? 'active' : ''}">${range[0].toUpperCase() + range.slice(1)}</button>`).join('')}
+                    </div>
+                </div>
+                <div class="collection-series-toggles granola-series-toggles" aria-label="Visible chart lines">
+                    ${GRANOLA_ANALYTICS_SERIES.map((series) => `
+                        <label style="--series-color:${series.color}">
+                            <input type="checkbox" data-granola-series="${series.key}" checked>
+                            <span></span>${escapeHtml(series.label)}
+                        </label>
+                    `).join('')}
+                </div>
+                <div class="collection-chart-wrap granola-chart-wrap">
+                    <canvas id="granolaAnalyticsChart" height="340" role="img" aria-label="Line chart showing Yandex, Glovo, and provider selection clicks over time"></canvas>
+                    <div id="granolaChartEmpty" class="collection-chart-empty" hidden>No granola clicks in this chart period yet.</div>
+                </div>
+                <p class="collection-chart-note">Day shows 30 days, week shows 12 weeks, month shows 12 months, and year shows 5 years. The Analytics date filter still applies.</p>
+            </section>
+            <section class="collection-product-breakdown granola-detail-card">
+                <div>
+                    <span class="eyebrow">Full click detail</span>
+                    <h4>Channels, products, and recent activity</h4>
+                </div>
+                <div class="granola-breakdown-grid">
+                    ${this.renderGranolaDataTable('Delivery apps', ['App', 'Choices', 'Launches', 'All clicks'], summary.providerRows.map((row) => [row.provider, number(row.selections), number(row.launches), number(row.total)]))}
+                    ${this.renderGranolaDataTable('Recent activity', ['Date', 'Choices', 'Launches', 'All clicks'], summary.dailyRows.slice(0, 14).map((row) => [row.date, number(row.selections), number(row.launches), number(row.total)]))}
+                    <div class="granola-product-table">
+                        ${this.renderGranolaDataTable('Product buttons', ['Product', 'App', 'Clicks', 'Copied search'], summary.productRows.map((row) => [row.product, row.provider, number(row.clicks), row.search || '-']))}
+                    </div>
+                </div>
+            </section>
+        `;
+
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        requestAnimationFrame(() => this.drawGranolaAnalyticsChart());
+        modal.querySelector('[data-close-granola-analytics]')?.focus();
+    }
+
+    closeGranolaAnalytics() {
+        const modal = document.getElementById('granolaAnalyticsModal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+        this.granolaModalTrigger?.focus();
+    }
+
+    renderGranolaDataTable(title, headers, rows) {
+        const tableRows = rows.length ? rows.map((row) => `
+            <tr>${row.map((cell, index) => `<td>${index === 0 ? `<strong>${escapeHtml(cell)}</strong>` : escapeHtml(cell)}</td>`).join('')}</tr>
+        `).join('') : `<tr><td colspan="${headers.length}">No tracked clicks yet.</td></tr>`;
+        return `
+            <div class="collection-product-table-wrap granola-data-table">
+                <h5>${escapeHtml(title)}</h5>
+                <table>
+                    <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead>
+                    <tbody>${tableRows}</tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    drawGranolaAnalyticsChart() {
+        const canvas = document.getElementById('granolaAnalyticsChart');
+        if (!canvas) return;
+
+        const selectedSeries = [...document.querySelectorAll('#granolaAnalyticsModal [data-granola-series]:checked')].map((input) => input.dataset.granolaSeries);
+        const timeline = buildGranolaTimeline(this.granolaAnalyticsEvents, this.granolaGranularity);
+        const hasData = timeline.some((bucket) => selectedSeries.some((key) => bucket[key] > 0));
+        const empty = document.getElementById('granolaChartEmpty');
+        if (empty) empty.hidden = hasData;
+
+        const cssWidth = Math.max(680, Math.round(canvas.parentElement?.clientWidth || 940));
+        const cssHeight = 340;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = cssWidth * pixelRatio;
+        canvas.height = cssHeight * pixelRatio;
+        canvas.style.width = `${cssWidth}px`;
+        canvas.style.height = `${cssHeight}px`;
+
+        const context = canvas.getContext('2d');
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        context.clearRect(0, 0, cssWidth, cssHeight);
+
+        const padding = { top: 24, right: 28, bottom: 50, left: 48 };
+        const chartWidth = cssWidth - padding.left - padding.right;
+        const chartHeight = cssHeight - padding.top - padding.bottom;
+        const maximum = Math.max(1, ...timeline.flatMap((bucket) => selectedSeries.map((key) => bucket[key] || 0)));
+        const axisMaximum = maximum <= 5 ? 5 : Math.ceil(maximum / 5) * 5;
+
+        context.font = '12px Inter, system-ui, sans-serif';
+        context.textBaseline = 'middle';
+        for (let grid = 0; grid <= 5; grid += 1) {
+            const y = padding.top + (chartHeight * grid / 5);
+            const value = Math.round(axisMaximum * (1 - grid / 5));
+            context.strokeStyle = 'rgba(49, 92, 69, 0.12)';
+            context.lineWidth = 1;
+            context.beginPath();
+            context.moveTo(padding.left, y);
+            context.lineTo(cssWidth - padding.right, y);
+            context.stroke();
+            context.fillStyle = '#748078';
+            context.textAlign = 'right';
+            context.fillText(String(value), padding.left - 11, y);
+        }
+
+        const labelStep = Math.max(1, Math.ceil(timeline.length / 7));
+        timeline.forEach((bucket, index) => {
+            if (index % labelStep !== 0 && index !== timeline.length - 1) return;
+            const x = padding.left + (timeline.length === 1 ? chartWidth / 2 : chartWidth * index / (timeline.length - 1));
+            context.fillStyle = '#748078';
+            context.textAlign = index === 0 ? 'left' : index === timeline.length - 1 ? 'right' : 'center';
+            context.fillText(bucket.label, x, cssHeight - 22);
+        });
+
+        GRANOLA_ANALYTICS_SERIES.filter((series) => selectedSeries.includes(series.key)).forEach((series) => {
+            const points = timeline.map((bucket, index) => ({
+                value: bucket[series.key] || 0,
+                x: padding.left + (timeline.length === 1 ? chartWidth / 2 : chartWidth * index / (timeline.length - 1)),
+                y: padding.top + chartHeight - ((bucket[series.key] || 0) / axisMaximum) * chartHeight
+            }));
+            context.strokeStyle = series.color;
+            context.lineWidth = series.key === 'providerSelections' ? 2.5 : 3.25;
+            context.lineJoin = 'round';
+            context.lineCap = 'round';
+            context.beginPath();
+            points.forEach((point, index) => index === 0 ? context.moveTo(point.x, point.y) : context.lineTo(point.x, point.y));
+            context.stroke();
+
+            points.filter((point) => point.value > 0).forEach((point) => {
+                context.fillStyle = '#fff';
+                context.strokeStyle = series.color;
+                context.lineWidth = 2.5;
+                context.beginPath();
+                context.arc(point.x, point.y, 4.2, 0, Math.PI * 2);
+                context.fill();
+                context.stroke();
+            });
+        });
     }
 
     renderCollectionAnalyticsOverview(collections = [], events = []) {

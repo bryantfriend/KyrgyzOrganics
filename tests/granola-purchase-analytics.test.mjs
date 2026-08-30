@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+    buildGranolaTimeline,
     GRANOLA_PROVIDER_SELECT,
     GRANOLA_PURCHASE_CLICK,
     isGranolaAnalyticsEvent,
@@ -33,5 +34,25 @@ assert.deepEqual(summary.dailyRows, [
     { date: '2026-08-30', selections: 1, launches: 2, total: 3 },
     { date: '2026-08-29', selections: 1, launches: 1, total: 2 }
 ]);
+
+const timelineEvents = [
+    { actionType: GRANOLA_PROVIDER_SELECT, platform: 'glovo', timestamp: '2026-08-30T04:00:00.000Z' },
+    { actionType: GRANOLA_PURCHASE_CLICK, platform: 'glovo', timestamp: '2026-08-30T05:00:00.000Z' },
+    { actionType: GRANOLA_PURCHASE_CLICK, platform: 'yandex', timestamp: '2026-08-23T05:00:00.000Z' },
+    { actionType: 'qr_click', platform: 'yandex', timestamp: '2026-08-30T05:00:00.000Z' }
+];
+const dailyTimeline = buildGranolaTimeline(timelineEvents, 'day', new Date('2026-08-30T06:00:00.000Z'));
+assert.equal(dailyTimeline.length, 30);
+assert.deepEqual(dailyTimeline.at(-1), {
+    key: '2026-08-30',
+    label: 'Aug 30',
+    yandexLaunches: 0,
+    glovoLaunches: 1,
+    providerSelections: 1,
+    totalClicks: 2
+});
+const weeklyTimeline = buildGranolaTimeline(timelineEvents, 'week', new Date('2026-08-30T06:00:00.000Z'));
+assert.equal(weeklyTimeline.length, 12);
+assert.equal(weeklyTimeline.reduce((total, bucket) => total + bucket.totalClicks, 0), 3);
 
 console.log('granola purchase analytics tests passed');
