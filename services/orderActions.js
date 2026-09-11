@@ -86,7 +86,7 @@ export async function updateOrderStatus(orderId, newStatus, options = {}) {
 
     await updateDoc(doc(db, 'orders', orderId), payload);
 
-    if (newStatus === 'completed') {
+    if (newStatus === 'completed' && options.archive !== false) {
         await archiveOrder(orderId, payload);
     }
 }

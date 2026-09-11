@@ -219,6 +219,15 @@ function getStatusTone(ok, pending = false) {
     return 'warning';
 }
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 async function runScopedQuery({
     collectionName,
     companyId,
@@ -301,9 +310,13 @@ export class OverviewTab extends BaseTab {
         this.bannerItems = [];
         this.currentStore = null;
         this.currentConfig = null;
+        this.hasStorefrontConfig = false;
         this.ordersUnsubscribe = null;
         this.refreshToken = 0;
         this.pendingOrderUpdates = new Set();
+        this.quickFixIssue = null;
+        this.quickFixReturnFocus = null;
+        this.quickFixSaving = false;
     }
 
     async init() {
@@ -320,6 +333,7 @@ export class OverviewTab extends BaseTab {
     }
 
     onStoreChanged() {
+        this.closeQuickFixModal(false);
         this.activeOrders = [];
         this.stopOrdersFeed();
         this.renderOrdersFeed();
@@ -384,6 +398,12 @@ export class OverviewTab extends BaseTab {
         });
 
         this.container?.addEventListener('click', (event) => {
+            const quickFixButton = event.target.closest('[data-overview-fix]');
+            if (quickFixButton) {
+                this.openQuickFixModal(quickFixButton.dataset.overviewFix);
+                return;
+            }
+
             const navButton = event.target.closest('[data-nav-tab]');
             if (navButton) {
                 window.dispatchEvent(new CustomEvent('oako:navigate-admin-tab', {
@@ -500,6 +520,7 @@ export class OverviewTab extends BaseTab {
 
             this.currentStore = store || {};
             this.currentConfig = config || {};
+            this.hasStorefrontConfig = Boolean(config);
             this.products = products || [];
             this.bannerItems = banners || [];
             this.metricsOrders = rangeOrders || [];
@@ -624,6 +645,322 @@ export class OverviewTab extends BaseTab {
         }
     }
 
+    getQuickFixDefinition(issue) {
+        const store = this.currentStore || {};
+        const config = this.currentConfig || {};
+        const contact = store.contact || {};
+
+        if (issue === 'address') {
+            return {
+                eyebrow: 'Store details',
+                title: 'Add the store address',
+                description: 'This address can be shown to customers and helps keep the storefront complete.',
+                submitLabel: 'Save address',
+                fields: `
+                    <div class="overview-quick-fix-field">
+                      <label for="overviewQuickFixAddress">Street address</label>
+                      <input id="overviewQuickFixAddress" name="address" type="text" autocomplete="street-address" value="${escapeHtml(store.address || config.address || '')}" placeholder="e.g. 123 Chuy Avenue, Bishkek" required />
+                    </div>
+                `
+            };
+        }
+
+        if (issue === 'contact') {
+            return {
+                eyebrow: 'Customer contact',
+                title: 'Add contact information',
+                description: 'Add at least a phone or WhatsApp number so customers can reach the store immediately.',
+                submitLabel: 'Save contact info',
+                fields: `
+                    <div class="overview-quick-fix-grid">
+                      <div class="overview-quick-fix-field">
+                        <label for="overviewQuickFixPhone">Phone</label>
+                        <input id="overviewQuickFixPhone" name="phone" type="tel" autocomplete="tel" value="${escapeHtml(store.phone || contact.phone || '')}" placeholder="+996 555 123 456" />
+                      </div>
+                      <div class="overview-quick-fix-field">
+                        <label for="overviewQuickFixWhatsapp">WhatsApp</label>
+                        <input id="overviewQuickFixWhatsapp" name="whatsapp" type="tel" value="${escapeHtml(store.whatsapp || contact.whatsapp || '')}" placeholder="+996 555 123 456" />
+                      </div>
+                    </div>
+                    <div class="overview-quick-fix-field">
+                      <label for="overviewQuickFixEmail">Email <span>optional</span></label>
+                      <input id="overviewQuickFixEmail" name="email" type="email" autocomplete="email" value="${escapeHtml(store.email || contact.email || '')}" placeholder="hello@example.com" />
+                    </div>
+                `
+            };
+        }
+
+        if (issue === 'two-gis') {
+            return {
+                eyebrow: 'Location link',
+                title: 'Add the 2GIS listing',
+                description: 'Paste the public 2GIS link customers should use for directions.',
+                submitLabel: 'Save 2GIS link',
+                fields: `
+                    <div class="overview-quick-fix-field">
+                      <label for="overviewQuickFixTwoGis">2GIS URL</label>
+                      <input id="overviewQuickFixTwoGis" name="twoGisLink" type="url" inputmode="url" value="${escapeHtml(store.twoGisLink || config.twoGisLink || '')}" placeholder="https://2gis.kg/bishkek/firm/..." required />
+                    </div>
+                `
+            };
+        }
+
+        if (issue === 'hours') {
+            const isOpen = Object.prototype.hasOwnProperty.call(store, 'isOpen')
+                ? Boolean(store.isOpen)
+                : (Object.prototype.hasOwnProperty.call(store, 'open') ? Boolean(store.open) : true);
+            return {
+                eyebrow: 'Store availability',
+                title: 'Configure opening hours',
+                description: 'Add customer-facing hours and set whether the store is accepting orders right now.',
+                submitLabel: 'Save opening hours',
+                fields: `
+                    <div class="overview-quick-fix-field">
+                      <label for="overviewQuickFixHours">Opening hours</label>
+                      <textarea id="overviewQuickFixHours" name="openingHours" rows="3" placeholder="Mon–Fri 09:00–18:00&#10;Sat–Sun 10:00–16:00" required>${escapeHtml(store.openingHours || contact.openingHours || '')}</textarea>
+                    </div>
+                    <label class="overview-quick-fix-toggle" for="overviewQuickFixOpen">
+                      <input id="overviewQuickFixOpen" name="isOpen" type="checkbox" ${isOpen ? 'checked' : ''} />
+                      <span>
+                        <strong>Store is open now</strong>
+                        <small>You can change this later from the Overview.</small>
+                      </span>
+                    </label>
+                `
+            };
+        }
+
+        if (issue === 'ordering') {
+            const orderingValue = store.orderingEnabled ?? config.orderingEnabled ?? config?.features?.orderingEnabled;
+            return {
+                eyebrow: 'Customer ordering',
+                title: 'Configure online ordering',
+                description: 'Choose whether customers can submit orders from the storefront.',
+                submitLabel: 'Save ordering setting',
+                fields: `
+                    <div class="overview-quick-fix-field">
+                      <label for="overviewQuickFixOrdering">Online ordering</label>
+                      <select id="overviewQuickFixOrdering" name="orderingEnabled" required>
+                        <option value="true" ${orderingValue === true ? 'selected' : ''}>Enabled — accept online orders</option>
+                        <option value="false" ${orderingValue === false ? 'selected' : ''}>Disabled — browsing only</option>
+                      </select>
+                    </div>
+                `
+            };
+        }
+
+        return null;
+    }
+
+    getOrCreateQuickFixModal() {
+        let modal = document.getElementById('overviewQuickFixModal');
+        if (modal) return modal;
+
+        modal = document.createElement('div');
+        modal.id = 'overviewQuickFixModal';
+        modal.className = 'modal hidden';
+        modal.setAttribute('aria-hidden', 'true');
+        modal.innerHTML = `
+            <div class="modal-panel overview-quick-fix-panel" role="dialog" aria-modal="true" aria-labelledby="overviewQuickFixTitle" aria-describedby="overviewQuickFixDescription">
+              <div class="modal-header">
+                <div>
+                  <span id="overviewQuickFixEyebrow" class="modal-kicker">Quick fix</span>
+                  <h3 id="overviewQuickFixTitle">Complete store details</h3>
+                </div>
+                <button type="button" class="icon-button" data-overview-fix-close aria-label="Close quick fix modal">×</button>
+              </div>
+              <form id="overviewQuickFixForm" class="overview-quick-fix-form">
+                <p id="overviewQuickFixDescription" class="overview-quick-fix-description"></p>
+                <div id="overviewQuickFixFields" class="overview-quick-fix-fields"></div>
+                <p id="overviewQuickFixError" class="overview-quick-fix-error" role="alert" hidden></p>
+                <div class="overview-quick-fix-actions">
+                  <button type="button" class="btn-secondary" data-overview-fix-cancel>Cancel</button>
+                  <button type="submit" class="btn-primary" id="overviewQuickFixSaveBtn">Save</button>
+                </div>
+              </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal || event.target.closest('[data-overview-fix-close], [data-overview-fix-cancel]')) {
+                this.closeQuickFixModal();
+            }
+        });
+        modal.querySelector('#overviewQuickFixForm')?.addEventListener('submit', (event) => this.saveQuickFix(event));
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !modal.classList.contains('hidden')) this.closeQuickFixModal();
+        });
+
+        return modal;
+    }
+
+    openQuickFixModal(issue) {
+        const definition = this.getQuickFixDefinition(issue);
+        if (!definition) return;
+
+        const modal = this.getOrCreateQuickFixModal();
+        this.quickFixIssue = issue;
+        this.quickFixReturnFocus = document.activeElement;
+        modal.querySelector('#overviewQuickFixEyebrow').textContent = definition.eyebrow;
+        modal.querySelector('#overviewQuickFixTitle').textContent = definition.title;
+        modal.querySelector('#overviewQuickFixDescription').textContent = definition.description;
+        modal.querySelector('#overviewQuickFixFields').innerHTML = definition.fields;
+        modal.querySelector('#overviewQuickFixSaveBtn').textContent = definition.submitLabel;
+        const errorEl = modal.querySelector('#overviewQuickFixError');
+        errorEl.hidden = true;
+        errorEl.textContent = '';
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        window.setTimeout(() => modal.querySelector('input, textarea, select')?.focus(), 30);
+    }
+
+    closeQuickFixModal(restoreFocus = true) {
+        if (this.quickFixSaving) return;
+        const modal = document.getElementById('overviewQuickFixModal');
+        if (!modal || modal.classList.contains('hidden')) return;
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        this.quickFixIssue = null;
+        document.body.classList.toggle('modal-open', Boolean(document.querySelector('.modal:not(.hidden)')));
+        if (restoreFocus) this.quickFixReturnFocus?.focus?.();
+        this.quickFixReturnFocus = null;
+    }
+
+    setQuickFixError(message = '') {
+        const errorEl = document.getElementById('overviewQuickFixError');
+        if (!errorEl) return;
+        errorEl.textContent = message;
+        errorEl.hidden = !message;
+    }
+
+    async saveQuickFix(event) {
+        event.preventDefault();
+        if (this.quickFixSaving) return;
+
+        const form = event.currentTarget;
+        if (!form.reportValidity()) return;
+        const companyId = getSelectedCompanyId();
+        if (!companyId || !this.quickFixIssue) return;
+
+        const store = this.currentStore || {};
+        const formData = new FormData(form);
+        const contact = { ...(store.contact || {}) };
+        let updates = {};
+        let localUpdates = {};
+        let configUpdates = {};
+
+        if (this.quickFixIssue === 'address') {
+            const address = String(formData.get('address') || '').trim();
+            if (!address) return this.setQuickFixError('Please enter the store address.');
+            updates = { address };
+            localUpdates = { address };
+            configUpdates = { address };
+        } else if (this.quickFixIssue === 'contact') {
+            const phone = String(formData.get('phone') || '').trim();
+            const whatsapp = String(formData.get('whatsapp') || '').trim();
+            const email = String(formData.get('email') || '').trim();
+            if (!phone && !whatsapp) {
+                this.setQuickFixError('Add at least a phone or WhatsApp number.');
+                form.querySelector('[name="phone"]')?.focus();
+                return;
+            }
+            const nextContact = { ...contact, phone, whatsapp, email };
+            updates = { phone, whatsapp, email, contact: nextContact };
+            localUpdates = { phone, whatsapp, email, contact: nextContact };
+            configUpdates = {
+                contact: { ...(this.currentConfig?.contact || {}), ...nextContact }
+            };
+        } else if (this.quickFixIssue === 'two-gis') {
+            const twoGisLink = String(formData.get('twoGisLink') || '').trim();
+            try {
+                const url = new URL(twoGisLink);
+                if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Unsupported protocol');
+            } catch (error) {
+                this.setQuickFixError('Enter a complete 2GIS link beginning with https://.');
+                form.querySelector('[name="twoGisLink"]')?.focus();
+                return;
+            }
+            updates = { twoGisLink };
+            localUpdates = { twoGisLink };
+            configUpdates = { twoGisLink };
+        } else if (this.quickFixIssue === 'hours') {
+            const openingHours = String(formData.get('openingHours') || '').trim();
+            if (!openingHours) return this.setQuickFixError('Please add the opening hours.');
+            const isOpen = formData.get('isOpen') === 'on';
+            const nextContact = { ...contact, openingHours };
+            const openField = Object.prototype.hasOwnProperty.call(store, 'open') && !Object.prototype.hasOwnProperty.call(store, 'isOpen')
+                ? 'open'
+                : 'isOpen';
+            updates = { openingHours, contact: nextContact, [openField]: isOpen };
+            localUpdates = { openingHours, contact: nextContact, [openField]: isOpen };
+            configUpdates = {
+                openingHours,
+                contact: { ...(this.currentConfig?.contact || {}), openingHours },
+                [openField]: isOpen
+            };
+        } else if (this.quickFixIssue === 'ordering') {
+            const orderingEnabled = formData.get('orderingEnabled') === 'true';
+            updates = { orderingEnabled };
+            localUpdates = { orderingEnabled };
+            configUpdates = { orderingEnabled };
+        } else {
+            return;
+        }
+
+        this.setQuickFixError('');
+        const saveButton = form.querySelector('#overviewQuickFixSaveBtn');
+        const previousLabel = saveButton?.textContent || 'Save';
+        this.quickFixSaving = true;
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.textContent = 'Saving…';
+        }
+
+        try {
+            await updateDoc(doc(db, 'companies', companyId), {
+                ...updates,
+                updatedAt: serverTimestamp()
+            });
+            let storefrontSynced = true;
+            if (this.hasStorefrontConfig) {
+                try {
+                    await updateDoc(doc(db, 'storefront_configs', companyId), {
+                        ...configUpdates,
+                        updatedAt: serverTimestamp()
+                    });
+                } catch (configError) {
+                    storefrontSynced = false;
+                    console.warn('Quick fix saved to the store, but storefront config sync failed:', configError);
+                }
+            }
+            this.currentStore = { ...store, ...localUpdates, updatedAt: new Date() };
+            this.currentConfig = { ...(this.currentConfig || {}), ...configUpdates, updatedAt: new Date() };
+            const cachedStore = window.adminApp?.companiesCache?.find?.((entry) => (entry.companyId || entry.id) === companyId);
+            if (cachedStore) Object.assign(cachedStore, localUpdates, { updatedAt: new Date() });
+            this.renderHero(companyId);
+            this.renderSummaryCards();
+            this.renderLaunchReadiness();
+            this.renderWebsitePreview(companyId);
+            this.quickFixSaving = false;
+            this.closeQuickFixModal();
+            this.showToast(
+                storefrontSynced ? 'Store details updated.' : 'Store updated, but the storefront copy could not be synced.',
+                storefrontSynced ? 'success' : 'warning'
+            );
+        } catch (error) {
+            this.quickFixSaving = false;
+            this.setQuickFixError(`Could not save: ${error.message}`);
+            this.showToast(`Quick fix failed: ${error.message}`, 'error');
+        } finally {
+            if (saveButton) {
+                saveButton.disabled = false;
+                saveButton.textContent = previousLabel;
+            }
+        }
+    }
+
     renderHero(companyId) {
         const store = this.currentStore || {};
         const config = this.currentConfig || {};
@@ -635,7 +972,8 @@ export class OverviewTab extends BaseTab {
             ? Boolean(store.isOpen)
             : (Object.prototype.hasOwnProperty.call(store, 'open') ? Boolean(store.open) : null);
         const address = store.address || config.address || 'Address not added yet';
-        const contact = store.phone || store.whatsapp || config?.contact?.phone || config?.contact?.whatsapp || 'Contact info missing';
+        const contact = store.phone || store.whatsapp || store?.contact?.phone || store?.contact?.whatsapp || config?.contact?.phone || config?.contact?.whatsapp || 'Contact info missing';
+        const twoGisLink = store.twoGisLink || config.twoGisLink || '';
         const category = store.type || store.category || config.storeType || 'Store';
         const accent = store.themeColor || config.themeColor || '#7cb342';
 
@@ -657,20 +995,30 @@ export class OverviewTab extends BaseTab {
         }
         if (this.brandingEl) {
             this.brandingEl.innerHTML = [
-                `<span class="muted-pill">${category}</span>`,
-                `<span class="muted-pill">${address}</span>`,
-                `<span class="muted-pill">${contact}</span>`,
-                store.twoGisLink ? `<a class="muted-pill link-pill" href="${store.twoGisLink}" target="_blank" rel="noopener">2GIS</a>` : `<span class="muted-pill">2GIS not added</span>`
+                `<span class="muted-pill">${escapeHtml(category)}</span>`,
+                address === 'Address not added yet'
+                    ? `<button type="button" class="muted-pill overview-fix-button" data-overview-fix="address" aria-haspopup="dialog">Address not added yet <span>Fix</span></button>`
+                    : `<span class="muted-pill">${escapeHtml(address)}</span>`,
+                contact === 'Contact info missing'
+                    ? `<button type="button" class="muted-pill overview-fix-button" data-overview-fix="contact" aria-haspopup="dialog">Contact info missing <span>Fix</span></button>`
+                    : `<span class="muted-pill">${escapeHtml(contact)}</span>`,
+                twoGisLink
+                    ? `<a class="muted-pill link-pill" href="${escapeHtml(twoGisLink)}" target="_blank" rel="noopener">2GIS</a>`
+                    : `<button type="button" class="muted-pill overview-fix-button" data-overview-fix="two-gis" aria-haspopup="dialog">2GIS not added <span>Fix</span></button>`
             ].join('');
         }
 
         if (this.openToggleBtn) {
             if (explicitOpen === null) {
-                this.openToggleBtn.disabled = true;
+                this.openToggleBtn.disabled = false;
                 this.openToggleBtn.textContent = 'Hours not configured';
+                this.openToggleBtn.dataset.overviewFix = 'hours';
+                this.openToggleBtn.setAttribute('aria-haspopup', 'dialog');
             } else {
                 this.openToggleBtn.disabled = false;
                 this.openToggleBtn.textContent = explicitOpen ? 'Mark Store Closed' : 'Mark Store Open';
+                delete this.openToggleBtn.dataset.overviewFix;
+                this.openToggleBtn.removeAttribute('aria-haspopup');
             }
         }
     }
@@ -758,8 +1106,12 @@ export class OverviewTab extends BaseTab {
             this.healthBreakdownEl.innerHTML = [
                 `<span class="metric-chip ${this.currentStore?.active !== false ? 'tone-green' : 'tone-danger'}">Store ${this.currentStore?.active !== false ? 'live' : 'inactive'}</span>`,
                 `<span class="metric-chip ${visibleProducts > 0 ? 'tone-blue' : 'tone-warning'}">Visible products ${visibleProducts}</span>`,
-                `<span class="metric-chip ${contactReady ? 'tone-green' : 'tone-warning'}">Contact ${contactReady ? 'ready' : 'missing'}</span>`,
-                `<span class="metric-chip ${orderingState === 'Enabled' ? 'tone-green' : 'tone-slate'}">Ordering ${orderingState.toLowerCase()}</span>`
+                contactReady
+                    ? `<span class="metric-chip tone-green">Contact ready</span>`
+                    : `<button type="button" class="metric-chip tone-warning overview-status-action" data-overview-fix="contact" aria-haspopup="dialog">Contact missing <span>Fix</span></button>`,
+                orderingState === 'Enabled'
+                    ? `<span class="metric-chip tone-green">Ordering enabled</span>`
+                    : `<button type="button" class="metric-chip ${orderingState === 'Disabled' ? 'tone-slate' : 'tone-warning'} overview-status-action" data-overview-fix="ordering" aria-haspopup="dialog">Ordering ${orderingState.toLowerCase()} <span>Fix</span></button>`
             ].join('');
         }
     }
@@ -859,7 +1211,8 @@ export class OverviewTab extends BaseTab {
                 label: 'WhatsApp / contact ready',
                 explanation: hasContactInfo(this.currentStore, this.currentConfig) ? 'Customers can reach the store directly.' : 'Add a phone or WhatsApp number.',
                 action: 'Add Contact Info',
-                tab: 'settings'
+                tab: 'settings',
+                fix: hasContactInfo(this.currentStore, this.currentConfig) ? null : 'contact'
             },
             {
                 ok: this.bannerItems.length > 0,
@@ -901,7 +1254,9 @@ export class OverviewTab extends BaseTab {
               <button
                 type="button"
                 class="btn-secondary overview-check-action"
-                ${check.customAction ? `data-overview-action="${check.customAction}"` : `data-nav-tab="${check.tab}"`}
+                ${check.fix
+                    ? `data-overview-fix="${check.fix}"`
+                    : (check.customAction ? `data-overview-action="${check.customAction}"` : `data-nav-tab="${check.tab}"`)}
               >${check.action}</button>
             </div>
         `).join('');
@@ -971,7 +1326,9 @@ export class OverviewTab extends BaseTab {
         if (this.previewStatusEl) {
             this.previewStatusEl.innerHTML = [
                 `<span class="metric-chip ${store.active !== false ? 'tone-green' : 'tone-warning'}">Website ${store.active !== false ? 'live' : 'inactive'}</span>`,
-                `<span class="metric-chip ${orderingState === 'Enabled' ? 'tone-green' : 'tone-slate'}">Ordering ${orderingState.toLowerCase()}</span>`,
+                orderingState === 'Enabled'
+                    ? `<span class="metric-chip tone-green">Ordering enabled</span>`
+                    : `<button type="button" class="metric-chip ${orderingState === 'Disabled' ? 'tone-slate' : 'tone-warning'} overview-status-action" data-overview-fix="ordering" aria-haspopup="dialog">Ordering ${orderingState.toLowerCase()} <span>Fix</span></button>`,
                 `<span class="metric-chip ${visibleProducts > 0 ? 'tone-blue' : 'tone-warning'}">Visible products ${visibleProducts}</span>`,
                 `<span class="metric-chip tone-slate">Last update ${formatRelativeTime(store.updatedAt || config.updatedAt)}</span>`
             ].join('');

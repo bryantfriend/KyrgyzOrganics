@@ -1,12 +1,14 @@
 export const GRANOLA_PROVIDER_SELECT = 'granola_provider_select';
 export const GRANOLA_PURCHASE_CLICK = 'granola_purchase_click';
+export const GRANOLA_WHATSAPP_CLICK = 'granola_whatsapp_click';
 export const GRANOLA_ANALYTICS_SERIES = [
     { key: 'yandexLaunches', label: 'Yandex launches', color: '#e9b000' },
     { key: 'glovoLaunches', label: 'Glovo launches', color: '#ff5f52' },
+    { key: 'whatsappLaunches', label: 'WhatsApp orders started', color: '#25d366' },
     { key: 'providerSelections', label: 'Provider choices', color: '#315c45' }
 ];
 
-const TRACKED_ACTIONS = new Set([GRANOLA_PROVIDER_SELECT, GRANOLA_PURCHASE_CLICK]);
+const TRACKED_ACTIONS = new Set([GRANOLA_PROVIDER_SELECT, GRANOLA_PURCHASE_CLICK, GRANOLA_WHATSAPP_CLICK]);
 const BISHKEK_OFFSET_MS = 6 * 60 * 60 * 1000;
 
 function clean(value, fallback = '') {
@@ -17,6 +19,7 @@ function providerLabel(value) {
     const provider = clean(value).toLowerCase();
     if (provider === 'yandex') return 'Yandex Go';
     if (provider === 'glovo') return 'Glovo';
+    if (provider === 'whatsapp') return 'WhatsApp';
     return provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : 'Unknown';
 }
 
@@ -96,6 +99,7 @@ export function buildGranolaTimeline(sourceEvents = [], granularity = 'day', now
             label: periodLabel(date, selected),
             yandexLaunches: 0,
             glovoLaunches: 0,
+            whatsappLaunches: 0,
             providerSelections: 0,
             totalClicks: 0
         };
@@ -118,6 +122,8 @@ export function buildGranolaTimeline(sourceEvents = [], granularity = 'day', now
             bucket.yandexLaunches += 1;
         } else if (clean(event.platform).toLowerCase() === 'glovo') {
             bucket.glovoLaunches += 1;
+        } else if (clean(event.platform).toLowerCase() === 'whatsapp') {
+            bucket.whatsappLaunches += 1;
         }
     });
 

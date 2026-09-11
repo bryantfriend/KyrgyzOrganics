@@ -5,22 +5,23 @@ import { COMPANY_ID } from '../company-config.js';
 import { getSelectedCompanyId, loadSelectedCompany, setSelectedCompany } from '../store-context.js';
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { CategoriesTab } from './tabs/CategoriesTab.js';
-import { OverviewTab } from './tabs/OverviewTab.js?v=3.14';
+import { OverviewTab } from './tabs/OverviewTab.js?v=3.15';
 import { ProductsTab } from './tabs/ProductsTab.js?v=3.20';
 import { BannersTab } from './tabs/BannersTab.js';
 import { ContentTab } from './tabs/ContentTab.js';
 import { InventoryTab } from './tabs/InventoryTab.js';
 import { SettingsTab } from './tabs/SettingsTab.js';
-import { OrdersTab } from './tabs/OrdersTab.js';
+import { OrdersTab } from './tabs/OrdersTab.js?v=3.28';
+import { WhatsAppOrdersTab } from './tabs/WhatsAppOrdersTab.js?v=1';
 import { BusinessAccountsTab } from './tabs/BusinessAccountsTab.js?v=3.18';
 import { AuditTab } from './tabs/AuditTab.js';
-import { AnalyticsTab } from './tabs/AnalyticsTab.js?v=3.27';
+import { AnalyticsTab } from './tabs/AnalyticsTab.js?v=3.28';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js?v=3.16';
 import { GamesTab } from './tabs/GamesTab.js';
 import { getStorePublicUrl } from './storefront-link.js?v=1.0';
 
-const ADMIN_VERSION = '3.25';
+const ADMIN_VERSION = '3.28';
 const SUPER_ADMIN_ROLES = new Set(['superadmin', 'super_admin']);
 const STORE_ADMIN_ROLES = new Set(['admin', 'owner', 'manager', 'orders', 'products', 'marketing']);
 const PLATFORM_TABS = new Set(['stores', 'analytics', 'audit']);
@@ -772,6 +773,7 @@ class AdminApp {
     this.tabs['inventory'] = new InventoryTab();
     this.tabs['settings'] = new SettingsTab();
     this.tabs['orders'] = new OrdersTab();
+    this.tabs['whatsappOrders'] = new WhatsAppOrdersTab();
     this.tabs['businessAccounts'] = new BusinessAccountsTab();
     this.tabs['audit'] = new AuditTab();
     this.tabs['analytics'] = new AnalyticsTab();
@@ -835,6 +837,7 @@ class AdminApp {
       inventory: 'Inventory',
       settings: 'Settings',
       orders: 'Orders',
+      whatsappOrders: 'WhatsApp Orders',
       businessAccounts: 'Business Accounts',
       audit: 'Audit Logs',
       analytics: 'Analytics',

@@ -13,7 +13,7 @@ import {
     normalizeOrderStatus,
     STATUS_LABELS,
     updateOrderStatus
-} from '../../services/orderActions.js';
+} from '../../services/orderActions.js?v=1.1';
 import { getTrackingQrUrl, getTrackingUrl } from '../../utils/qrGenerator.js';
 import { formatElapsed, formatTimeRemaining, formatTimerStatus, getOrderTiming, getUrgencyState } from '../../utils/timeUtils.js';
 import { getSimilarOrderCounts } from '../../utils/orderSimilarityUtils.js';
@@ -685,7 +685,8 @@ export class OrdersTab extends BaseTab {
             await updateOrderStatus(orderId, transition.status, {
                 storeId: order.storeId || order.companyId || getCurrentCompanyId(),
                 companyId: order.companyId || getCurrentCompanyId(),
-                estimatedTime: order.estimatedTime
+                estimatedTime: order.estimatedTime,
+                archive: order.source !== 'whatsapp'
             });
         } catch (e) {
             alert(e.message || e);
@@ -966,7 +967,7 @@ export class OrdersTab extends BaseTab {
                 ? order.items.map(item => ({ productId: item.productId, quantity: Number(item.quantity || 1) }))
                 : (order.productId ? [{ productId: order.productId, quantity: 1 }] : []);
 
-            if (dateStr && items.length) {
+            if (order.inventoryReserved !== false && dateStr && items.length) {
                 const companyId = order.companyId || getCurrentCompanyId();
                 const invRefNew = doc(db, 'inventory', getInventoryDocId(companyId, dateStr));
                 let invRef = invRefNew;

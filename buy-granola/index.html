@@ -19,6 +19,8 @@
       --yandex: #ffdc34;
       --glovo: #ffc244;
       --glovo-green: #007f68;
+      --whatsapp: #25d366;
+      --whatsapp-dark: #075e54;
       --shadow: 0 18px 45px rgba(49, 52, 40, 0.10);
       font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
@@ -83,7 +85,7 @@
     .provider-heading { margin: 18px 0 12px; }
     .provider-heading h2, .catalog-head h2 { margin: 0; font-size: 23px; letter-spacing: -.02em; }
     .provider-heading p, .catalog-head p { margin: 7px 0 0; color: var(--muted); line-height: 1.5; }
-    .providers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .providers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
     .provider {
       position: relative;
       min-height: 178px;
@@ -104,6 +106,8 @@
     .provider-logo { display: grid; place-items: center; min-width: 52px; height: 52px; padding: 0 13px; border-radius: 17px; font-size: 16px; font-weight: 900; }
     .provider-logo.yandex { background: var(--yandex); color: #151515; }
     .provider-logo.glovo { background: var(--glovo); color: var(--glovo-green); }
+    .provider-logo.whatsapp { background: var(--whatsapp); color: #053d35; }
+    .provider:disabled { cursor: wait; opacity: .68; transform: none; }
     .arrow { font-size: 28px; color: var(--leaf); }
     .provider strong { display: block; margin-top: 15px; font-size: 20px; }
     .provider small { display: block; margin-top: 5px; color: var(--muted); font-size: 14px; line-height: 1.45; }
@@ -160,6 +164,7 @@
     }
     .buy.yandex { background: var(--yandex); }
     .buy.glovo { background: var(--glovo); color: #173d34; }
+    .buy.whatsapp { background: var(--whatsapp); color: #063d34; }
     .status { min-height: 18px; margin: 8px 2px 0; color: var(--leaf); font-size: 12px; font-weight: 700; }
     .note { margin: 16px 0 0; padding: 15px 17px; border-radius: 18px; background: rgba(255, 255, 255, .58); color: var(--muted); font-size: 13px; line-height: 1.5; }
     footer { margin-top: 28px; color: #7c827b; font-size: 12px; text-align: center; }
@@ -172,6 +177,7 @@
       h1 { font-size: clamp(32px, 10vw, 43px); }
       .lede { font-size: 15px; }
       .providers { gap: 9px; }
+      .providers { grid-template-columns: 1fr; }
       .provider { min-height: 176px; padding: 15px; border-radius: 21px; }
       .provider-logo { min-width: 47px; height: 47px; padding: 0 10px; font-size: 14px; }
       .provider strong { font-size: 18px; }
@@ -203,7 +209,7 @@
       <div>
         <p class="eyebrow">Granola delivery</p>
         <h1 id="page-title">Choose where to buy</h1>
-        <p class="lede">Select a delivery app, choose your granola, and we’ll copy the right search before opening the app.</p>
+        <p class="lede">Order directly through WhatsApp, or continue with Yandex Go or Glovo.</p>
       </div>
       <div class="hero-image">
         <img src="../Granola/гранола лайт ассорти .png" alt="Kyrgyz Organic Light assorted granola">
@@ -213,7 +219,7 @@
     <section id="providerPicker" aria-labelledby="provider-title">
       <div class="provider-heading">
         <h2 id="provider-title">Where would you like to order?</h2>
-        <p>Both options are designed for an iPhone handoff.</p>
+        <p>WhatsApp is the simplest direct order. Delivery and the final total are confirmed in the chat.</p>
       </div>
       <div class="providers">
         <button class="provider" type="button" data-provider="yandex" aria-pressed="false">
@@ -225,6 +231,11 @@
           <span class="provider-top"><span class="provider-logo glovo">Glovo</span><span class="arrow" aria-hidden="true">›</span></span>
           <strong>Glovo</strong>
           <small>Opens Glovo Express and copies the selected search.</small>
+        </button>
+        <button class="provider" id="whatsappProvider" type="button" data-provider="whatsapp" aria-pressed="false" disabled>
+          <span class="provider-top"><span class="provider-logo whatsapp">WA</span><span class="arrow" aria-hidden="true">›</span></span>
+          <strong>Buy on WhatsApp</strong>
+          <small id="whatsappProviderHelp">Preparing direct ordering…</small>
         </button>
       </div>
     </section>
@@ -243,7 +254,7 @@
       <p class="note" id="provider-note"></p>
     </section>
 
-    <footer>Demo purchase chooser · Kyrgyz Organic</footer>
+    <footer>Kyrgyz Organic purchase chooser</footer>
   </main>
 
   <script>
@@ -261,11 +272,16 @@
       getGranolaProviderHref,
       isAndroidDevice,
       YANDEX_RESULT_QUERY
-    } from '../granola-app-links.mjs';
+    } from '../granola-app-links.mjs?v=5';
+    import { db } from '../firebase-config.js';
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { buildWhatsAppOrderUrl } from '../whatsapp-order-utils.mjs?v=1';
 
     (function () {
       var devicePlatform = navigator.userAgentData && navigator.userAgentData.platform ? navigator.userAgentData.platform : '';
       var androidDevice = isAndroidDevice(navigator.userAgent, devicePlatform);
+      var DEFAULT_WHATSAPP_NUMBER = '996555099158';
+      var whatsappNumber = DEFAULT_WHATSAPP_NUMBER;
 
       var images = {
         assorted: '../Granola/гранола лайт ассорти .png',
@@ -328,6 +344,37 @@
             { id: 'nut-paradise-280', name: 'Nut Paradise · 280 g', meta: '421 KGS · appears fifth', query: 'Organic granola', image: 'nuts' },
             { id: 'natural-chocolate-500', name: 'Natural Chocolate · 500 g', meta: '626 KGS · appears third', query: 'Organic granola', image: 'assorted' },
             { id: 'fruit-garden-350', name: 'Fruit Garden · 350 g', meta: '352 KGS · appears fourth', query: 'Organic granola', image: 'fruit' }
+          ]
+        },
+        whatsapp: {
+          name: 'WhatsApp',
+          analyticsPlatform: 'whatsapp',
+          button: 'Buy Now through WhatsApp',
+          androidButton: 'Buy Now through WhatsApp',
+          className: 'whatsapp',
+          copySearch: false,
+          getHref: function (product) {
+            return buildWhatsAppOrderUrl({
+              phone: whatsappNumber,
+              productName: product.name,
+              productId: product.id,
+              quantity: 1,
+              sourceUrl: window.location.origin + window.location.pathname + '?product=' + encodeURIComponent(product.id)
+            });
+          },
+          subtitle: 'Choose a granola to open a ready-to-send order message.',
+          androidSubtitle: 'Choose a granola to open a ready-to-send order message.',
+          steps: ['Tap a green product button.', 'Add your name, Bishkek address, and preferred delivery time.', 'Send the message. Our team will confirm the total and delivery price.'],
+          androidSteps: ['Tap a green product button.', 'Add your name, Bishkek address, and preferred delivery time.', 'Send the message. Our team will confirm the total and delivery price.'],
+          note: 'Your selected product and quantity are added automatically. A Kyrgyz Organic team member will confirm availability and arrange delivery.',
+          androidNote: 'Your selected product and quantity are added automatically. A Kyrgyz Organic team member will confirm availability and arrange delivery.',
+          products: [
+            { id: 'all-granola', name: 'All Kyrgyz Organic granola', meta: 'Ask about today’s available flavors', query: '', image: 'assorted' },
+            { id: 'light-chocolate', name: 'Light Granola Chocolate', meta: 'Price confirmed in WhatsApp', query: '', image: 'assorted' },
+            { id: 'dark-chocolate', name: 'Granola in Dark Chocolate', meta: 'Price confirmed in WhatsApp', query: '', image: 'assorted' },
+            { id: 'honey-nuts', name: 'Honey and Nuts Granola', meta: 'Price confirmed in WhatsApp', query: '', image: 'nuts' },
+            { id: 'honey-fruits', name: 'Honey and Fruits Granola', meta: 'Price confirmed in WhatsApp', query: '', image: 'fruit' },
+            { id: 'honey-strawberries', name: 'Honey and Strawberries Granola', meta: 'Price confirmed in WhatsApp', query: '', image: 'strawberry' }
           ]
         }
       };
@@ -396,7 +443,7 @@
         status.className = 'status';
         status.setAttribute('aria-live', 'polite');
         link.addEventListener('click', function () {
-          trackGranolaEvent('granola_purchase_click', {
+          trackGranolaEvent(provider.analyticsPlatform === 'whatsapp' ? 'granola_whatsapp_click' : 'granola_purchase_click', {
             linkId: 'granola-chooser-' + provider.analyticsPlatform + '-' + product.id,
             label: product.name,
             code: product.query,
@@ -404,6 +451,10 @@
             targetUrl: targetHref,
             productId: product.id
           });
+          if (provider.copySearch === false) {
+            status.textContent = 'Opening your ready-to-send WhatsApp order…';
+            return;
+          }
           var copied = copySearchSync(product.query);
           status.textContent = androidDevice
             ? (copied ? 'Opening ' + provider.name + ' · Backup search copied.' : 'Opening ' + provider.name + '…')
@@ -451,6 +502,23 @@
       document.querySelectorAll('[data-provider]').forEach(function (button) {
         button.addEventListener('click', function () { selectProvider(button.dataset.provider); });
       });
+
+      async function loadWhatsAppOrdering() {
+        var providerButton = document.getElementById('whatsappProvider');
+        var help = document.getElementById('whatsappProviderHelp');
+        try {
+          var snapshot = await getDoc(doc(db, 'shop_settings', 'kyrgyz-organics__checkout'));
+          if (!snapshot.exists()) snapshot = await getDoc(doc(db, 'shop_settings', 'checkout'));
+          whatsappNumber = String(snapshot.exists() ? snapshot.data().supportWhatsappNumber || DEFAULT_WHATSAPP_NUMBER : DEFAULT_WHATSAPP_NUMBER).replace(/\D/g, '');
+        } catch (error) {
+          console.warn('Using the default WhatsApp ordering number:', error);
+          whatsappNumber = DEFAULT_WHATSAPP_NUMBER;
+        }
+        providerButton.disabled = false;
+        help.textContent = 'Opens a ready-to-send order for the exact product.';
+      }
+
+      loadWhatsAppOrdering();
       document.getElementById('backButton').addEventListener('click', function () {
         catalog.hidden = true;
         document.querySelectorAll('[data-provider]').forEach(function (button) { button.setAttribute('aria-pressed', 'false'); });

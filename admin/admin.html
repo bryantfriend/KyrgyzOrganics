@@ -6,7 +6,7 @@
   <title>OA Kyrgyz Organic – Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="stylesheet" href="/admin/adminStyles.css?v=3.27" />
+  <link rel="stylesheet" href="/admin/adminStyles.css?v=3.28" />
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 </head>
@@ -76,6 +76,7 @@
         <div class="sidebar-group-label" id="storeWorkspaceLabel">Daily Operations</div>
         <button class="nav-btn active" data-tab="overview" data-role-nav="store"><span class="nav-icon">⌂</span><span class="nav-label">Overview</span></button>
         <button class="nav-btn" data-tab="orders" data-role-nav="store"><span class="nav-icon">◆</span><span class="nav-label">Orders</span></button>
+        <button class="nav-btn" data-tab="whatsappOrders" data-role-nav="store"><span class="nav-icon">W</span><span class="nav-label">WhatsApp Orders</span></button>
         <button class="nav-btn" data-tab="businessAccounts" data-role-nav="store"><span class="nav-icon">◇</span><span class="nav-label">Business Accounts</span></button>
         <button class="nav-btn" data-tab="inventory" data-role-nav="store"><span class="nav-icon">▤</span><span class="nav-label">Inventory</span></button>
         <button class="nav-btn" data-tab="products" data-role-nav="store"><span class="nav-icon">◇</span><span class="nav-label">Products</span></button>
@@ -268,6 +269,10 @@
                 <button type="button" class="overview-quick-action is-primary-action" data-nav-tab="orders">
                   <span>View New Orders</span>
                   <small>Open the full live order board</small>
+                </button>
+                <button type="button" class="overview-quick-action is-primary-action" data-nav-tab="whatsappOrders">
+                  <span>Add WhatsApp Order</span>
+                  <small>Record a confirmed customer chat</small>
                 </button>
                 <button type="button" class="overview-quick-action" data-nav-tab="banners">
                   <span>Create Banner</span>
@@ -1857,6 +1862,125 @@
       </div>
     </section>
 
+    <!-- WHATSAPP ORDERS TAB -->
+    <section id="whatsappOrders" class="tab-content" style="display:none;">
+      <div class="wa-orders-shell">
+        <div class="wa-orders-heading">
+          <div>
+            <div class="eyebrow">Direct sales</div>
+            <h2>WhatsApp Orders</h2>
+            <p>Turn a confirmed customer chat into a tracked order. It will also appear on the main Orders board.</p>
+          </div>
+          <div class="wa-orders-heading-actions">
+            <button type="button" id="waRefreshOrdersBtn" class="btn-secondary">Refresh</button>
+            <button type="button" id="waOpenOrdersBoardBtn" class="btn-secondary">Open Orders Board</button>
+          </div>
+        </div>
+
+        <div id="whatsappOrdersStats" class="wa-orders-stats" aria-label="WhatsApp order summary">
+          <div><span>Today</span><strong>—</strong></div>
+          <div><span>Active</span><strong>—</strong></div>
+          <div><span>Completed</span><strong>—</strong></div>
+          <div><span>Completed value</span><strong>—</strong></div>
+        </div>
+
+        <div class="wa-orders-grid">
+          <div class="admin-card wa-entry-card">
+            <div class="wa-card-title">
+              <span class="wa-step-number">1</span>
+              <div><h3>Enter the customer order</h3><p>Copy the details from the WhatsApp conversation.</p></div>
+            </div>
+            <form id="whatsappOrderForm" class="wa-order-form">
+              <div class="wa-form-grid">
+                <div class="form-group">
+                  <label for="waCustomerName">Customer name</label>
+                  <input id="waCustomerName" type="text" autocomplete="name" placeholder="Customer name" required>
+                </div>
+                <div class="form-group">
+                  <label for="waCustomerPhone">WhatsApp number</label>
+                  <input id="waCustomerPhone" type="tel" autocomplete="tel" inputmode="tel" placeholder="+996 555 123 456" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="waCustomerAddress">Delivery address</label>
+                <textarea id="waCustomerAddress" rows="2" placeholder="Street, building, apartment, entrance and landmarks"></textarea>
+              </div>
+
+              <div class="wa-product-builder">
+                <div class="wa-product-builder-head">
+                  <div><strong>Add products</strong><span>Choose from the current catalog or enter a custom item.</span></div>
+                </div>
+                <div class="wa-product-fields">
+                  <div class="form-group wa-product-picker">
+                    <label for="waProductSelect">Product</label>
+                    <select id="waProductSelect"><option value="">Loading products…</option></select>
+                    <input id="waCustomProduct" type="text" placeholder="Custom product name" hidden>
+                  </div>
+                  <div class="form-group">
+                    <label for="waQuantity">Qty</label>
+                    <input id="waQuantity" type="number" min="1" step="1" value="1" inputmode="numeric">
+                  </div>
+                  <div class="form-group">
+                    <label for="waUnitPrice">Unit price</label>
+                    <input id="waUnitPrice" type="number" min="0" step="1" placeholder="som" inputmode="decimal">
+                  </div>
+                  <button id="waAddItemBtn" type="button" class="btn-secondary wa-add-item-btn">Add</button>
+                </div>
+                <div id="waOrderItems" class="wa-order-items" aria-live="polite"></div>
+              </div>
+
+              <div class="wa-form-grid wa-form-grid-three">
+                <div class="form-group">
+                  <label for="waDeliveryMethod">Fulfillment</label>
+                  <select id="waDeliveryMethod">
+                    <option value="yandex_delivery">Yandex Delivery</option>
+                    <option value="pickup">Customer pickup</option>
+                    <option value="other_courier">Other courier</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="waDeliveryFee">Delivery fee</label>
+                  <input id="waDeliveryFee" type="number" min="0" step="1" placeholder="som" inputmode="decimal">
+                </div>
+                <div class="form-group">
+                  <label for="waPaymentStatus">Payment</label>
+                  <select id="waPaymentStatus">
+                    <option value="unpaid">Payment pending</option>
+                    <option value="paid">Already paid</option>
+                    <option value="collect_on_delivery">Collect on delivery</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="waNotes">Order notes</label>
+                <textarea id="waNotes" rows="2" placeholder="Delivery time, flavor substitutions, courier instructions…"></textarea>
+              </div>
+
+              <div class="wa-order-summary">
+                <div><span>Products</span><strong id="waSubtotal">0 som</strong></div>
+                <div><span>Order total</span><strong id="waTotal">0 som</strong></div>
+              </div>
+              <div class="wa-form-actions">
+                <button id="waSaveOrderBtn" type="submit" class="btn-primary">Save WhatsApp Order</button>
+                <button id="waResetOrderBtn" type="button" class="btn-secondary">Clear</button>
+              </div>
+              <p id="waFormStatus" class="wa-form-status" aria-live="polite"></p>
+            </form>
+          </div>
+
+          <div class="admin-card wa-history-card">
+            <div class="wa-card-title">
+              <span class="wa-step-number">2</span>
+              <div><h3>Track every WhatsApp order</h3><p>Reply to customers and advance orders without losing the chat history.</p></div>
+            </div>
+            <div id="whatsappOrdersList" class="wa-orders-list">
+              <div class="wa-empty-state">Loading WhatsApp orders…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- AUDIT TAB -->
     <section id="audit" class="tab-content" style="display:none;">
       <div class="admin-card">
@@ -2317,7 +2441,7 @@
     <div id="adminToast" class="admin-toast" role="status" aria-live="polite"></div>
   </div>
 
-  <script type="module" src="/admin/admin.js?v=3.27"></script>
+  <script type="module" src="/admin/admin.js?v=3.28"></script>
   <script type="module">
     // One-time migration runner: only loads when explicitly requested via URL flag.
     // Example: /admin/admin.html?runCompanyIdMigration=true

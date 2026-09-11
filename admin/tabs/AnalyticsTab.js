@@ -15,7 +15,7 @@ import {
     GRANOLA_ANALYTICS_SERIES,
     isGranolaAnalyticsEvent,
     summarizeGranolaAnalytics
-} from '../../granola-purchase-analytics.mjs';
+} from '../../granola-purchase-analytics.mjs?v=1.1';
 
 function escapeHtml(value) {
     return String(value ?? '')
