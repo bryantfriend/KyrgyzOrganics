@@ -148,6 +148,40 @@
     .product-copy { min-width: 0; }
     .product h3 { margin: 0; font-size: 17px; line-height: 1.28; }
     .meta { margin: 5px 0 11px; color: var(--muted); font-size: 13px; line-height: 1.4; }
+    .product.whatsapp-product { transition: border-color .18s ease, box-shadow .18s ease; }
+    .product.whatsapp-product.is-selected { border-color: rgba(37, 211, 102, .8); box-shadow: 0 0 0 3px rgba(37, 211, 102, .12); }
+    .wa-quantity-control { display: inline-grid; grid-template-columns: 44px 56px 44px; align-items: center; overflow: hidden; border: 1px solid #c9ddd2; border-radius: 14px; background: #f4fbf7; }
+    .wa-quantity-control button { min-height: 44px; border: 0; color: var(--whatsapp-dark); background: transparent; font-size: 22px; font-weight: 850; cursor: pointer; }
+    .wa-quantity-control button:disabled { color: #aab6ae; cursor: default; }
+    .wa-quantity-control output { text-align: center; color: var(--ink); font-size: 16px; font-weight: 850; }
+    .wa-cart-bar { position: sticky; z-index: 10; bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 0 14px; padding: 12px 14px; border: 1px solid rgba(7, 94, 84, .18); border-radius: 18px; background: rgba(7, 94, 84, .96); color: white; box-shadow: 0 16px 36px rgba(7, 94, 84, .26); backdrop-filter: blur(12px); }
+    .wa-cart-bar[hidden], .whatsapp-checkout[hidden] { display: none; }
+    .wa-cart-bar span { display: block; font-size: 13px; opacity: .82; }
+    .wa-cart-bar strong { display: block; margin-top: 2px; font-size: 17px; }
+    .wa-cart-bar button { min-height: 44px; padding: 0 17px; border: 0; border-radius: 13px; color: #053d35; background: var(--whatsapp); font-weight: 900; cursor: pointer; }
+    .whatsapp-checkout { margin-top: 15px; padding: clamp(18px, 4vw, 26px); border: 1px solid rgba(37, 211, 102, .3); border-radius: 24px; background: linear-gradient(145deg, #fbfffc, #effbf4); box-shadow: var(--shadow); }
+    .wa-checkout-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .wa-checkout-head h3 { margin: 0; font-size: 22px; }
+    .wa-checkout-head p { margin: 6px 0 0; color: var(--muted); line-height: 1.45; }
+    .wa-cart-count { flex: 0 0 auto; padding: 7px 10px; border-radius: 999px; color: var(--whatsapp-dark); background: rgba(37, 211, 102, .17); font-size: 13px; font-weight: 850; }
+    .wa-cart-lines { display: grid; gap: 8px; margin: 18px 0 0; }
+    .wa-cart-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 11px 0; border-bottom: 1px solid #dceae1; }
+    .wa-cart-line strong, .wa-cart-line span { line-height: 1.4; }
+    .wa-cart-line small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+    .wa-total-copy { margin: 14px 0 19px; padding: 15px 16px; border-radius: 17px; background: #e1f7e8; }
+    .wa-total-copy strong { display: block; color: var(--whatsapp-dark); font-size: 20px; }
+    .wa-total-copy span { display: block; margin-top: 5px; color: #466158; font-size: 14px; line-height: 1.45; }
+    .wa-total-copy strong span { display: inline; margin: 0; color: inherit; font-size: inherit; }
+    .wa-customer-form { display: grid; gap: 13px; }
+    .wa-customer-form label { display: grid; gap: 6px; color: #30453b; font-size: 14px; font-weight: 800; }
+    .wa-customer-form input, .wa-customer-form textarea { width: 100%; min-height: 48px; padding: 12px 13px; border: 1px solid #c7d9cf; border-radius: 13px; color: var(--ink); background: white; font: inherit; font-size: 16px; }
+    .wa-customer-form textarea { min-height: 82px; resize: vertical; }
+    .wa-customer-form input:focus, .wa-customer-form textarea:focus { outline: 3px solid rgba(37, 211, 102, .2); border-color: var(--whatsapp-dark); }
+    .wa-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .wa-send-order { min-height: 54px; border: 0; border-radius: 16px; color: #043c32; background: var(--whatsapp); font: inherit; font-size: 16px; font-weight: 900; cursor: pointer; box-shadow: 0 12px 25px rgba(37, 211, 102, .22); }
+    .wa-send-order:disabled { opacity: .55; cursor: default; box-shadow: none; }
+    .wa-form-status { min-height: 20px; margin: 0; color: #9a2e2e; font-size: 13px; font-weight: 700; }
+    .wa-yandex-note { margin: 4px 0 0; padding: 11px 13px; border-radius: 13px; color: #515e56; background: rgba(255, 220, 52, .26); font-size: 13px; line-height: 1.45; }
     .buy {
       display: flex;
       align-items: center;
@@ -185,6 +219,9 @@
       .product-image { width: 75px; height: 94px; }
       .product-image img { height: 88px; }
       .catalog-head { align-items: flex-start; }
+      .wa-form-grid { grid-template-columns: 1fr; }
+      .wa-cart-bar { bottom: 7px; }
+      .wa-cart-bar button { padding: 0 13px; }
     }
 
     @media (max-width: 410px) {
@@ -250,7 +287,32 @@
         <button class="back" id="backButton" type="button">Change app</button>
       </div>
       <ol class="steps" id="steps"></ol>
+      <div id="whatsappCartBar" class="wa-cart-bar" hidden>
+        <div><span id="waCartBarCount">0 items</span><strong id="waCartBarTotal">0 som</strong></div>
+        <button id="waReviewOrderBtn" type="button">Review order</button>
+      </div>
       <div class="products" id="products"></div>
+      <section id="whatsappCheckout" class="whatsapp-checkout" hidden aria-labelledby="waCheckoutTitle">
+        <div class="wa-checkout-head">
+          <div><h3 id="waCheckoutTitle">Your WhatsApp order</h3><p>Add your delivery details here—WhatsApp will only need you to tap Send.</p></div>
+          <span id="waCartCount" class="wa-cart-count">0 items</span>
+        </div>
+        <div id="waCartLines" class="wa-cart-lines"></div>
+        <div class="wa-total-copy">
+          <strong>Sub-total is: <span id="waSubtotal">0 som</span></strong>
+          <span>Total will be given after you contact us and delivery is confirmed.</span>
+        </div>
+        <form id="waCustomerForm" class="wa-customer-form">
+          <div class="wa-form-grid">
+            <label>Full name<input id="waCustomerName" name="name" type="text" autocomplete="name" required placeholder="Your name"></label>
+            <label>Phone number<input id="waCustomerPhone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required placeholder="+996 555 123 456"></label>
+          </div>
+          <label>Delivery address in Bishkek<textarea id="waCustomerAddress" name="address" autocomplete="street-address" required placeholder="Street, building, apartment, entrance and landmark"></textarea></label>
+          <p class="wa-yandex-note">After confirmation, our team will create the courier order in Yandex Delivery using these details.</p>
+          <button id="waSendOrderBtn" class="wa-send-order" type="submit" disabled>Send order through WhatsApp</button>
+          <p id="waFormStatus" class="wa-form-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
       <p class="note" id="provider-note"></p>
     </section>
 
@@ -274,14 +336,16 @@
       YANDEX_RESULT_QUERY
     } from '../granola-app-links.mjs?v=5';
     import { db } from '../firebase-config.js';
-    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-    import { buildWhatsAppOrderUrl } from '../whatsapp-order-utils.mjs?v=1';
+    import { collection, doc, getDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { buildWhatsAppOrderUrl, formatSom } from '../whatsapp-order-utils.mjs?v=2';
 
     (function () {
       var devicePlatform = navigator.userAgentData && navigator.userAgentData.platform ? navigator.userAgentData.platform : '';
       var androidDevice = isAndroidDevice(navigator.userAgent, devicePlatform);
       var DEFAULT_WHATSAPP_NUMBER = '996555099158';
       var whatsappNumber = DEFAULT_WHATSAPP_NUMBER;
+      var whatsappCart = new Map();
+      var activeProviderKey = '';
 
       var images = {
         assorted: '../Granola/гранола лайт ассорти .png',
@@ -353,28 +417,18 @@
           androidButton: 'Buy Now through WhatsApp',
           className: 'whatsapp',
           copySearch: false,
-          getHref: function (product) {
-            return buildWhatsAppOrderUrl({
-              phone: whatsappNumber,
-              productName: product.name,
-              productId: product.id,
-              quantity: 1,
-              sourceUrl: window.location.origin + window.location.pathname + '?product=' + encodeURIComponent(product.id)
-            });
-          },
-          subtitle: 'Choose a granola to open a ready-to-send order message.',
-          androidSubtitle: 'Choose a granola to open a ready-to-send order message.',
-          steps: ['Tap a green product button.', 'Add your name, Bishkek address, and preferred delivery time.', 'Send the message. Our team will confirm the total and delivery price.'],
-          androidSteps: ['Tap a green product button.', 'Add your name, Bishkek address, and preferred delivery time.', 'Send the message. Our team will confirm the total and delivery price.'],
-          note: 'Your selected product and quantity are added automatically. A Kyrgyz Organic team member will confirm availability and arrange delivery.',
-          androidNote: 'Your selected product and quantity are added automatically. A Kyrgyz Organic team member will confirm availability and arrange delivery.',
+          subtitle: 'Add as many products as you want, review the subtotal, then enter your delivery details once.',
+          androidSubtitle: 'Add as many products as you want, review the subtotal, then enter your delivery details once.',
+          steps: ['Choose quantities for one or more products.', 'Review your subtotal and enter your phone and delivery address.', 'Tap Send order through WhatsApp, then tap Send in WhatsApp.'],
+          androidSteps: ['Choose quantities for one or more products.', 'Review your subtotal and enter your phone and delivery address.', 'Tap Send order through WhatsApp, then tap Send in WhatsApp.'],
+          note: 'Product prices make up the subtotal. Our team will confirm availability, the Yandex Delivery fee, and the final total in WhatsApp.',
+          androidNote: 'Product prices make up the subtotal. Our team will confirm availability, the Yandex Delivery fee, and the final total in WhatsApp.',
           products: [
-            { id: 'all-granola', name: 'All Kyrgyz Organic granola', meta: 'Ask about today’s available flavors', query: '', image: 'assorted' },
-            { id: 'light-chocolate', name: 'Light Granola Chocolate', meta: 'Price confirmed in WhatsApp', query: '', image: 'assorted' },
-            { id: 'dark-chocolate', name: 'Granola in Dark Chocolate', meta: 'Price confirmed in WhatsApp', query: '', image: 'assorted' },
-            { id: 'honey-nuts', name: 'Honey and Nuts Granola', meta: 'Price confirmed in WhatsApp', query: '', image: 'nuts' },
-            { id: 'honey-fruits', name: 'Honey and Fruits Granola', meta: 'Price confirmed in WhatsApp', query: '', image: 'fruit' },
-            { id: 'honey-strawberries', name: 'Honey and Strawberries Granola', meta: 'Price confirmed in WhatsApp', query: '', image: 'strawberry' }
+            { id: 'strawberry-light-350', name: 'Strawberry Light Granola · 350 g', meta: '389 som', unitPrice: 389, image: 'strawberry' },
+            { id: 'fruits-light-350', name: 'Fruits Light Granola · 350 g', meta: '389 som', unitPrice: 389, image: 'fruit' },
+            { id: 'nuts-light-350', name: 'Nuts Light Granola · 350 g', meta: '389 som', unitPrice: 389, image: 'nuts' },
+            { id: 'chocolate-light-350', name: 'Chocolate Light Granola · 350 g', meta: '389 som', unitPrice: 389, image: 'assorted' },
+            { id: 'assorted-400', name: 'Assorted Granola · 400 g', meta: '395 som', unitPrice: 395, image: 'assorted' }
           ]
         }
       };
@@ -383,6 +437,15 @@
       var catalog = document.getElementById('catalog');
       var productsNode = document.getElementById('products');
       var stepsNode = document.getElementById('steps');
+      var whatsappCheckout = document.getElementById('whatsappCheckout');
+      var whatsappCartBar = document.getElementById('whatsappCartBar');
+      var waCartLines = document.getElementById('waCartLines');
+      var waCartCount = document.getElementById('waCartCount');
+      var waCartBarCount = document.getElementById('waCartBarCount');
+      var waCartBarTotal = document.getElementById('waCartBarTotal');
+      var waSubtotal = document.getElementById('waSubtotal');
+      var waSendOrderBtn = document.getElementById('waSendOrderBtn');
+      var waFormStatus = document.getElementById('waFormStatus');
 
       function copySearchSync(value) {
         var input = document.createElement('textarea');
@@ -417,14 +480,103 @@
         }
       }
 
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function getWhatsAppCartItems() {
+        return providers.whatsapp.products
+          .map(function (product) {
+            return {
+              productId: product.id,
+              productName: product.name,
+              quantity: whatsappCart.get(product.id) || 0,
+              unitPrice: Number(product.unitPrice || 0)
+            };
+          })
+          .filter(function (item) { return item.quantity > 0; });
+      }
+
+      function renderWhatsAppCart() {
+        var items = getWhatsAppCartItems();
+        var itemCount = items.reduce(function (total, item) { return total + item.quantity; }, 0);
+        var subtotal = items.reduce(function (total, item) { return total + (item.quantity * item.unitPrice); }, 0);
+        var countLabel = itemCount + (itemCount === 1 ? ' item' : ' items');
+        waCartCount.textContent = countLabel;
+        waCartBarCount.textContent = countLabel;
+        waCartBarTotal.textContent = 'Sub-total: ' + formatSom(subtotal) + ' som';
+        waSubtotal.textContent = formatSom(subtotal) + ' som';
+        waSendOrderBtn.disabled = itemCount === 0;
+        whatsappCartBar.hidden = activeProviderKey !== 'whatsapp' || itemCount === 0;
+        waCartLines.innerHTML = items.length ? items.map(function (item) {
+          return '<div class="wa-cart-line"><div><strong>' + escapeHtml(item.productName) + '</strong><small>' + item.quantity + ' × ' + formatSom(item.unitPrice) + ' som</small></div><strong>' + formatSom(item.quantity * item.unitPrice) + ' som</strong></div>';
+        }).join('') : '<div class="wa-cart-line"><span>Choose at least one granola above.</span></div>';
+        document.querySelectorAll('[data-wa-product-id]').forEach(function (card) {
+          var quantity = whatsappCart.get(card.dataset.waProductId) || 0;
+          card.classList.toggle('is-selected', quantity > 0);
+          var output = card.querySelector('output');
+          var decrease = card.querySelector('[data-wa-change="-1"]');
+          if (output) output.textContent = quantity;
+          if (decrease) decrease.disabled = quantity === 0;
+        });
+      }
+
+      function changeWhatsAppQuantity(productId, amount) {
+        var current = whatsappCart.get(productId) || 0;
+        var next = Math.max(0, Math.min(20, current + amount));
+        if (next) whatsappCart.set(productId, next);
+        else whatsappCart.delete(productId);
+        renderWhatsAppCart();
+      }
+
+      function whatsappProductCard(product) {
+        var article = document.createElement('article');
+        article.className = 'product whatsapp-product';
+        article.dataset.waProductId = product.id;
+        var imageWrap = document.createElement('div');
+        imageWrap.className = 'product-image';
+        var image = document.createElement('img');
+        image.src = product.imageUrl || images[product.image] || images.assorted;
+        image.alt = product.name;
+        image.loading = 'lazy';
+        imageWrap.appendChild(image);
+        var copy = document.createElement('div');
+        copy.className = 'product-copy';
+        var title = document.createElement('h3');
+        title.textContent = product.name;
+        var meta = document.createElement('p');
+        meta.className = 'meta';
+        meta.textContent = product.meta || (formatSom(product.unitPrice) + ' som');
+        var controls = document.createElement('div');
+        controls.className = 'wa-quantity-control';
+        controls.innerHTML = '<button type="button" data-wa-change="-1" aria-label="Remove one">−</button><output aria-live="polite">0</output><button type="button" data-wa-change="1" aria-label="Add one">+</button>';
+        controls.addEventListener('click', function (event) {
+          var button = event.target.closest('[data-wa-change]');
+          if (!button) return;
+          changeWhatsAppQuantity(product.id, Number(button.dataset.waChange));
+        });
+        copy.appendChild(title);
+        copy.appendChild(meta);
+        copy.appendChild(controls);
+        article.appendChild(imageWrap);
+        article.appendChild(copy);
+        return article;
+      }
+
       function productCard(product, provider) {
+        if (provider.analyticsPlatform === 'whatsapp') return whatsappProductCard(product);
         var targetHref = provider.getHref(product);
         var article = document.createElement('article');
         article.className = 'product';
         var imageWrap = document.createElement('div');
         imageWrap.className = 'product-image';
         var image = document.createElement('img');
-        image.src = images[product.image];
+        image.src = product.imageUrl || images[product.image] || images.assorted;
         image.alt = '';
         image.loading = 'lazy';
         imageWrap.appendChild(image);
@@ -472,6 +624,7 @@
       function selectProvider(key) {
         var provider = providers[key];
         if (!provider) return;
+        activeProviderKey = key;
         trackGranolaEvent('granola_provider_select', {
           linkId: 'granola-chooser-provider-' + provider.analyticsPlatform,
           label: provider.name,
@@ -495,12 +648,54 @@
         provider.products.forEach(function (product) {
           productsNode.appendChild(productCard(product, provider));
         });
+        whatsappCheckout.hidden = key !== 'whatsapp';
+        if (key === 'whatsapp') renderWhatsAppCart();
+        else whatsappCartBar.hidden = true;
         catalog.hidden = false;
         window.setTimeout(function () { catalog.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 30);
       }
 
       document.querySelectorAll('[data-provider]').forEach(function (button) {
         button.addEventListener('click', function () { selectProvider(button.dataset.provider); });
+      });
+
+      document.getElementById('waReviewOrderBtn').addEventListener('click', function () {
+        whatsappCheckout.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById('waCustomerName').focus({ preventScroll: true });
+      });
+
+      document.getElementById('waCustomerForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var items = getWhatsAppCartItems();
+        var customerName = document.getElementById('waCustomerName').value.trim();
+        var customerPhone = document.getElementById('waCustomerPhone').value.trim();
+        var customerAddress = document.getElementById('waCustomerAddress').value.trim();
+        if (!items.length) {
+          waFormStatus.textContent = 'Choose at least one granola.';
+          return;
+        }
+        if (!customerName || customerPhone.replace(/\D/g, '').length < 9 || !customerAddress) {
+          waFormStatus.textContent = 'Please add your name, a valid phone number, and your delivery address.';
+          return;
+        }
+        waFormStatus.textContent = '';
+        var orderUrl = buildWhatsAppOrderUrl({
+          phone: whatsappNumber,
+          items: items,
+          customerName: customerName,
+          customerPhone: customerPhone,
+          customerAddress: customerAddress,
+          sourceUrl: window.location.origin + window.location.pathname
+        });
+        trackGranolaEvent('granola_whatsapp_click', {
+          linkId: 'granola-whatsapp-multi-item-order',
+          label: items.length + ' WhatsApp order items',
+          code: items.map(function (item) { return item.productId + ':' + item.quantity; }).join(','),
+          platform: 'whatsapp',
+          targetUrl: orderUrl,
+          productId: items.map(function (item) { return item.productId; }).join(',')
+        });
+        window.location.href = orderUrl;
       });
 
       async function loadWhatsAppOrdering() {
@@ -514,13 +709,40 @@
           console.warn('Using the default WhatsApp ordering number:', error);
           whatsappNumber = DEFAULT_WHATSAPP_NUMBER;
         }
+        try {
+          var productsSnapshot = await getDocs(query(collection(db, 'products'), where('active', '==', true)));
+          var liveGranola = productsSnapshot.docs.map(function (productDoc) {
+            var data = productDoc.data();
+            var baseName = String(data.name_en || data.name_ru || data.name_kg || data.name || '').trim();
+            var weight = String(data.weight || data.size || '').trim();
+            var unitPrice = Number(data.priceRetail ?? data.price ?? 0);
+            return {
+              id: productDoc.id,
+              name: baseName + (weight ? ' · ' + weight : ''),
+              searchName: baseName,
+              meta: formatSom(unitPrice) + ' som',
+              unitPrice: unitPrice,
+              imageUrl: data.imageUrl || '',
+              image: /straw|клуб/i.test(baseName) ? 'strawberry' : /nut|орех/i.test(baseName) ? 'nuts' : /fruit|фрукт/i.test(baseName) ? 'fruit' : 'assorted',
+              companyId: data.companyId || 'kyrgyz-organics'
+            };
+          }).filter(function (product) {
+            return product.companyId === 'kyrgyz-organics' && /granola|гранол/i.test(product.searchName) && product.unitPrice > 0;
+          }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+          if (liveGranola.length) providers.whatsapp.products = liveGranola;
+        } catch (productsError) {
+          console.warn('Using the fallback WhatsApp granola catalog:', productsError);
+        }
         providerButton.disabled = false;
-        help.textContent = 'Opens a ready-to-send order for the exact product.';
+        help.textContent = 'Build a multi-item order with your phone and address.';
       }
 
       loadWhatsAppOrdering();
       document.getElementById('backButton').addEventListener('click', function () {
+        activeProviderKey = '';
         catalog.hidden = true;
+        whatsappCheckout.hidden = true;
+        whatsappCartBar.hidden = true;
         document.querySelectorAll('[data-provider]').forEach(function (button) { button.setAttribute('aria-pressed', 'false'); });
         picker.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });

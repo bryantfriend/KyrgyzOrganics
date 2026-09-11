@@ -6,7 +6,7 @@
   <title>OA Kyrgyz Organic – Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="stylesheet" href="/admin/adminStyles.css?v=3.28" />
+  <link rel="stylesheet" href="/admin/adminStyles.css?v=3.29" />
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 </head>
@@ -1891,6 +1891,14 @@
               <div><h3>Enter the customer order</h3><p>Copy the details from the WhatsApp conversation.</p></div>
             </div>
             <form id="whatsappOrderForm" class="wa-order-form">
+              <div class="wa-message-import">
+                <div>
+                  <strong>Paste the customer’s WhatsApp message</strong>
+                  <span>The customer details, products, quantities, and prices will be filled in automatically.</span>
+                </div>
+                <textarea id="waIncomingMessage" rows="5" placeholder="Paste the complete Kyrgyz Organic order message here"></textarea>
+                <button id="waImportMessageBtn" type="button" class="btn-secondary">Fill order from message</button>
+              </div>
               <div class="wa-form-grid">
                 <div class="form-group">
                   <label for="waCustomerName">Customer name</label>
@@ -2441,7 +2449,7 @@
     <div id="adminToast" class="admin-toast" role="status" aria-live="polite"></div>
   </div>
 
-  <script type="module" src="/admin/admin.js?v=3.28"></script>
+  <script type="module" src="/admin/admin.js?v=3.29"></script>
   <script type="module">
     // One-time migration runner: only loads when explicitly requested via URL flag.
     // Example: /admin/admin.html?runCompanyIdMigration=true

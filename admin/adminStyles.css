@@ -235,6 +235,47 @@ body {
   gap: 1rem;
 }
 
+.wa-message-import {
+  display: grid;
+  gap: .75rem;
+  padding: 1rem;
+  border: 1px solid rgba(37, 211, 102, .26);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #f4fcf7, #fff);
+}
+
+.wa-message-import > div {
+  display: grid;
+  gap: .25rem;
+}
+
+.wa-message-import strong {
+  color: #075e54;
+  font-size: .95rem;
+}
+
+.wa-message-import span {
+  color: #637069;
+  font-size: .82rem;
+  line-height: 1.45;
+}
+
+.wa-message-import textarea {
+  width: 100%;
+  min-height: 118px;
+  padding: .75rem;
+  border: 1px solid #c7ddd0;
+  border-radius: 12px;
+  background: #fff;
+  font: inherit;
+  font-size: .9rem;
+  resize: vertical;
+}
+
+.wa-message-import button {
+  justify-self: start;
+}
+
 .wa-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -505,6 +546,25 @@ body {
   border-color: #18794e;
   color: #fff;
   background: #18794e;
+}
+
+.wa-order-actions .is-yandex {
+  border-color: #e8c421;
+  color: #2b291c;
+  background: #ffdc34;
+}
+
+.wa-yandex-prepared {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: .65rem;
+  padding: .3rem .55rem;
+  border-radius: 999px;
+  color: #4c4316;
+  background: rgba(255, 220, 52, .28);
+  font-size: .76rem;
+  font-weight: 800;
 }
 
 .wa-order-actions button:disabled {

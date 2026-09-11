@@ -4,7 +4,7 @@ import { COMPANY_ID, getCurrentCompanyId, matchesCompanyId } from '../../company
 import { getCheckoutSettingsDocId } from '../../firestore-paths.js';
 import { getPreferredProductName, getRetailPrice } from '../../product-utils.js';
 import { getNextOrderTransition, normalizeOrderStatus, STATUS_LABELS, updateOrderStatus } from '../../services/orderActions.js?v=1.1';
-import { buildWhatsAppOrderRecord, buildWhatsAppReplyUrl, normalizeMoney, WHATSAPP_ORDER_SOURCE } from '../../whatsapp-order-utils.mjs?v=1';
+import { buildWhatsAppOrderRecord, buildWhatsAppReplyUrl, normalizeMoney, parseWhatsAppOrderMessage, WHATSAPP_ORDER_SOURCE } from '../../whatsapp-order-utils.mjs?v=2';
 import { logAudit } from '../utils.js';
 import {
     addDoc,
@@ -19,6 +19,8 @@ import {
     updateDoc,
     where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const YANDEX_DELIVERY_URL = 'https://delivery.yandex.kg/en/bishkek/';
 
 function escapeHtml(value = '') {
     return String(value)
@@ -63,10 +65,39 @@ function getOrderItemsLabel(order) {
         .join(', ') || order.productName || 'WhatsApp order';
 }
 
+function copyTextSync(value) {
+    const input = document.createElement('textarea');
+    input.value = String(value || '');
+    input.setAttribute('readonly', '');
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+    input.select();
+    input.setSelectionRange(0, input.value.length);
+    let copied = false;
+    try { copied = document.execCommand('copy'); } catch (_) {}
+    input.remove();
+    return copied;
+}
+
+function buildYandexDeliveryDetails(order) {
+    return [
+        `Kyrgyz Organic order #${String(order.id || '').slice(0, 8).toUpperCase()}`,
+        `Recipient: ${order.customerName || 'Customer'}`,
+        `Phone: ${order.customerPhone || order.phone || ''}`,
+        `Delivery address: ${order.customerAddress || ''}`,
+        `Contents: ${getOrderItemsLabel(order)}`,
+        `Product subtotal: ${normalizeMoney(order.subtotal)} som`,
+        'Sender: Kyrgyz Organic'
+    ].join('\n');
+}
+
 export class WhatsAppOrdersTab extends BaseTab {
     constructor() {
         super('whatsappOrders');
         this.form = document.getElementById('whatsappOrderForm');
+        this.incomingMessage = document.getElementById('waIncomingMessage');
+        this.importMessageBtn = document.getElementById('waImportMessageBtn');
         this.customerName = document.getElementById('waCustomerName');
         this.customerPhone = document.getElementById('waCustomerPhone');
         this.customerAddress = document.getElementById('waCustomerAddress');
@@ -97,6 +128,7 @@ export class WhatsAppOrdersTab extends BaseTab {
 
     async init() {
         this.form?.addEventListener('submit', (event) => this.saveOrder(event));
+        this.importMessageBtn?.addEventListener('click', () => this.importCustomerMessage());
         this.addItemBtn?.addEventListener('click', () => this.addLineItem());
         this.resetBtn?.addEventListener('click', () => this.resetForm());
         this.refreshBtn?.addEventListener('click', () => this.refreshHistory());
@@ -178,6 +210,35 @@ export class WhatsAppOrdersTab extends BaseTab {
         }
         const product = this.products.find((item) => item.id === this.productSelect?.value);
         if (product && this.unitPrice) this.unitPrice.value = getRetailPrice(product) || '';
+    }
+
+    importCustomerMessage() {
+        const parsed = parseWhatsAppOrderMessage(this.incomingMessage?.value || '');
+        if (!parsed.items.length) {
+            this.setFormStatus('Paste the complete order message sent from the Buy Granola page.', true);
+            return;
+        }
+
+        if (this.customerName) this.customerName.value = parsed.customerName;
+        if (this.customerPhone) this.customerPhone.value = parsed.customerPhone;
+        if (this.customerAddress) this.customerAddress.value = parsed.customerAddress;
+        if (this.deliveryMethod) this.deliveryMethod.value = 'yandex_delivery';
+        this.lineItems = parsed.items.map((item) => {
+            const normalizedName = item.productName.toLowerCase();
+            const catalogProduct = this.products.find((product) => {
+                const catalogName = getPreferredProductName(product).toLowerCase();
+                return normalizedName.includes(catalogName) || catalogName.includes(normalizedName);
+            });
+            return {
+                productId: catalogProduct?.id || '',
+                productName: item.productName,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice
+            };
+        });
+        this.renderItems();
+        this.setFormStatus(`${this.lineItems.length} product${this.lineItems.length === 1 ? '' : 's'} and the customer details are ready. Review, then save the order.`);
+        this.customerName?.focus();
     }
 
     async loadDeliverySettings() {
@@ -354,9 +415,11 @@ export class WhatsAppOrdersTab extends BaseTab {
                         <span>${escapeHtml(formatOrderDate(order.createdAt))}</span>
                     </div>
                     ${order.customerAddress ? `<p class="wa-order-address">${escapeHtml(order.customerAddress)}</p>` : ''}
+                    ${order.yandexDeliveryPreparedAt ? '<span class="wa-yandex-prepared">Yandex details prepared</span>' : ''}
                     <div class="wa-order-total-row"><strong>${normalizeMoney(order.total)} som</strong><span class="${paid ? 'is-paid' : ''}">${paid ? 'Paid' : order.paymentStatus === 'collect_on_delivery' ? 'Collect on delivery' : 'Payment pending'}</span></div>
                     <div class="wa-order-actions">
                         ${replyUrl ? `<a class="wa-reply-link" href="${escapeHtml(replyUrl)}" target="_blank" rel="noopener">Reply in WhatsApp</a>` : ''}
+                        ${order.deliveryMethod !== 'pickup' && normalizedStatus !== 'cancelled' ? `<button type="button" class="is-yandex" data-wa-action="yandex" data-order-id="${escapeHtml(order.id)}">Copy details & open Yandex</button>` : ''}
                         ${!paid ? `<button type="button" data-wa-action="paid" data-order-id="${escapeHtml(order.id)}">Mark paid</button>` : ''}
                         ${transition ? `<button type="button" class="is-primary" data-wa-action="advance" data-order-id="${escapeHtml(order.id)}">${escapeHtml(transition.label)}</button>` : ''}
                     </div>
@@ -389,7 +452,17 @@ export class WhatsAppOrdersTab extends BaseTab {
 
         button.disabled = true;
         try {
-            if (button.dataset.waAction === 'paid') {
+            if (button.dataset.waAction === 'yandex') {
+                const copied = copyTextSync(buildYandexDeliveryDetails(order));
+                window.open(YANDEX_DELIVERY_URL, '_blank', 'noopener');
+                await updateDoc(doc(db, 'orders', orderId), {
+                    deliveryMethod: 'yandex_delivery',
+                    deliveryType: 'yandex_delivery',
+                    yandexDeliveryPreparedAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                });
+                await logAudit('Yandex Delivery Prepared', `Order ${orderId}: customer delivery details ${copied ? 'copied' : 'opened'}`);
+            } else if (button.dataset.waAction === 'paid') {
                 await updateDoc(doc(db, 'orders', orderId), {
                     paymentStatus: 'paid',
                     paidAt: serverTimestamp(),

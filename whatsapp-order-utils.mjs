@@ -4,7 +4,68 @@ export function normalizeWhatsAppPhone(value = '') {
     return String(value || '').replace(/\D/g, '');
 }
 
-export function buildWhatsAppOrderMessage({ productName, productId = '', quantity = 1, sourceUrl = '' } = {}) {
+export function formatSom(value) {
+    return normalizeMoney(value).toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+function normalizeMessageItems(items = []) {
+    return (Array.isArray(items) ? items : []).map((item) => {
+        const quantity = Math.max(1, Number.parseInt(item.quantity, 10) || 1);
+        const unitPrice = normalizeMoney(item.unitPrice ?? item.price);
+        return {
+            productId: String(item.productId || item.id || '').trim(),
+            productName: String(item.productName || item.name || '').trim(),
+            quantity,
+            unitPrice,
+            lineTotal: normalizeMoney(quantity * unitPrice)
+        };
+    }).filter((item) => item.productName);
+}
+
+export function buildWhatsAppOrderMessage({
+    productName,
+    productId = '',
+    quantity = 1,
+    items = [],
+    customerName = '',
+    customerPhone = '',
+    customerAddress = '',
+    sourceUrl = ''
+} = {}) {
+    const orderItems = normalizeMessageItems(items);
+    if (orderItems.length) {
+        const subtotal = normalizeMoney(orderItems.reduce((sum, item) => sum + item.lineTotal, 0));
+        const lines = [
+            'Hello! I would like to place a granola order with Kyrgyz Organic.',
+            '',
+            'ORDER DETAILS'
+        ];
+
+        orderItems.forEach((item, index) => {
+            lines.push(
+                `${index + 1}. ${item.productName}`,
+                `   ${item.quantity} × ${formatSom(item.unitPrice)} som = ${formatSom(item.lineTotal)} som`
+            );
+        });
+
+        lines.push(
+            '',
+            `Sub-total: ${formatSom(subtotal)} som`,
+            'Final total: Confirmed after delivery is arranged.',
+            '',
+            'CUSTOMER DETAILS',
+            `Name: ${String(customerName || '').trim()}`,
+            `Phone: ${String(customerPhone || '').trim()}`,
+            `Delivery address: ${String(customerAddress || '').trim()}`,
+            'Delivery method: Yandex Delivery',
+            '',
+            'Please confirm availability and the final total, including delivery.'
+        );
+
+        if (sourceUrl) lines.push('', `Order source: ${String(sourceUrl).trim()}`);
+        return lines.join('\n');
+    }
+
     const name = String(productName || '').trim() || 'Kyrgyz Organic granola';
     const safeQuantity = Math.max(1, Number.parseInt(quantity, 10) || 1);
     const lines = [
@@ -29,11 +90,43 @@ export function buildWhatsAppOrderMessage({ productName, productId = '', quantit
     return lines.join('\n');
 }
 
-export function buildWhatsAppOrderUrl({ phone, productName, productId = '', quantity = 1, sourceUrl = '' } = {}) {
+export function buildWhatsAppOrderUrl(options = {}) {
+    const { phone } = options;
     const normalizedPhone = normalizeWhatsAppPhone(phone);
     if (!normalizedPhone) return '';
-    const message = buildWhatsAppOrderMessage({ productName, productId, quantity, sourceUrl });
+    const message = buildWhatsAppOrderMessage(options);
     return `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}`;
+}
+
+export function parseWhatsAppOrderMessage(value = '') {
+    const lines = String(value || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const result = {
+        customerName: '',
+        customerPhone: '',
+        customerAddress: '',
+        deliveryMethod: 'yandex_delivery',
+        items: []
+    };
+
+    for (let index = 0; index < lines.length; index += 1) {
+        const itemMatch = lines[index].match(/^\d+\.\s+(.+)$/);
+        const priceMatch = lines[index + 1]?.match(/^(\d+)\s*[×x]\s*([\d,.]+)\s*som\s*=\s*([\d,.]+)\s*som$/i);
+        if (itemMatch && priceMatch) {
+            result.items.push({
+                productId: '',
+                productName: itemMatch[1].trim(),
+                quantity: Math.max(1, Number.parseInt(priceMatch[1], 10) || 1),
+                unitPrice: normalizeMoney(priceMatch[2].replace(/,/g, ''))
+            });
+            index += 1;
+            continue;
+        }
+        if (/^Name:/i.test(lines[index])) result.customerName = lines[index].replace(/^Name:\s*/i, '').trim();
+        if (/^Phone:/i.test(lines[index])) result.customerPhone = lines[index].replace(/^Phone:\s*/i, '').trim();
+        if (/^Delivery address:/i.test(lines[index])) result.customerAddress = lines[index].replace(/^Delivery address:\s*/i, '').trim();
+    }
+
+    return result;
 }
 
 export function buildWhatsAppReplyUrl({ phone, orderId = '', customerName = '' } = {}) {
