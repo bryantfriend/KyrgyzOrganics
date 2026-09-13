@@ -16,6 +16,7 @@ import { loadStoreConfig } from './storefront/store-loader.js';
 import { applyStoreTheme } from './storefront/theme-engine.js';
 import { getFallbackStoreConfig } from './storefront/defaults/default-store-config.js';
 import { renderStoreSection } from './storefront/section-renderer.js';
+import { applySaaelPresentation, renderSaaelDetails } from './storefront/brands/saael/presentation.js';
 import {
     DEFAULT_CHECKOUT_SETTINGS,
     addCartItem,
@@ -424,6 +425,7 @@ async function init() {
         updateStorefrontLoader(fallbackStoreConfig);
 
         activeStoreConfig = await loadStoreConfig(companyConfig.companyId);
+        activeStoreConfig = applySaaelPresentation(activeStoreConfig);
         activeStoreName = activeStoreConfig.name || activeStoreName;
         applyStoreTheme(activeStoreConfig);
         updateStorefrontLoader(activeStoreConfig);
@@ -591,6 +593,7 @@ function renderAll() {
     updateStaticUI();
     applyHomepageLayoutOrder();
     renderCart();
+    renderSaaelDetails(activeStoreConfig);
 }
 
 function renderProductCollections() {
