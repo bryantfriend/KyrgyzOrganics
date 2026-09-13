@@ -2,227 +2,286 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ===============================
+    // HELPERS
+    // ===============================
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function userProfile() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
     function hasUserProfile() {
-      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
-    function userCompanyId() {
-      return userProfile().data.companyId;
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function userRole() {
-      return userProfile().data.role;
-    }
-
-    function isLegacyAdmin() {
-      return isSignedIn() && !hasUserProfile();
-    }
-
-    function isSuperAdmin() {
-      return hasUserProfile() && (userRole() == "superadmin" || userRole() == "super_admin");
-    }
-
-    function isStoreStaffRole() {
-      return hasUserProfile() && [
-        "admin",
-        "owner",
-        "manager",
-        "orders",
-        "products",
-        "marketing"
-      ].hasAny([userRole()]);
-    }
-
-    function isPeopleAdmin() {
-      return isSuperAdmin()
-        || (hasUserProfile() && ["admin", "owner", "manager"].hasAny([userRole()]));
+      return hasUserProfile()
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
     }
 
     function isAdmin() {
-      return isLegacyAdmin()
-        || isSuperAdmin()
-        || isStoreStaffRole();
+      // Keep this in sync with js/core/authService.js. Older staff profiles
+      // use owner/manager/super_admin, while newer profiles use admin roles.
+      return userRole() in ['admin', 'superadmin', 'owner', 'manager', 'super_admin'];
     }
 
-    function isProfileAdmin() {
-      return isPeopleAdmin();
+    function isOwnUserProfile(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    function canReadAnyCompany() {
-      return isLegacyAdmin() || isSuperAdmin();
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
     }
 
-    function canReadCompanyData() {
-      return canReadAnyCompany() || (hasUserProfile() && resource.data.companyId == userCompanyId());
-    }
-
-    function canWriteCompanyData() {
-      return canReadAnyCompany()
-        || (isAdmin() && hasUserProfile() && request.resource.data.companyId == userCompanyId());
-    }
-
-    function canDeleteCompanyData() {
-      return canReadAnyCompany()
-        || (isAdmin() && hasUserProfile() && resource.data.companyId == userCompanyId());
-    }
-
-    function canReadStorePath(storeId) {
-      return canReadAnyCompany()
-        || (hasUserProfile() && storeId == userCompanyId());
-    }
-
-    function canWriteStorePath(storeId) {
-      return canReadAnyCompany()
-        || (isAdmin() && hasUserProfile() && storeId == userCompanyId());
-    }
-
-    function isValidCustomerRole(data) {
-      return data.role == "customer";
-    }
-
-    function isValidSelfBusinessStatus(data) {
-      return data.businessStatus == "none" || data.businessStatus == "pending";
-    }
-
-    function isSafeSelfProfileCreate(userId) {
-      return request.auth.uid == userId
+    function isOwnProfileCreate(userId) {
+      return isOwnUserProfile(userId)
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'email',
+          'displayName',
+          'photoDataUrl',
+          'xp',
+          'actions',
+          'periodActions',
+          'badges',
+          'createdAt',
+          'updatedAt'
+        ])
         && request.resource.data.uid == userId
-        && isValidCustomerRole(request.resource.data)
-        && (request.resource.data.accountType == "basic" || request.resource.data.accountType == "business")
-        && isValidSelfBusinessStatus(request.resource.data)
-        && request.resource.data.companyId is string
-        && request.resource.data.companyId.size() > 0
-        && !("approvedAt" in request.resource.data)
-        && !("approvedBy" in request.resource.data);
+        && request.resource.data.email is string
+        && (!request.resource.data.keys().hasAny(['displayName']) || request.resource.data.displayName is string)
+        && (!request.resource.data.keys().hasAny(['photoDataUrl']) || request.resource.data.photoDataUrl is string)
+        && (!request.resource.data.keys().hasAny(['xp']) || request.resource.data.xp is number)
+        && (!request.resource.data.keys().hasAny(['actions']) || request.resource.data.actions is map)
+        && (!request.resource.data.keys().hasAny(['periodActions']) || request.resource.data.periodActions is map)
+        && (!request.resource.data.keys().hasAny(['badges']) || request.resource.data.badges is list)
+        && (!request.resource.data.keys().hasAny(['createdAt']) || request.resource.data.createdAt is timestamp)
+        && (!request.resource.data.keys().hasAny(['updatedAt']) || request.resource.data.updatedAt is timestamp);
     }
 
-    function isSafeSelfProfileUpdate(userId) {
-      return request.auth.uid == userId
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.companyId == resource.data.companyId
-        && request.resource.data.accountType == resource.data.accountType
-        && request.resource.data.businessStatus == resource.data.businessStatus
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["approvedAt", "approvedBy"]);
+    function isOwnProfileUpdate(userId) {
+      return isOwnUserProfile(userId)
+        && changedKeys().hasOnly([
+          'uid',
+          'email',
+          'displayName',
+          'photoDataUrl',
+          'xp',
+          'actions',
+          'periodActions',
+          'badges',
+          'createdAt',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == userId
+        && request.resource.data.email is string
+        && (!changedKeys().hasAny(['displayName']) || request.resource.data.displayName is string)
+        && (!changedKeys().hasAny(['photoDataUrl']) || request.resource.data.photoDataUrl is string)
+        && (!changedKeys().hasAny(['xp']) || request.resource.data.xp is number)
+        && (!changedKeys().hasAny(['actions']) || request.resource.data.actions is map)
+        && (!changedKeys().hasAny(['periodActions']) || request.resource.data.periodActions is map)
+        && (!changedKeys().hasAny(['badges']) || request.resource.data.badges is list)
+        && (!changedKeys().hasAny(['createdAt']) || request.resource.data.createdAt is timestamp)
+        && (!changedKeys().hasAny(['updatedAt']) || request.resource.data.updatedAt is timestamp);
     }
 
-    function isActive() {
-      // Backwards-compatible: treat missing `active` as active to avoid breaking legacy data.
-      return resource.data.active != false;
+    function isNonIncreasingNumber(nextValue, currentValue) {
+      return nextValue is number
+        && currentValue is number
+        && nextValue >= 0
+        && nextValue <= currentValue;
     }
 
-    function productExternalLinksFieldIsAllowed() {
-      return !("externalLinks" in request.resource.data)
-        || request.resource.data.externalLinks is list
-        || request.resource.data.externalLinks is map;
+    function isPublicProductQuantityUpdate() {
+      return changedKeys().hasOnly([
+          'quantity',
+          'stock',
+          'stockQuantity',
+          'availableQuantity',
+          'availableStock',
+          'inventory',
+          'updatedAt'
+        ])
+        && changedKeys().hasAny([
+          'quantity',
+          'stock',
+          'stockQuantity',
+          'availableQuantity',
+          'availableStock',
+          'inventory'
+        ])
+        && (!changedKeys().hasAny(['quantity']) || isNonIncreasingNumber(request.resource.data.quantity, resource.data.quantity))
+        && (!changedKeys().hasAny(['stock']) || isNonIncreasingNumber(request.resource.data.stock, resource.data.stock))
+        && (!changedKeys().hasAny(['stockQuantity']) || isNonIncreasingNumber(request.resource.data.stockQuantity, resource.data.stockQuantity))
+        && (!changedKeys().hasAny(['availableQuantity']) || isNonIncreasingNumber(request.resource.data.availableQuantity, resource.data.availableQuantity))
+        && (!changedKeys().hasAny(['availableStock']) || isNonIncreasingNumber(request.resource.data.availableStock, resource.data.availableStock))
+        && (!changedKeys().hasAny(['inventory']) || isNonIncreasingNumber(request.resource.data.inventory, resource.data.inventory))
+        && (!changedKeys().hasAny(['updatedAt']) || request.resource.data.updatedAt is timestamp);
     }
 
-    function canCreateProductData() {
-      return canReadAnyCompany()
-        || (isAdmin() && hasUserProfile() && request.resource.data.companyId == userCompanyId());
+    function isValidDefaultOrderPriceMode() {
+      return !request.resource.data.keys().hasAny(['defaultOrderPriceMode'])
+        || request.resource.data.defaultOrderPriceMode in ['retail', 'business'];
     }
 
-    function canUpdateProductData() {
-      return canReadAnyCompany()
-        || (isAdmin()
-          && hasUserProfile()
-          && resource.data.companyId == userCompanyId()
-          && request.resource.data.companyId == userCompanyId());
+    function isValidInvoiceSequenceCreate() {
+      return request.resource.data.keys().hasOnly([
+          'scope',
+          'year',
+          'lastValue',
+          'lastInvoiceId',
+          'updatedAt',
+          'updatedBy'
+        ])
+        && request.resource.data.scope == 'global'
+        && request.resource.data.year is int
+        && request.resource.data.lastValue == 1
+        && request.resource.data.lastInvoiceId is string
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy is string;
     }
 
-    match /products/{productId} {
-      allow read: if isActive();
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow create: if isSignedIn() && canCreateProductData() && productExternalLinksFieldIsAllowed();
-      allow update: if isSignedIn() && canUpdateProductData() && productExternalLinksFieldIsAllowed();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
+    function isValidInvoiceSequenceUpdate() {
+      return changedKeys().hasOnly([
+          'lastValue',
+          'lastInvoiceId',
+          'updatedAt',
+          'updatedBy'
+        ])
+        && request.resource.data.scope == resource.data.scope
+        && request.resource.data.year == resource.data.year
+        && request.resource.data.lastValue is int
+        && request.resource.data.lastValue == resource.data.lastValue + 1
+        && request.resource.data.lastInvoiceId is string
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedBy is string;
     }
 
-    match /categories/{categoryId} {
-      allow read: if isActive();
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow create, update: if isSignedIn() && canWriteCompanyData();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
+    function isInventoryRecord() {
+      return request.resource.data.date is string
+        && request.resource.data.productId is string
+        && request.resource.data.totalBaked is number
+        && request.resource.data.totalBaked >= 0
+        && request.resource.data.locked is bool
+        && request.resource.data.updatedAt is timestamp;
     }
 
-    match /banners/{bannerId} {
-      allow read: if isActive();
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow create, update: if isSignedIn() && canWriteCompanyData();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
+    function isPublicOrderCreate() {
+      return request.resource.data.keys().hasOnly([
+          'customerName',
+          'customerPhone',
+          'customerEmail',
+          'customerAddress',
+          'productId',
+          'productName',
+          'items',
+          'quantity',
+          'totalAmount',
+          'subtotal',
+          'selectedPriceMode',
+          'notes',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'orderDate',
+          'source',
+          'paymentMethod',
+          'campaignId',
+          'sessionId',
+          'storeId',
+          'companyId'
+        ])
+        && request.resource.data.customerName is string
+        && request.resource.data.status == "reserved"
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.keys().hasAny(['productId', 'items'])
+        && (!request.resource.data.keys().hasAny(['productId']) || request.resource.data.productId is string)
+        && (!request.resource.data.keys().hasAny(['productName']) || request.resource.data.productName is string)
+        && (!request.resource.data.keys().hasAny(['items']) || request.resource.data.items is list)
+        && (!request.resource.data.keys().hasAny(['quantity']) || (request.resource.data.quantity is number && request.resource.data.quantity > 0))
+        && (!request.resource.data.keys().hasAny(['totalAmount']) || (request.resource.data.totalAmount is number && request.resource.data.totalAmount >= 0))
+        && (!request.resource.data.keys().hasAny(['subtotal']) || (request.resource.data.subtotal is number && request.resource.data.subtotal >= 0))
+        && (!request.resource.data.keys().hasAny(['selectedPriceMode']) || request.resource.data.selectedPriceMode in ['retail', 'business'])
+        && (!request.resource.data.keys().hasAny(['updatedAt']) || request.resource.data.updatedAt is timestamp)
+        && (!request.resource.data.keys().hasAny(['customerPhone']) || request.resource.data.customerPhone is string)
+        && (!request.resource.data.keys().hasAny(['customerEmail']) || request.resource.data.customerEmail is string)
+        && (!request.resource.data.keys().hasAny(['customerAddress']) || request.resource.data.customerAddress is string)
+        && (!request.resource.data.keys().hasAny(['notes']) || request.resource.data.notes is string)
+        && (!request.resource.data.keys().hasAny(['source']) || request.resource.data.source is string)
+        && (!request.resource.data.keys().hasAny(['paymentMethod']) || request.resource.data.paymentMethod is string)
+        && (!request.resource.data.keys().hasAny(['campaignId']) || request.resource.data.campaignId is string)
+        && (!request.resource.data.keys().hasAny(['sessionId']) || request.resource.data.sessionId is string)
+        && (!request.resource.data.keys().hasAny(['storeId']) || request.resource.data.storeId is string)
+        && (!request.resource.data.keys().hasAny(['companyId']) || request.resource.data.companyId is string);
     }
 
-    match /payment_methods/{methodId} {
-      allow read: if isActive();
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow create, update: if isSignedIn() && canWriteCompanyData();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
-    }
-
-    match /product_collections/{collectionId} {
-      allow read: if isActive();
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow create, update: if isSignedIn() && canWriteCompanyData();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
-    }
-
-    match /inventory/{dateId} {
+    // ===============================
+    // PUBLIC / CMS CONTENT
+    // ===============================
+    match /pages/{id} {
       allow read: if true;
-      allow create, update: if isSignedIn() && canWriteCompanyData();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
+      allow create, update: if isAdmin();
+      allow delete: if false;
     }
 
-    match /pages/{pageId} {
+    match /products/{id} {
       allow read: if true;
-      allow create, update: if isSignedIn() && canWriteCompanyData();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || isPublicProductQuantityUpdate();
+      allow delete: if false;
     }
 
-    match /shop_settings/{docId} {
+    match /categories/{id} {
       allow read: if true;
-      allow create, update: if isSignedIn() && canWriteCompanyData();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
+      allow create, update: if isAdmin();
+      allow delete: if false;
     }
 
-    match /storefront_configs/{companyId} {
+    match /banners/{id} {
       allow read: if true;
-      allow create, update: if isSignedIn()
-        && companyId == request.resource.data.companyId
-        && canWriteCompanyData();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
-    }
-
-    match /store_media/{assetId} {
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow create: if isSignedIn() && canWriteCompanyData();
-      allow update: if isSignedIn() && canDeleteCompanyData() && canWriteCompanyData();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
+      allow create, update: if isAdmin();
+      allow delete: if false;
     }
 
     match /campaigns/{campaignId} {
       allow read: if true;
-      allow create, update: if isSignedIn() && canWriteCompanyData();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /campaigns/{campaignId}/{document=**} {
+      allow read: if true;
+      allow create, update: if isAdmin();
+      allow delete: if false;
     }
 
     match /campaign_events/{eventId} {
       allow create: if
-        request.resource.data.companyId is string &&
         request.resource.data.campaignId is string &&
         request.resource.data.sessionId is string &&
         request.resource.data.timestamp != null &&
         request.resource.data.actionType is string;
 
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow update, delete: if false;
+      allow read: if true;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ===============================
+    // PUBLIC STOREFRONT CONFIG
+    // ===============================
+    match /storefront_configs/{companyId} {
+      allow read: if true;
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /product_collections/{collectionId} {
+      allow read: if true;
+      allow create, update: if isAdmin();
+      allow delete: if false;
     }
 
     match /storefront_events/{eventId} {
@@ -230,287 +289,324 @@ service cloud.firestore {
         request.resource.data.companyId is string &&
         request.resource.data.actionType is string &&
         request.resource.data.sessionId is string &&
-        request.resource.data.path is string;
+        request.resource.data.timestamp != null;
 
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow update, delete: if false;
-    }
-
-    function isValidHamsterSpinImage(data) {
-      return data.companyId is string
-        && data.id is string
-        && data.imageUrl is string
-        && data.label is string
-        && data.active is bool
-        && data.sortOrder is number
-        && data.createdAt is timestamp
-        && data.updatedAt is timestamp;
-    }
-
-    function isValidHamsterSpinImageUpdate(data) {
-      return data.companyId is string
-        && data.id is string
-        && data.imageUrl is string
-        && data.label is string
-        && data.active is bool
-        && data.sortOrder is number
-        && data.createdAt is timestamp
-        && data.updatedAt is timestamp;
-    }
-
-    function isValidGameSpinImage(data, storeId, gameId) {
-      return data.storeId == storeId
-        && data.gameId == gameId
-        && data.id is string
-        && data.imageUrl is string
-        && data.label is string
-        && data.active is bool
-        && data.sortOrder is number
-        && data.createdAt is timestamp
-        && data.updatedAt is timestamp;
-    }
-
-    function isValidGamePayoutRule(data, storeId, gameId) {
-      return data.storeId == storeId
-        && data.gameId == gameId
-        && data.id is string
-        && data.rewardName is string
-        && data.rewardType is string
-        && data.matchType is string
-        && data.requiredMatches is number
-        && data.requiredMatches > 0
-        && data.payoutAmount is number
-        && data.payoutAmount >= 0
-        && data.payoutLabel is string
-        && data.active is bool
-        && data.sortOrder is number
-        && data.createdAt is timestamp
-        && data.updatedAt is timestamp;
-    }
-
-    match /stores/{storeId}/games/{gameId}/spinImages/{imageId} {
-      allow read: if resource.data.active == true;
-      allow read: if isSignedIn() && canReadStorePath(storeId);
-      allow create: if isSignedIn()
-        && canWriteStorePath(storeId)
-        && request.resource.data.id == imageId
-        && isValidGameSpinImage(request.resource.data, storeId, gameId);
-      allow update: if isSignedIn()
-        && canWriteStorePath(storeId)
-        && resource.data.id == request.resource.data.id
-        && resource.data.storeId == request.resource.data.storeId
-        && resource.data.gameId == request.resource.data.gameId
-        && isValidGameSpinImage(request.resource.data, storeId, gameId);
+      allow read, update: if isAdmin();
       allow delete: if false;
     }
 
-    match /stores/{storeId}/games/{gameId}/settings/{settingsId} {
-      allow read: if true;
-      allow create, update: if isSignedIn() && canWriteStorePath(storeId);
+    // ===============================
+    // DAILY INVENTORY
+    // ===============================
+    match /inventory/{dateId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() && isInventoryRecord();
       allow delete: if false;
     }
 
-    match /stores/{storeId}/games/{gameId}/payouts/{payoutId} {
-      allow read: if resource.data.active == true;
-      allow read: if isSignedIn() && canReadStorePath(storeId);
-      allow create: if isSignedIn()
-        && canWriteStorePath(storeId)
-        && request.resource.data.id == payoutId
-        && isValidGamePayoutRule(request.resource.data, storeId, gameId);
-      allow update: if isSignedIn()
-        && canWriteStorePath(storeId)
-        && resource.data.id == request.resource.data.id
-        && resource.data.storeId == request.resource.data.storeId
-        && resource.data.gameId == request.resource.data.gameId
-        && isValidGamePayoutRule(request.resource.data, storeId, gameId);
-      allow delete: if isSignedIn() && canWriteStorePath(storeId);
-    }
-
-    match /hamster_spin_images/{imageId} {
-      allow read: if resource.data.active == true;
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow create: if isSignedIn()
-        && canWriteCompanyData()
-        && isValidHamsterSpinImage(request.resource.data)
-        && request.resource.data.id == imageId;
-      allow update: if isSignedIn()
-        && canWriteCompanyData()
-        && resource.data.companyId == request.resource.data.companyId
-        && resource.data.id == request.resource.data.id
-        && isValidHamsterSpinImageUpdate(request.resource.data);
-      allow delete: if false;
-    }
-
+    // ===============================
+    // INVENTORY TEMPLATES
+    // ===============================
     match /inventory_templates/{templateId} {
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow create, update: if isSignedIn() && canWriteCompanyData();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
+      allow read: if isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if false;
     }
 
-    match /orders/{orderId} {
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow create, update: if isSignedIn() && canWriteCompanyData();
-      allow delete: if isSignedIn() && canDeleteCompanyData();
+    // ===============================
+    // PAYMENT METHODS
+    // ===============================
+    match /payment_methods/{methodId} {
+      allow read: if true;
+      allow create, update: if isAdmin();
+      allow delete: if false;
     }
 
-    match /companies/{companyId} {
-      allow read: if isSignedIn() && (canReadAnyCompany() || (hasUserProfile() && companyId == userCompanyId()));
-      allow write: if isSignedIn() && canReadAnyCompany();
-    }
-
-    match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isProfileAdmin());
-      allow create: if isSignedIn() && isSafeSelfProfileCreate(userId);
-      allow update: if isSignedIn() && (isSafeSelfProfileUpdate(userId) || isProfileAdmin());
-      allow delete: if isSignedIn() && isProfileAdmin();
-    }
-
-    match /user_invites/{inviteId} {
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow create: if isSignedIn() && isPeopleAdmin() && canWriteCompanyData();
-      allow update: if isSignedIn()
-        && isPeopleAdmin()
-        && resource.data.companyId == request.resource.data.companyId
-        && canWriteCompanyData();
-      allow delete: if isSignedIn() && isPeopleAdmin() && canDeleteCompanyData();
-    }
-
+    // ===============================
+    // AUDIT LOGS
+    // ===============================
     match /audit_logs/{logId} {
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow create: if isSignedIn() && canWriteCompanyData();
+      allow read: if isAdmin();
+      allow create: if isAdmin();
       allow update, delete: if false;
     }
 
-    match /qr_links/{linkId} {
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow write: if false;
-    }
+    // ===============================
+    // ORDERS
+    // ===============================
+    match /orders/{orderId} {
+      allow read: if isAdmin();
+      allow delete: if false;
 
-    match /qr_link_periods/{periodId} {
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow write: if false;
-    }
+      allow create, update: if isAdmin();
 
-    match /qr_click_events/{eventId} {
-      allow read: if isSignedIn() && canReadCompanyData();
-      allow write: if false;
-    }
-
-    // Alpha hamster-game accounts use client-side PIN hashing and no Firebase Auth.
-    // This allows the current flow to work, but it is not strong security.
-    // Production should move account verification and reward writes to Firebase Auth or Cloud Functions.
-    function isValidSeedMap(data) {
-      return data is map
-        && data.poppy is number
-        && data.sesame is number
-        && data.almond is number
-        && data.walnut is number;
-    }
-
-    function isValidSpinMap(data) {
-      return data is map
-        && data.available is number
-        && data.totalEarnedFromTasks is number
-        && (
-          !("dailyFreeUsedDate" in data)
-          || data.dailyFreeUsedDate == null
-          || data.dailyFreeUsedDate is string
-        );
-    }
-
-    function isValidStatsMap(data) {
-      return data is map
-        && data.totalSpins is number
-        && data.totalWins is number
-        && data.biggestWin is string
-        && (
-          !("lastSpinAt" in data)
-          || data.lastSpinAt == null
-          || data.lastSpinAt is string
-        );
-    }
-
-    function isValidTaskMap(data) {
-      return data is map
-        && data.followInstagram is map
-        && data.shareGame is map
-        && data.visitWebsite is map
-        && data.inviteFriend is map
-        && data.scanQr is map
-        && data.enterReceiptCode is map;
-    }
-
-    function isValidAvatarMap(data) {
-      return data is map
-        && data.size is string
-        && data.mood is string
-        && data.furTone is number
-        && data.pattern is number
-        && data.eyeStyle is number
-        && data.earStyle is number
-        && data.hairStyle is number
-        && data.hairColor is string
-        && data.beard is bool
-        && data.glasses is number
-        && data.hat is number
-        && data.outfit is number
-        && data.accessory is number
-        && data.whiskers is number;
-    }
-
-    function isValidLoginBonusMap(data) {
-      return data is map
-        && data.day is number
-        && (
-          !("lastClaimDate" in data)
-          || data.lastClaimDate == null
-          || data.lastClaimDate is string
-        )
-        && (
-          !("lastClaimTimestamp" in data)
-          || data.lastClaimTimestamp == null
-          || data.lastClaimTimestamp is string
-          || data.lastClaimTimestamp is timestamp
-        )
-        && data.longestStreak is number;
-    }
-
-    match /individual_customers/{customerId} {
-      allow read: if true;
-
-      allow create: if
-        request.resource.data.username is string
-        && request.resource.data.usernameIndex is string
-        && request.resource.data.pinHash is string
-        && request.resource.data.category == "free"
-        && request.resource.data.createdAt is timestamp
-        && request.resource.data.updatedAt is timestamp
-        && isValidSeedMap(request.resource.data.seeds)
-        && isValidSpinMap(request.resource.data.spins)
-        && isValidStatsMap(request.resource.data.stats)
-        && isValidLoginBonusMap(request.resource.data.loginBonus)
-        && isValidAvatarMap(request.resource.data.avatar)
-        && request.resource.data.rewards is list
-        && isValidTaskMap(request.resource.data.tasks);
+      allow create: if isPublicOrderCreate();
 
       allow update: if
-        request.resource.data.username == resource.data.username
-        && request.resource.data.usernameIndex == resource.data.usernameIndex
-        && request.resource.data.pinHash == resource.data.pinHash
-        && request.resource.data.category == resource.data.category
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.updatedAt is timestamp
-        && isValidSeedMap(request.resource.data.seeds)
-        && isValidSpinMap(request.resource.data.spins)
-        && isValidStatsMap(request.resource.data.stats)
-        && isValidLoginBonusMap(request.resource.data.loginBonus)
-        && isValidAvatarMap(request.resource.data.avatar)
-        && request.resource.data.rewards is list
-        && isValidTaskMap(request.resource.data.tasks);
+        isAdmin()
+        ||
+        (
+          request.resource.data.diff(resource.data)
+            .affectedKeys()
+            .hasOnly(['receiptUrl', 'status'])
+          && request.resource.data.status == "pending_verification"
+          && resource.data.get('paymentType', '') != 'qr_receipt'
+        );
+    }
+
+    // ===============================
+    // ORDER ARCHIVE
+    // ===============================
+    match /orders_archive/{orderId} {
+      allow read, create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ===============================
+    // PAYMENT REQUESTS
+    // ===============================
+    match /paymentRequests/{paymentId} {
+      allow read: if isAdmin();
+
+      allow create: if isAdmin()
+        && request.resource.data.orderId is string
+        && request.resource.data.amount is number
+        && request.resource.data.qrProvider is string
+        && request.resource.data.status == "waiting"
+        && request.resource.data.createdAt is timestamp;
+
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ===============================
+    // COLLISION-PROOF INVOICE SEQUENCES
+    // ===============================
+    match /invoice_sequences/{sequenceId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isValidInvoiceSequenceCreate();
+      allow update: if isAdmin() && isValidInvoiceSequenceUpdate();
+      allow delete: if false;
+    }
+
+    // ===============================
+    // INVOICES
+    // ===============================
+    match /invoices/{invoiceId} {
+      allow read: if isAdmin();
+
+      allow create: if isAdmin()
+        && request.resource.data.orderId is string
+        && request.resource.data.totalAmount is number
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.invoiceNumber is string
+        && request.resource.data.items is list;
+
+      allow update: if
+        isAdmin()
+        ||
+        (
+          request.resource.data.secureToken is string
+          && resource.data.secureToken is string
+          && request.resource.data.secureToken == resource.data.secureToken
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'returnRequested',
+              'returnItems',
+              'returnPhotos',
+              'returnNote',
+              'returnedBy',
+              'returnedAt',
+              'status',
+              'updatedAt'
+            ])
+          && request.resource.data.status in ['pending', 'return_pending']
+        );
 
       allow delete: if false;
     }
 
+    match /processed_invoice_intents/{intentId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin()
+        && request.resource.data.intentId == intentId;
+      allow delete: if false;
+    }
+
+    // ===============================
+    // QR ACTIVITY LOGS
+    // ===============================
+    match /qr_activity_logs/{logId} {
+      allow create: if
+        request.resource.data.invoiceId is string &&
+        request.resource.data.action is string &&
+        request.resource.data.createdAt is timestamp;
+
+      allow read, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ===============================
+    // PUBLIC QR INVOICE SNAPSHOTS
+    // ===============================
+    match /invoice_qr_links/{token} {
+      allow read: if true;
+
+      allow create, update: if isAdmin()
+        && request.resource.data.invoiceId is string
+        && request.resource.data.token is string
+        && request.resource.data.invoiceNumber is string
+        && request.resource.data.items is list;
+
+      allow delete: if false;
+    }
+
+    // ===============================
+    // CUSTOMER INVOICE APPROVAL LINKS
+    // ===============================
+    match /invoiceApprovalLinks/{token} {
+      allow get: if true;
+      allow list: if isAdmin();
+
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly([
+          'invoiceId',
+          'token',
+          'status',
+          'createdAt',
+          'expiresAt',
+          'responseSubmittedAt',
+          'responseType',
+          'customerChanges',
+          'invoiceSnapshot'
+        ])
+        && request.resource.data.invoiceId is string
+        && request.resource.data.token == token
+        && request.resource.data.status == "pending"
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.invoiceSnapshot is map;
+
+      allow update: if isAdmin()
+        ||
+        (
+          resource.data.token == token
+          && resource.data.status == "pending"
+          && request.time < resource.data.expiresAt
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'status',
+              'responseSubmittedAt',
+              'responseType',
+              'customerChanges'
+            ])
+          && request.resource.data.status in ['accepted', 'modified']
+          && request.resource.data.responseType in ['accepted', 'modified']
+          && request.resource.data.responseType == request.resource.data.status
+          && request.resource.data.responseSubmittedAt is timestamp
+        );
+
+      allow delete: if false;
+    }
+
+    // ===============================
+    // NOTIFICATIONS
+    // ===============================
+    match /notifications/{notificationId} {
+      allow read, update: if isAdmin();
+      allow delete: if false;
+      allow create: if isAdmin()
+        ||
+        (
+          request.resource.data.keys().hasOnly([
+            'type',
+            'invoiceId',
+            'responseType',
+            'createdAt'
+          ])
+          &&
+          request.resource.data.type == "invoiceApprovalResponse"
+          && request.resource.data.invoiceId is string
+          && request.resource.data.responseType in ['accepted', 'modified']
+          && request.resource.data.createdAt is timestamp
+        );
+    }
+
+    // ===============================
+    // INVOICE SETTINGS
+    // ===============================
+    match /settings/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidDefaultOrderPriceMode();
+      allow delete: if false;
+    }
+
+    match /shop_settings/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ===============================
+    // CUSTOMERS / CRM
+    // ===============================
+    match /customers/{customerId} {
+      allow read, create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ===============================
+    // PRIVATE STORE RECORDS
+    // ===============================
+    match /companies/{companyId} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ===============================
+    // USER PROFILES / XP / BADGES
+    // ===============================
+    match /users/{userId} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow create: if isAdmin() || isOwnProfileCreate(userId);
+      allow update: if isAdmin() || isOwnProfileUpdate(userId);
+      allow delete: if false;
+    }
+
+    // ===============================
+    // Exactly-once staff workflow rewards. Additive; existing profiles stay compatible.
+    match /workflow_rewards/{rewardId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['actorId', 'action', 'entityId', 'createdAt'])
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.action in ['ordersCreated', 'invoicesCreated', 'invoicesPrinted']
+        && request.resource.data.entityId is string
+        && request.resource.data.createdAt is timestamp;
+      allow update, delete: if false;
+    }
+
+    // STORE MEDIA LIBRARY
+    // ===============================
+    match /store_media/{mediaId} {
+      allow read: if isAdmin();
+
+      allow create, update: if isAdmin()
+        && request.resource.data.companyId is string
+        && request.resource.data.type is string
+        && request.resource.data.name is string
+        && request.resource.data.path is string
+        && request.resource.data.url is string
+        && request.resource.data.contentType is string
+        && request.resource.data.size is number;
+
+      allow delete: if false;
+    }
+
+    // ===============================
+    // DEFAULT DENY
+    // ===============================
     match /{document=**} {
       allow read, write: if false;
     }

@@ -1,0 +1,12 @@
+.qr-payment-panel { margin:24px 0; padding:24px; border:1px solid #d5dfd2; border-radius:16px; background:#fafcf8; color:#24352b; }
+.qr-payment-panel h2 { margin-top:0; }
+.qr-payment-panel fieldset { border:0; padding:0; margin:20px 0; }
+.qr-payment-panel legend { font-weight:700; margin-bottom:16px; }
+.qr-payment-panel label { display:grid; gap:8px; margin:16px 0; }
+.qr-payment-panel input { box-sizing:border-box; width:100%; min-width:0; padding:12px; border:1px solid #aebcad; border-radius:8px; background:white; }
+.qr-payment-panel button { padding:12px 20px; border:0; border-radius:8px; color:white; background:#315a3c; cursor:pointer; font:inherit; }
+.qr-payment-panel button:disabled { opacity:.6; cursor:wait; }
+.qr-payment-panel .qr-bank-image { display:block; width:100%; max-width:280px; max-height:380px; object-fit:contain; margin:16px auto; background:white; }
+.qr-payment-note { padding:12px; background:#fff3da; border-radius:8px; }
+.qr-payment-panel [hidden] { display:none !important; }
+.qr-status { overflow-wrap:anywhere; }

@@ -398,7 +398,9 @@ async function releaseInventory(tx, dateStr, items, companyId = COMPANY_ID) {
     tx.update(inventoryRef, inventoryUpdates);
 }
 
-exports.createStoreOwnerUser = functions.https.onCall(async (data, context) => {
+exports.createStoreOwnerUser = functions.https.onCall(async (request) => {
+    const { data } = request;
+    const context = request;
     let createdUid = null;
 
     try {
@@ -496,7 +498,9 @@ exports.createStoreOwnerUser = functions.https.onCall(async (data, context) => {
     }
 });
 
-exports.createOrder = functions.https.onCall(async (data, context) => {
+exports.createOrder = functions.https.onCall(async (request) => {
+    const { data } = request;
+    const context = request;
     const companyId = resolveCompanyId(data?.companyId);
     const dateStr = asTrimmedString(data?.dateStr, 20);
     const deliveryMethod = data?.fulfillment?.method === 'pickup' ? 'pickup' : 'delivery';
@@ -636,7 +640,52 @@ exports.createOrder = functions.https.onCall(async (data, context) => {
     });
 });
 
-exports.submitPaymentProof = functions.https.onCall(async (data) => {
+exports.createQrProductOrder = functions.https.onCall(async (request) => {
+    const { data } = request;
+    const context = request;
+    if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Please reconnect and try again.');
+    const productId = asTrimmedString(data?.productId, 120);
+    const companyId = asTrimmedString(data?.companyId, 80);
+    const customerName = asTrimmedString(data?.customerName, 160);
+    const customerPhone = asTrimmedString(data?.customerPhone, 40);
+    if (!productId || productId.includes('/') || !COMPANY_ID_PATTERN.test(companyId) || !customerName || customerPhone.replace(/\D/g, '').length < 6) {
+        throw new functions.https.HttpsError('invalid-argument', 'Enter your full name and a valid phone number.');
+    }
+    return db.runTransaction(async tx => {
+        const snap = await tx.get(db.doc(`products/${productId}`));
+        const product = snap.data();
+        if (!snap.exists || product.active !== true || product.qrPayment?.enabled !== true) {
+            throw new functions.https.HttpsError('failed-precondition', 'QR payment is unavailable for this product.');
+        }
+        ensureCompanyDoc(product, 'Product', productId, companyId);
+        const total = getRetailPrice(product);
+        const qrUrl = asTrimmedString(product.qrPayment.qrUrl, 2000);
+        if (!Number.isFinite(total) || total <= 0 || !/^https:\/\//i.test(qrUrl)) {
+            throw new functions.https.HttpsError('failed-precondition', 'The seller needs to configure a price and QR image.');
+        }
+        const orderRef = db.collection('orders').doc();
+        const orderToken = crypto.randomBytes(24).toString('hex');
+        const accountName = asTrimmedString(product.qrPayment.accountName, 160);
+        tx.set(orderRef, {
+            companyId, customerName, customerPhone, customerAddress: '', customerNotes: '',
+            customerUid: context.auth.uid, orderToken, paymentType: 'qr_receipt',
+            qrPayment: { qrUrl, accountName }, inventoryReserved: false,
+            date: new Date().toISOString().slice(0, 10),
+            items: [{ productId, name: product.name_en || product.name_ru || product.name_kg || productId,
+                name_en: product.name_en || '', name_ru: product.name_ru || '', name_kg: product.name_kg || '',
+                quantity: 1, unitPrice: total, lineTotal: total, priceType: 'retail' }],
+            itemCount: 1, subtotal: total, total, deliveryFee: 0, shippingIncluded: false,
+            deliveryMethod: 'none', currency: 'KGS', pricingMode: 'retail',
+            status: 'pending_payment', paymentStatus: 'unpaid',
+            createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp()
+        });
+        return { orderId: orderRef.id, orderToken, total, qrUrl, accountName };
+    });
+});
+
+exports.submitPaymentProof = functions.https.onCall(async (request) => {
+    const { data } = request;
+    const context = request;
     const orderId = asTrimmedString(data?.orderId, 120);
     const orderToken = asTrimmedString(data?.orderToken, 120);
     const paymentMethodId = asTrimmedString(data?.paymentMethodId, 120);
@@ -646,7 +695,8 @@ exports.submitPaymentProof = functions.https.onCall(async (data) => {
         throw new functions.https.HttpsError('invalid-argument', 'Missing order payment details');
     }
 
-    if (!receiptPath.startsWith(`order_receipts/${orderId}/`)) {
+    const isQrReceipt = Boolean(context.auth && receiptPath.startsWith(`qr_receipts/${context.auth.uid}/${orderId}/`));
+    if (!isQrReceipt && !receiptPath.startsWith(`order_receipts/${orderId}/`)) {
         throw new functions.https.HttpsError('permission-denied', 'Invalid receipt path');
     }
 
@@ -654,6 +704,11 @@ exports.submitPaymentProof = functions.https.onCall(async (data) => {
     const [exists] = await file.exists();
     if (!exists) {
         throw new functions.https.HttpsError('not-found', 'Receipt upload not found');
+    }
+    const [metadata] = await file.getMetadata();
+    if (!(Number(metadata.size) > 0 && Number(metadata.size) < 5 * 1024 * 1024) ||
+        !['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(metadata.contentType)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Receipt must be an image or PDF under 5 MB.');
     }
 
     let receiptUrl = '';
@@ -665,6 +720,7 @@ exports.submitPaymentProof = functions.https.onCall(async (data) => {
         receiptUrl = signedUrl;
     } catch (error) {
         console.warn('Receipt URL generation failed:', error);
+        if (isQrReceipt) throw new functions.https.HttpsError('unavailable', 'Could not prepare receipt for review. Retry without paying again.');
     }
 
     return db.runTransaction(async (tx) => {
@@ -679,6 +735,11 @@ exports.submitPaymentProof = functions.https.onCall(async (data) => {
         const orderCompanyId = order.companyId || COMPANY_ID;
         ensureCompanyDoc(order, 'Order', orderId, orderCompanyId);
         ensureOrderToken(order, orderToken);
+
+        if (order.paymentType === 'qr_receipt' && (!isQrReceipt || context.auth?.uid !== order.customerUid)) {
+            throw new functions.https.HttpsError('permission-denied', 'Receipt does not belong to this customer.');
+        }
+        if (order.status === 'pending_verification' && order.receiptPath === receiptPath) return { ok: true };
 
         if (paymentMethodId) {
             const methodSnap = await tx.get(db.doc(`payment_methods/${paymentMethodId}`));
@@ -702,6 +763,7 @@ exports.submitPaymentProof = functions.https.onCall(async (data) => {
             paymentStatus: 'submitted',
             paymentMethodId: paymentMethodId || null,
             receiptPath,
+            receiptContentType: metadata.contentType,
             receiptUrl: receiptUrl || null,
             paymentSubmittedAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp()
@@ -711,7 +773,8 @@ exports.submitPaymentProof = functions.https.onCall(async (data) => {
     });
 });
 
-exports.cancelOrder = functions.https.onCall(async (data) => {
+exports.cancelOrder = functions.https.onCall(async (request) => {
+    const { data } = request;
     const orderId = asTrimmedString(data?.orderId, 120);
     const orderToken = asTrimmedString(data?.orderToken, 120);
     const reason = asTrimmedString(data?.reason, 120) || 'user_cancelled';
@@ -737,7 +800,7 @@ exports.cancelOrder = functions.https.onCall(async (data) => {
             throw new functions.https.HttpsError('failed-precondition', 'Order can no longer be cancelled');
         }
 
-        await releaseInventory(tx, order.date, getOrderLineItems(order), orderCompanyId);
+        if (order.inventoryReserved !== false) await releaseInventory(tx, order.date, getOrderLineItems(order), orderCompanyId);
 
         tx.update(orderRef, {
             status: 'cancelled',
@@ -751,7 +814,8 @@ exports.cancelOrder = functions.https.onCall(async (data) => {
     });
 });
 
-exports.getOrderStatus = functions.https.onCall(async (data) => {
+exports.getOrderStatus = functions.https.onCall(async (request) => {
+    const { data } = request;
     const orderId = asTrimmedString(data?.orderId, 120);
     const orderToken = asTrimmedString(data?.orderToken, 120);
 
@@ -797,7 +861,9 @@ exports.getOrderStatus = functions.https.onCall(async (data) => {
     };
 });
 
-exports.importYandexMenu = functions.https.onCall(async (data, context) => {
+exports.importYandexMenu = functions.https.onCall(async (request) => {
+    const { data } = request;
+    const context = request;
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Sign in to import a Yandex menu');
     }

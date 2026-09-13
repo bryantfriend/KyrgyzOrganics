@@ -705,7 +705,7 @@ export class OrdersTab extends BaseTab {
             const id = d.id;
             const date = order.createdAt ? new Date(order.createdAt.toDate()) : new Date();
             const timeAgo = Math.floor((new Date() - date) / 60000); // mins
-            const isExpired = order.expiresAt?.toDate ? order.expiresAt.toDate() < new Date() : timeAgo > 15;
+            const isExpired = order.paymentType === 'qr_receipt' ? false : (order.expiresAt?.toDate ? order.expiresAt.toDate() < new Date() : timeAgo > 15);
             const receiptUrl = await this.getReceiptUrl(order);
             const normalizedStatus = normalizeOrderStatus(order.status, order);
             const transition = getNextOrderTransition({ id, ...order });
@@ -777,8 +777,8 @@ export class OrdersTab extends BaseTab {
                 ${receiptUrl ? `
                     <div style="margin-top:10px; border:1px solid #eee; padding:5px;">
                         <span style="font-size:0.8rem; font-weight:bold;">Receipt:</span><br>
-                        <a href="${receiptUrl}" target="_blank">
-                            <img src="${receiptUrl}" style="max-height:100px; max-width:100%; object-fit:contain;">
+                        <a href="${escapeHtml(receiptUrl)}" target="_blank" rel="noopener">
+                            ${order.receiptContentType === 'application/pdf' ? 'Open PDF receipt' : `<img src="${escapeHtml(receiptUrl)}" alt="Payment receipt" style="max-height:100px; max-width:100%; object-fit:contain;">`}
                         </a>
                     </div>
                 ` : ''}
@@ -941,6 +941,7 @@ export class OrdersTab extends BaseTab {
 
             let count = 0;
             for (const d of snap.docs) {
+                if (d.data().inventoryReserved === false) continue;
                 await this.cancelAndRelease(d.id, 'expired_cleanup');
                 count++;
             }

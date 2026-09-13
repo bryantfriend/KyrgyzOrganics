@@ -23,6 +23,8 @@
             "firestore.rules",
             "firestore.indexes.json",
             "storage.rules",
+            "firebase-debug*.log",
+            "QR-PAYMENTS.md",
             "migrate-companyId.js"
         ],
         "rewrites": [

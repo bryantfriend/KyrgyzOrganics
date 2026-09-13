@@ -1,4 +1,5 @@
 import { BaseTab } from './BaseTab.js';
+import { createQrPaymentEditor } from '../qr-payment-editor.js';
 import { db, functions, httpsCallable } from '../../firebase-config.js';
 import { uploadImage, logAudit } from '../utils.js';
 import { buildCollectionPageUrl, buildProductPageUrl, getBusinessPrice, getPreferredProductName, getRetailPrice, slugifyProductName } from '../../product-utils.js';
@@ -106,6 +107,7 @@ export class ProductsTab extends BaseTab {
     }
 
     async init() {
+        this.qrPaymentEditor = createQrPaymentEditor(this.form);
         window.editProduct = this.editProduct.bind(this);
         window.deleteProduct = this.deleteProduct.bind(this);
 
@@ -116,6 +118,7 @@ export class ProductsTab extends BaseTab {
     }
 
     onStoreChanged() {
+        this.resetForm();
         // Switch listeners to the newly-selected store.
         this.allProductsCache = [];
         this.collectionSelectedProductIds.clear();
@@ -1218,7 +1221,10 @@ export class ProductsTab extends BaseTab {
             if (!imageNoPackagingUrl && this.mediaImageNoPackagingUrl?.value) imageNoPackagingUrl = this.mediaImageNoPackagingUrl.value;
 
             const prices = this.readProductPricesFromForm();
+            const qrPayment = await this.qrPaymentEditor.save();
+            if (qrPayment.enabled && !(prices.retailPrice > 0)) throw new Error('QR payment requires a positive retail price.');
             const data = {
+                qrPayment,
                 companyId: getSelectedCompanyId(),
                 name_ru: document.getElementById('pNameRU').value,
                 name_en: document.getElementById('pNameEN').value,
@@ -1276,6 +1282,7 @@ export class ProductsTab extends BaseTab {
     }
 
     resetForm() {
+        this.qrPaymentEditor?.load();
         this.form.reset();
         this.pId.value = '';
         this.submitBtn.textContent = 'Add Product';
@@ -1317,6 +1324,7 @@ export class ProductsTab extends BaseTab {
         if (!p) return;
 
         this.pId.value = id;
+        this.qrPaymentEditor?.load(p.qrPayment);
         document.getElementById('pNameRU').value = p.name_ru || '';
         document.getElementById('pNameEN').value = p.name_en || '';
         document.getElementById('pNameKG').value = p.name_kg || '';

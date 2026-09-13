@@ -1,4 +1,5 @@
 import { auth, db } from './firebase-config.js';
+import { mountQrPayment } from './qr-payment.js?v=2.15.0';
 import { collection, doc, getDoc, getDocs, limit, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
@@ -412,6 +413,7 @@ function renderProductPage(product) {
     `;
 
     bindPageInteractions(product, shareUrl);
+    mountQrPayment(root, product);
 }
 
 function bindPageInteractions(product, shareUrl) {
@@ -550,4 +552,3 @@ init().catch((error) => {
     console.error('Product page failed to initialize:', error);
     renderMissingState();
 });
-
