@@ -13,7 +13,7 @@ export async function mutate(action,payload={}){
  localStorage.setItem(key,JSON.stringify(pending));
  try{const {data}=await call({action,...payload,requestId:pending.requestId});localStorage.removeItem(key);return data;}catch(error){if(!['functions/unavailable','functions/deadline-exceeded','functions/internal'].includes(error.code))localStorage.removeItem(key);throw error;}
 }
-export async function register(email,password){if(password.length<8)throw new Error('Use a password with at least 8 characters.');await linkWithCredential(auth.currentUser,EmailAuthProvider.credential(email,password));await sendEmailVerification(auth.currentUser);return load();}
+export async function register(email,password,contact){if(password.length<8)throw new Error('Use a password with at least 8 characters.');await mutate('contact',contact);await linkWithCredential(auth.currentUser,EmailAuthProvider.credential(email,password));await sendEmailVerification(auth.currentUser);return load();}
 export async function login(email,password){await signInWithEmailAndPassword(auth,email,password);return load();}
 export async function refreshVerification(){await reload(auth.currentUser);await auth.currentUser.getIdToken(true);return load();}
 export async function resendVerification(){await sendEmailVerification(auth.currentUser);}

@@ -43,3 +43,5 @@
 .reel-mascot[data-reaction="jackpot"] .mascot-halo{background:#f5df9a80}
 @media(max-width:620px){.screen-play .result-message{height:34px}.screen-play .spin-button:disabled{font-size:25px}.play-layout>.daily-card{align-self:stretch}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.reel.rolling img{filter:opacity(.6)}}
+
+.consent-check{display:flex!important;align-items:flex-start;gap:10px;text-align:left;font-size:13px;line-height:1.5;margin:18px 0}.consent-check input{width:18px!important;height:18px;flex:0 0 18px;margin:3px 0}#whatsapp-form input[type=tel]{width:100%;padding:12px;margin-top:8px}#whatsapp-form .input-hint{margin-bottom:20px}

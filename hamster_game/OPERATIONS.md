@@ -49,3 +49,11 @@ The canonical `oako.kg` site is GitHub Pages from `main`; Firebase Hosting is al
 - `node tests/qr-payment.test.mjs`
 - `node tests/hamster-ui.cjs` (UI fixtures; local Playwright path)
 - `node tests/hamster-live.cjs` (explicit live smoke test using the signed-in gcloud account; temporary records/accounts and analytic contributions are cleaned up)
+
+## WhatsApp registration and outreach
+
+Registration collects an international WhatsApp number and the player's confirmation that they use it. This checks number format, not ownership or WhatsApp membership. Marketing consent is optional, unchecked initially, and stored with the exact notice, version and server timestamp. Existing accounts without consent are opted out. Players can change preferences in My hamster. Staff can record STOP requests but cannot opt a player in.
+
+Admin → Games → Registered users lists registered accounts with pagination, email, number and consent. A shared text/picture template is saved privately in Firestore; uploaded pictures are resized in the admin browser. Open WhatsApp pre-fills a draft; staff presses Send in WhatsApp. Copy picture / Save picture provides the saved image for manual attachment. These controls recheck server consent each time; opted-out controls are disabled with hover/focus descriptions. WhatsApp Business API sending and ownership verification are not configured.
+
+Private records added: communications/whatsapp and consentHistory. No public Firestore access was added.

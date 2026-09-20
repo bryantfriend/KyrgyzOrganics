@@ -12,3 +12,5 @@ Notes:
 - Settings/analytics pass: added customizable daily login bonuses through Games settings, admin game analytics, public game settings loading with fallback, lever asset preload, and transparent-image upload fix by preserving canvas alpha.
 - Loading-screen fix pass: normalized ICF `resultHelpers` imports from `Engine` to `engine` after hosted browser logs showed `/ICF/Engine/resultHelpers.js` 404ing on case-sensitive hosting.
 - Verification: `node --check hamster_game/app.js`; Playwright loaded `http://127.0.0.1:19782/hamster_game/`, confirmed loading screen exits, no failed requests/4xx responses, and a spin completes with updated seed state.
+
+2026-09-20: Added WhatsApp number confirmation and optional registration consent, editable user preferences, registered-user admin pagination, private saved text/picture templates, server consent checks and staff opt-out recording. Unit, UI and web-game skill checks pass.

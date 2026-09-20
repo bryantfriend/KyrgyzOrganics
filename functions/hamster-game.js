@@ -1,6 +1,7 @@
 'use strict';
 const crypto=require('node:crypto');
 const D=require('./hamster-domain');
+const C=require('./hamster-contact');
 const ROOT='stores/kyrgyz-organics/games/hamster-spin';
 module.exports=function createHamsterGame({db,functions,admin}){
  const error=(code,message)=>{throw new functions.https.HttpsError(code,message);};
@@ -20,12 +21,13 @@ module.exports=function createHamsterGame({db,functions,admin}){
     const settings=D.settingsFrom(ss.data());let p=ps.data();const counts={};
     if(!p){p=D.initialPlayer(uid,settings,now);counts.players=1;}
     if(isRegistered(req)&&!p.registered){p.registered=true;counts.registrations=1;}
-    if(!ps.exists||p.registered!==ps.data()?.registered)tx.set(ref(`players/${uid}`),p);
+    if(isRegistered(req))p.email=String(req.auth.token.email||p.email||'');
+    if(!ps.exists||p.registered!==ps.data()?.registered||p.email!==ps.data()?.email)tx.set(ref(`players/${uid}`),p);
     if(!vs.exists){tx.set(ref(`visits/${date}_${uid}`),{uid,date,createdAt:now});counts.activePlayers=1;}
     if(Object.keys(counts).length)metrics(tx,date,counts);
    });return snapshot(uid);
   }
-  if(!['spin','daily','purchase','redeem','profile','task','visit'].includes(action))error('invalid-argument','Unknown game action.');
+  if(!['spin','daily','purchase','redeem','profile','task','visit','contact'].includes(action))error('invalid-argument','Unknown game action.');
   if(['daily','purchase','redeem'].includes(action))verified(req);
   const id=requestId(data),requestRef=ref(`players/${uid}/requests/${id}`),fingerprint=D.hash(JSON.stringify({...data,requestId:undefined}));
   // Randomness is drawn on the server and remains fixed if Firestore retries the transaction.
@@ -35,7 +37,7 @@ module.exports=function createHamsterGame({db,functions,admin}){
    if(prior.exists){if(prior.data().fingerprint!==fingerprint)error('already-exists','Request ID was already used for another action.');return prior.data().result;}
    if(!ps.exists)error('failed-precondition','Open the game before playing.');
    const p={...ps.data()},s=D.settingsFrom(ss.data());
-   if(!s.enabled&&!['profile','visit'].includes(action))error('failed-precondition','The bakery game is taking a short break.');
+   if(!s.enabled&&!['profile','visit','contact'].includes(action))error('failed-precondition','The bakery game is taking a short break.');
    let extra={},counts={};
    if(action==='spin'){
     if(p.spins<1)error('failed-precondition','No spins left. Claim your daily gift or scan a purchase code.');
@@ -60,6 +62,10 @@ module.exports=function createHamsterGame({db,functions,admin}){
     if(p.seeds<reward.cost)error('failed-precondition','Not enough seeds for this treat.');
     const cid=D.hash(uid+id).slice(0,24),coupon={uid,name:reward.name,rewardId:reward.id,cost:reward.cost,status:'active',createdAt:now,code:cid.toUpperCase()};
     p.seeds-=reward.cost;tx.create(ref(`coupons/${cid}`),coupon);extra={coupon:{id:cid,...coupon}};counts={redemptions:1,seedsSpent:reward.cost};
+   }else if(action==='contact'){
+    let value;try{value=C.contact(data);}catch(e){error('invalid-argument',e.message);}
+    p.whatsapp={...value,confirmedByUser:true,verified:false,updatedAt:now,consentVersion:1,consentText:C.CONSENT_TEXT};
+    tx.create(ref(`consentHistory/${D.hash(uid+id)}`),{uid,...p.whatsapp,source:'player'});
    }else if(action==='profile'){
     const name=String(data.name||'').trim();if(name.length<1||name.length>18||!['sage','peach','lilac'].includes(data.theme))error('invalid-argument','Enter a name up to 18 characters and a valid corner color.');
     p.name=name;p.theme=data.theme;p.styled=true;
@@ -80,6 +86,26 @@ module.exports=function createHamsterGame({db,functions,admin}){
  });
  const management=functions.https.onCall(async req=>{
   const actor=await staff(req),data=req.data||{},now=Date.now();
+  if(data.action==='registeredUsers'){
+   let query=db.collection(`${ROOT}/players`).where('registered','==',true).limit(51);
+   if(data.after){if(!/^[A-Za-z0-9_-]{1,128}$/.test(data.after))error('invalid-argument','Invalid page.');const cursor=await ref(`players/${data.after}`).get();if(!cursor.exists)error('invalid-argument','Refresh this list.');query=query.startAfter(cursor);}
+   const [page,t]=await Promise.all([query.get(),ref('communications/whatsapp').get()]);const docs=page.docs.slice(0,50);
+   return {users:docs.map(d=>({id:d.id,...d.data()})),next:page.docs.length>50?docs.at(-1).id:null,template:t.data()||{text:'Hello from Kyrgyz Organics! Here are our latest bakery discounts and updates. Reply STOP to opt out.',image:''}};
+  }
+  if(data.action==='whatsappTemplate'){
+   let value;try{value=C.template(data);}catch(e){error('invalid-argument',e.message);}
+   await db.runTransaction(async tx=>{const r=ref('communications/whatsapp'),old=await tx.get(r);if((old.data()?.version||0)!==data.version)error('aborted','The message template changed. Refresh before saving.');tx.set(r,{...value,version:(data.version||0)+1,updatedAt:now,updatedBy:actor});});return {ok:true};
+  }
+  if(['whatsappDraft','whatsappOptOut'].includes(data.action)){
+   if(!/^[A-Za-z0-9_-]{1,128}$/.test(data.uid||''))error('invalid-argument','Invalid player.');
+   return db.runTransaction(async tx=>{const r=ref(`players/${data.uid}`),ps=await tx.get(r),ts=await tx.get(ref('communications/whatsapp')),p=ps.data();if(!p?.registered)error('not-found','Registered player not found.');
+    if(data.action==='whatsappOptOut'){const whatsapp={...p.whatsapp,optedIn:false,updatedAt:now};tx.update(r,{whatsapp});tx.create(ref(`consentHistory/${crypto.randomUUID()}`),{uid:data.uid,...whatsapp,source:'staff',actor});return {ok:true};}
+    if(p.whatsapp?.optedIn!==true)error('failed-precondition','User has opted out of receiving WhatsApp messages.');
+    if(!/^\+[1-9]\d{7,14}$/.test(p.whatsapp.phone||''))error('failed-precondition','No valid WhatsApp number.');
+    const t=ts.data()||{text:'Hello from Kyrgyz Organics! Here are our latest bakery discounts and updates. Reply STOP to opt out.',image:''};
+    return {url:`https://wa.me/${p.whatsapp.phone.slice(1)}?text=${encodeURIComponent(t.text)}`,image:t.image||''};
+   });
+  }
   if(data.action==='dashboard'){
    const recentDays=Promise.all(Array.from({length:31},(_,i)=>ref(`metrics/${D.dayKey(now-i*86400000)}`).get())).then(docs=>({docs:docs.filter(d=>d.exists)}));
    const [ss,all,days,players,batches,coupons]=await Promise.all([ref('settings/main').get(),ref('metrics/all').get(),recentDays,db.collection(`${ROOT}/players`).orderBy('updatedAt','desc').limit(50).get(),db.collection(`${ROOT}/batches`).orderBy('createdAt','desc').limit(30).get(),db.collection(`${ROOT}/coupons`).orderBy('createdAt','desc').limit(50).get()]);

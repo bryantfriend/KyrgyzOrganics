@@ -16,12 +16,13 @@ async function remove(path){await req(db+'/'+path,{method:'DELETE',allow:[404]})
  const customer=await user();let saved=await call(customer,'load');assert.equal(saved.player.spins,5);assert.equal(saved.player.seeds,0);
  const spinId=crypto.randomUUID();const spin=await call(customer,'spin',{requestId:spinId}),retry=await call(customer,'spin',{requestId:spinId});assert.deepEqual(spin,retry);assert.equal(spin.player.spins,4);
  const update=await req(`${db}/${root}/players/${customer.localId}?updateMask.fieldPaths=seeds`,{auth:customer.idToken,method:'PATCH',body:{fields:{seeds:{integerValue:'999999'}}},allow:[403]});assert.equal(update.status,403);
+ await call(customer,'contact',{phone:'+996700123456',confirmNumber:true,optedIn:false});
  const email=`hamster-link-${crypto.randomUUID()}@example.com`,password=crypto.randomBytes(20).toString('hex');const linked=await req(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,{auth:null,body:{idToken:customer.idToken,email,password,returnSecureToken:true}});Object.assign(customer,linked);await verify(customer,email,password);
  saved=await call(customer,'load');assert.equal(saved.player.spins,4);assert.equal(saved.player.seeds,spin.payout);assert.equal(saved.player.registered,true);
  await call(customer,'daily');await assert.rejects(call(customer,'daily'));
  const other=await user(true);await call(other,'load');
  const staff=await user();await req(`${db}/users/${staff.localId}`,{method:'PATCH',body:{fields:{role:{stringValue:'admin'},companyId:{stringValue:'kyrgyz-organics'}}}});
- const dashboard=await call(staff,'dashboard',{},true);assert.ok(dashboard.settings.dailySpins.length===7);
+ const dashboard=await call(staff,'dashboard',{},true);assert.ok(dashboard.settings.dailySpins.length===7);const registered=await call(staff,'registeredUsers',{},true);assert.ok(registered.users.some(u=>u.id===customer.localId&&u.whatsapp.optedIn===false));await assert.rejects(call(staff,'whatsappDraft',{uid:customer.localId},true));await call(customer,'contact',{phone:'+996700123456',confirmNumber:true,optedIn:true});assert.match((await call(staff,'whatsappDraft',{uid:customer.localId},true)).url,/wa.me\/996700123456/);await call(staff,'whatsappOptOut',{uid:customer.localId},true);await assert.rejects(call(staff,'whatsappDraft',{uid:customer.localId},true));
  const batch=await call(staff,'generateCodes',{label:'HAMSTER SMOKE TEST — DELETE',count:2},true);batches.push(batch);
  const claimId=crypto.randomUUID();const purchase=await call(customer,'purchase',{code:batch.tokens[0],requestId:claimId});assert.equal(purchase.spinsAdded,5);assert.deepEqual(await call(customer,'purchase',{code:batch.tokens[0],requestId:claimId}),purchase);await assert.rejects(call(other,'purchase',{code:batch.tokens[0]}));
  await call(staff,'revokeBatch',{id:batch.id},true);await assert.rejects(call(other,'purchase',{code:batch.tokens[1]}));
@@ -50,6 +51,7 @@ async function remove(path){await req(db+'/'+path,{method:'DELETE',allow:[404]})
    if(p.status!==404){const v=data(p),day=new Date(v.createdAt+21600000).toISOString().slice(0,10);add(day,'players');if(v.registered)add(day,'registrations');
     const requests=await req(`${db}/${root}/players/${u.localId}/requests`);for(const d of requests.documents||[])pending.push(d.name.slice(prefix.length));pending.push(`${root}/players/${u.localId}`);
    }
+   for(const d of await query('consentHistory',u.localId))pending.push(d.name.slice(prefix.length));
    for(const d of await query('visits',u.localId)){const v=data(d);add(v.date,'activePlayers');pending.push(d.name.slice(prefix.length));}
    for(const d of await query('events',u.localId)){const v=data(d);if(v.action==='spin'){add(v.date,'spins');add(v.date,'seedsAwarded',v.payout);add(v.date,v.payout?'wins':'losses');}if(v.action==='daily'){add(v.date,'dailyClaims');add(v.date,'bonusSpins',v.spinsAdded);}if(v.action==='task'){add(v.date,'taskClaims');add(v.date,'bonusSpins',v.spinsAdded);}if(v.action==='purchase'){add(v.date,'purchaseClaims');add(v.date,'purchaseSpins',v.spinsAdded);}pending.push(d.name.slice(prefix.length));}
    for(const d of await query('coupons',u.localId)){const v=data(d),day=new Date(v.createdAt+21600000).toISOString().slice(0,10);add(day,'redemptions');add(day,'seedsSpent',v.cost);if(v.status==='used')add(new Date(v.usedAt+21600000).toISOString().slice(0,10),'couponsUsed');pending.push(d.name.slice(prefix.length));}
