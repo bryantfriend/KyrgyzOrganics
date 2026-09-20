@@ -62,7 +62,7 @@ async function remove(path){await req(db+'/'+path,{method:'DELETE',allow:[404]})
   if(Object.keys(all).length){counts.all=all;await req(`${db}:commit`,{body:{writes:Object.entries(counts).map(([day,c])=>({transform:{document:prefix+root+'/metrics/'+day,fieldTransforms:Object.entries(c).map(([k,n])=>({fieldPath:k,increment:{integerValue:String(-n)}}))}}))}});}
   for(const b of batches){pending.push(`${root}/batches/${b.id}`);for(const t of b.tokens)pending.push(`${root}/purchaseCodes/${crypto.createHash('sha256').update(t).digest('hex')}`);}
   for(const p of pending)await remove(p);
-  for(const u of users)await req(`https://identitytoolkit.googleapis.com/v1/projects/${project}/accounts:delete`,{body:{localId:u.localId}});
+  for(const u of users){const deleted=await req(`https://identitytoolkit.googleapis.com/v1/projects/${project}/accounts:delete`,{body:{localId:u.localId},allow:[400]});if(deleted.error&&deleted.error.message!=='USER_NOT_FOUND')throw Error(deleted.error.message);}
   console.log('Temporary users, data, codes and test analytics removed.');
  }
 })().catch(e=>{console.error(e.message);process.exit(1);});
