@@ -57,3 +57,9 @@ Registration collects an international WhatsApp number and the player's confirma
 Admin → Games → Registered users lists registered accounts with pagination, email, number and consent. A shared text/picture template is saved privately in Firestore; uploaded pictures are resized in the admin browser. Open WhatsApp pre-fills a draft; staff presses Send in WhatsApp. Copy picture / Save picture provides the saved image for manual attachment. These controls recheck server consent each time; opted-out controls are disabled with hover/focus descriptions. WhatsApp Business API sending and ownership verification are not configured.
 
 Private records added: communications/whatsapp and consentHistory. No public Firestore access was added.
+
+## Phone or email authentication
+
+Players can register with email/password or a Kyrgyzstan (+996) phone number and SMS verification code. Phone registration links the anonymous Firebase UID to preserve guest progress; returning phone sign-in restores the phone account. A verified Firebase phone claim unlocks daily gifts and rewards without an email. A typed WhatsApp contact number never qualifies as verified authentication. WhatsApp consent remains optional and separate.
+
+Firebase Phone Authentication is enabled and the project SMS region allowlist is KG only. SMS charges apply. Web phone auth uses reCAPTCHA and a client resend delay in addition to Firebase limits. The tests can temporarily configure a Firebase fictional number; they remove it and all temporary player data afterward. Actual mobile-carrier SMS delivery still needs a real-device check.

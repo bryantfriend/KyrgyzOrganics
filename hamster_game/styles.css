@@ -45,3 +45,7 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.reel.rolling img{filter:opacity(.6)}}
 
 .consent-check{display:flex!important;align-items:flex-start;gap:10px;text-align:left;font-size:13px;line-height:1.5;margin:18px 0}.consent-check input{width:18px!important;height:18px;flex:0 0 18px;margin:3px 0}#whatsapp-form input[type=tel]{width:100%;padding:12px;margin-top:8px}#whatsapp-form .input-hint{margin-bottom:20px}
+
+.phone-choice{display:grid;gap:10px;margin-bottom:20px}.phone-choice p{font-size:12px;color:var(--muted)}#phone-form input[type=tel],#phone-code{width:100%;padding:12px;margin:8px 0 16px}#phone-recaptcha{margin:14px -12px;display:flex;justify-content:center;min-height:1px}#phone-code{font-size:24px;letter-spacing:6px;text-align:center}.button[hidden]{display:none}
+
+@media(max-width:620px){#phone-recaptcha{width:304px;position:relative;left:50%;margin-left:-152px;transform:scale(.85);transform-origin:center}}@media(max-width:360px){#phone-recaptcha{transform:scale(.7)}}

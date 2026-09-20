@@ -1,4 +1,4 @@
-import {HamsterContacts} from './HamsterContacts.js?v=1';
+import {HamsterContacts} from './HamsterContacts.js?v=2.2';
 import {BaseTab} from './BaseTab.js';
 import {auth} from '../../firebase-config.js';
 import {invokeAuthenticatedCallable} from '../../authenticated-callable.js';

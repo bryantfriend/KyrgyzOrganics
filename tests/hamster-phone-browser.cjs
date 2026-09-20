@@ -1,0 +1,27 @@
+// Uses Firebase's designated fictional-number test facility; never sends a real SMS.
+module.exports=async function({req,call,users,project,host}){
+ const fs=require('node:fs'),crypto=require('node:crypto'),assert=require('node:assert/strict');
+ const {chromium}=require('C:/Users/fangb_kyiapn1/.codex/skills/develop-web-game/node_modules/playwright');
+ const config=`https://identitytoolkit.googleapis.com/admin/v2/projects/${project}/config`,phone='+996700000001',code=String(crypto.randomInt(100000,1000000));
+ const lookup=await req(`https://identitytoolkit.googleapis.com/v1/projects/${project}/accounts:lookup`,{body:{phoneNumber:[phone]}});if(lookup.users?.length)throw Error('Temporary test number is already in use; choose another fictional test number.');
+ const before=await req(config);if(before.signIn?.phoneNumber?.testPhoneNumbers?.[phone])throw Error('Temporary test number is already configured.');
+ let browser;
+ try{
+  await req(config+'?updateMask=signIn.phoneNumber.testPhoneNumbers',{method:'PATCH',body:{signIn:{phoneNumber:{testPhoneNumbers:{...before.signIn?.phoneNumber?.testPhoneNumbers,[phone]:code}}}}});
+  browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:393,height:650}});
+  await page.route('**/hamster_game/firebase-config.js',r=>r.fulfill({contentType:'text/javascript',body:fs.readFileSync('hamster_game/firebase-config.js','utf8')+"\nimport {getAuth} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';getAuth(app).settings.appVerificationDisabledForTesting=true;"}));
+  await page.route('**/phone-browser-test',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><title>Phone authentication test</title>'}));
+  await page.goto(host+'/phone-browser-test');const u=await page.evaluate(async()=>{const {app}=await import('/hamster_game/firebase-config.js');const {getAuth,signInAnonymously}=await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');const {user}=await signInAnonymously(getAuth(app));return {localId:user.uid,idToken:await user.getIdToken()};});users.push(u);
+  await page.goto(host+'/hamster_game/');await page.waitForSelector('#spin:enabled',{timeout:60000});const beforeGame=await call(u,'load');
+  await page.locator('.bottom-nav [data-tab="hamster"]').click();await page.locator('[data-action="account"]').click();await page.locator('[data-action="phone-register"]').click();await page.locator('#auth-phone').fill(phone);await page.locator('#phone-form input[type=checkbox]').nth(0).check();await page.locator('#phone-whatsapp-confirm').check();await page.locator('[data-action="send-phone"]').click();await page.waitForSelector('#phone-code',{timeout:45000});
+  await page.locator('#phone-code').fill(code);await page.locator('#phone-code').press('Enter');await page.waitForSelector('#phone-code-form',{state:'detached',timeout:45000});
+  const linked=await page.evaluate(async()=>{const {app}=await import('/hamster_game/firebase-config.js');const {getAuth}=await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');const user=getAuth(app).currentUser;return {localId:user.uid,idToken:await user.getIdToken(true),phone:user.phoneNumber,email:user.email};});assert.equal(linked.localId,u.localId);assert.equal(linked.phone,phone);assert.equal(linked.email,null);Object.assign(u,linked);
+  const saved=await call(u,'load');assert.equal(saved.player.spins,beforeGame.player.spins);assert.equal(saved.player.whatsapp.optedIn,false);await call(u,'daily');
+  // Returning phone sign-in restores the same UID; the extra anonymous session is cleaned up too.
+  await page.locator('[data-action="logout"]').click();await page.waitForSelector('#spin:enabled');const guest=await page.evaluate(async()=>{const {app}=await import('/hamster_game/firebase-config.js');const {getAuth}=await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');const user=getAuth(app).currentUser;return {localId:user.uid,idToken:await user.getIdToken()};});users.push(guest);
+  // Reload resets the client resend cooldown; Firebase's own limits remain in effect.
+  await page.reload();await page.waitForSelector('#spin:enabled');await page.locator('.bottom-nav [data-tab="hamster"]').click();await page.locator('[data-action="account"]').click();await page.locator('[data-action="phone-login"]').click();await page.locator('#auth-phone').fill(phone);await page.locator('#phone-form input[type=checkbox]').check();await page.locator('[data-action="send-phone"]').click();await page.waitForSelector('#phone-code',{timeout:45000});await page.locator('#phone-code').fill(code);await page.locator('[data-action="confirm-phone"]').click();await page.waitForSelector('#phone-code-form',{state:'detached',timeout:45000});
+  assert.equal(await page.evaluate(async()=>{const {app}=await import('/hamster_game/firebase-config.js');const {getAuth}=await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');return getAuth(app).currentUser.uid;}),u.localId);
+  console.log('PHONE LIVE PASS: Firebase test-code registration, guest progress retained, no email required, optional marketing, daily rewards and returning phone login.');
+ }finally{await browser?.close();const current=await req(config),numbers={...current.signIn?.phoneNumber?.testPhoneNumbers};delete numbers[phone];await req(config+'?updateMask=signIn.phoneNumber.testPhoneNumbers',{method:'PATCH',body:{signIn:{phoneNumber:{testPhoneNumbers:numbers}}}});console.log('Temporary Firebase test-number configuration removed.');}
+};

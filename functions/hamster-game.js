@@ -8,7 +8,7 @@ module.exports=function createHamsterGame({db,functions,admin}){
  const ref=path=>db.doc(`${ROOT}/${path}`);
  const uidOf=req=>req.auth?.uid||error('unauthenticated','Please sign in first.');
  const isRegistered=req=>req.auth?.token?.firebase?.sign_in_provider!=='anonymous';
- const verified=req=>{if(!isRegistered(req)||!req.auth.token?.email_verified)error('failed-precondition','Register and verify your email first.');};
+ const verified=req=>{if(!isRegistered(req)||!(req.auth.token?.email_verified||req.auth.token?.phone_number))error('failed-precondition','Register and verify your email or phone first.');};
  async function staff(req){const uid=uidOf(req),snap=await db.doc(`users/${uid}`).get(),p=snap.data()||{};if(!['admin','owner','manager','superadmin','super_admin'].includes(p.role))error('permission-denied','Staff access is required.');if(!['superadmin','super_admin'].includes(p.role)&&(p.companyId||'kyrgyz-organics')!=='kyrgyz-organics')error('permission-denied','This game belongs to Kyrgyz Organics.');return uid;}
  function requestId(data){return typeof data.requestId==='string'&&/^[a-zA-Z0-9_-]{16,80}$/.test(data.requestId)?data.requestId:error('invalid-argument','A valid request ID is required.');}
  function metrics(tx,date,changes){for(const key of ['all',date])tx.set(ref(`metrics/${key}`),Object.fromEntries(Object.entries(changes).map(([k,n])=>[k,admin.firestore.FieldValue.increment(n)])),{merge:true});}
@@ -21,8 +21,8 @@ module.exports=function createHamsterGame({db,functions,admin}){
     const settings=D.settingsFrom(ss.data());let p=ps.data();const counts={};
     if(!p){p=D.initialPlayer(uid,settings,now);counts.players=1;}
     if(isRegistered(req)&&!p.registered){p.registered=true;counts.registrations=1;}
-    if(isRegistered(req))p.email=String(req.auth.token.email||p.email||'');
-    if(!ps.exists||p.registered!==ps.data()?.registered||p.email!==ps.data()?.email)tx.set(ref(`players/${uid}`),p);
+    if(isRegistered(req)){p.email=String(req.auth.token.email||p.email||'');p.authPhone=String(req.auth.token.phone_number||'');}
+    if(!ps.exists||p.registered!==ps.data()?.registered||p.email!==ps.data()?.email||p.authPhone!==ps.data()?.authPhone)tx.set(ref(`players/${uid}`),p);
     if(!vs.exists){tx.set(ref(`visits/${date}_${uid}`),{uid,date,createdAt:now});counts.activePlayers=1;}
     if(Object.keys(counts).length)metrics(tx,date,counts);
    });return snapshot(uid);

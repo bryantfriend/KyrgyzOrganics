@@ -18,7 +18,7 @@ import { AuditTab } from './tabs/AuditTab.js';
 import { AnalyticsTab } from './tabs/AnalyticsTab.js?v=3.28';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js?v=3.16';
-import { GamesTab } from './tabs/HamsterGameTab.js?v=2.1';
+import { GamesTab } from './tabs/HamsterGameTab.js?v=2.2';
 import { getStorePublicUrl } from './storefront-link.js?v=1.0';
 
 const ADMIN_VERSION = '3.30';

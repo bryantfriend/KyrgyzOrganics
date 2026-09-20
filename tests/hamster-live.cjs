@@ -13,6 +13,7 @@ async function call(user,action,payload={},admin=false){const r=await req(`https
 async function query(collection,uid){const r=await req(`${db}/${root}:runQuery`,{body:{structuredQuery:{from:[{collectionId:collection}],where:{fieldFilter:{field:{fieldPath:'uid'},op:'EQUAL',value:{stringValue:uid}}}}}});return Array.isArray(r)?r.filter(x=>x.document).map(x=>x.document):Object.values(r).filter(x=>x?.document).map(x=>x.document);}
 async function remove(path){await req(db+'/'+path,{method:'DELETE',allow:[404]});}
 (async()=>{try{
+ if(process.env.HAMSTER_PHONE_URL)await require('./hamster-phone-browser.cjs')({req,call,users,project,host:process.env.HAMSTER_PHONE_URL});
  const customer=await user();let saved=await call(customer,'load');assert.equal(saved.player.spins,5);assert.equal(saved.player.seeds,0);
  const spinId=crypto.randomUUID();const spin=await call(customer,'spin',{requestId:spinId}),retry=await call(customer,'spin',{requestId:spinId});assert.deepEqual(spin,retry);assert.equal(spin.player.spins,4);
  const update=await req(`${db}/${root}/players/${customer.localId}?updateMask.fieldPaths=seeds`,{auth:customer.idToken,method:'PATCH',body:{fields:{seeds:{integerValue:'999999'}}},allow:[403]});assert.equal(update.status,403);
