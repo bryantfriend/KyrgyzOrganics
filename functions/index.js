@@ -5,6 +5,7 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 
 const db = admin.firestore();
+Object.assign(exports, require('./hamster-game')({db, functions, admin}));
 const FieldValue = admin.firestore.FieldValue;
 const Timestamp = admin.firestore.Timestamp;
 const COMPANY_ID = "kyrgyz-organics";

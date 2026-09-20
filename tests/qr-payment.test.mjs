@@ -19,7 +19,7 @@ const admin = { initializeApp() {}, firestore, storage: () => ({ bucket: () => (
     exists: async () => [true], getMetadata: async () => [metadata], getSignedUrl: async () => ['https://example.com/receipt']
 }) }) }) };
 class HttpsError extends Error { constructor(code, message) { super(message); this.code = code; } }
-const sandbox = { exports: {}, console, require: name => ({ crypto, 'firebase-admin': admin,
+const sandbox = { exports: {}, console, require: name => ({ crypto, 'firebase-admin': admin, './hamster-game': () => ({}),
     'firebase-functions': { https: { onCall: fn => (data, context = {}) => fn({ ...context, data }), HttpsError } } })[name] };
 vm.runInNewContext(readFileSync(new URL('../functions/index.js', import.meta.url), 'utf8'), sandbox);
 const { createQrProductOrder, submitPaymentProof } = sandbox.exports;
