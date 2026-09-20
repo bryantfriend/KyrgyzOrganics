@@ -28,6 +28,19 @@ async function remove(path){await req(db+'/'+path,{method:'DELETE',allow:[404]})
  const secret=await req(`${db}/${root}/purchaseCodes/${crypto.createHash('sha256').update(batch.tokens[0]).digest('hex')}`,{auth:customer.idToken,allow:[403]});assert.equal(secret.status,403);
  await req(`${db}/${root}/players/${customer.localId}?updateMask.fieldPaths=seeds`,{method:'PATCH',body:{fields:{seeds:{integerValue:'100'}}}});
  const coupon=await call(customer,'redeem',{rewardId:'cookie',cost:0});assert.equal(coupon.player.seeds,20);await assert.rejects(call(customer,'useCoupon',{code:coupon.coupon.code},true));await call(staff,'useCoupon',{code:coupon.coupon.code},true);await assert.rejects(call(staff,'useCoupon',{code:coupon.coupon.code},true));
+ if(process.env.HAMSTER_BROWSER_URL){
+  const {chromium}=require('C:/Users/fangb_kyiapn1/.codex/skills/develop-web-game/node_modules/playwright');
+  const browser=await chromium.launch({headless:true});try{
+   const page=await browser.newPage({viewport:{width:393,height:650}}),errors=[];page.on('pageerror',e=>errors.push(e.message));const host=process.env.HAMSTER_BROWSER_URL;
+   await page.route('**/hamster-browser-test',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><title>Temporary game check</title>'}));await page.goto(host+'/hamster-browser-test');
+   await page.evaluate(async({email,password})=>{const {app}=await import('/hamster_game/firebase-config.js');const {getAuth,signInWithEmailAndPassword}=await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');await signInWithEmailAndPassword(getAuth(app),email,password);},{email,password});
+   await page.goto(host+'/hamster_game/');await page.waitForSelector('#spin:enabled',{timeout:60000});const before=await page.evaluate(()=>JSON.parse(render_game_to_text()));
+   const spinBox=await page.locator('#spin').boundingBox(),navBox=await page.locator('.bottom-nav').boundingBox();assert.ok(spinBox.y+spinBox.height<=navBox.y,'Spin button visible above navigation');
+   await page.locator('#spin').click();const widths=await page.evaluate(async()=>{const values=[];for(let i=0;i<120;i++){values.push([document.documentElement.scrollWidth,document.querySelector('.machine-card').getBoundingClientRect().width,document.querySelector('.reel-mascot').getBoundingClientRect().width]);await new Promise(r=>setTimeout(r,25));}return values;});for(let col=0;col<3;col++)assert.ok(Math.max(...widths.map(r=>r[col]))-Math.min(...widths.map(r=>r[col]))<1,'Stable mobile spin width');
+   await page.waitForFunction(()=>!JSON.parse(render_game_to_text()).spinning,{},{timeout:60000});const after=await page.evaluate(()=>JSON.parse(render_game_to_text()));assert.equal(after.spins,before.spins-1);await page.reload();await page.waitForSelector('#spin:enabled',{timeout:60000});assert.equal((await page.evaluate(()=>JSON.parse(render_game_to_text()))).spins,after.spins);assert.deepEqual(errors,[]);
+   require('node:fs').mkdirSync('test-results/hamster',{recursive:true});await page.screenshot({path:'test-results/hamster/published-mobile.png'});console.log('PUBLIC BROWSER PASS: signed-in Firestore game, visible spin button, stable mobile widths, reload persistence.');
+  }finally{await browser.close();}
+ }
  console.log('LIVE PASS: guest-to-email progress preservation, protected balances, idempotent spins, daily claim limit, admin dashboard, single-use/revoked/private QR codes, server pricing and staff-only coupon use.');
  }finally{
   const counts={};const add=(day,k,n=1)=>{counts[day]??={};counts[day][k]=(counts[day][k]||0)+n;};
