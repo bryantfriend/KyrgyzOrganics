@@ -18,3 +18,5 @@ Notes:
 2026-09-20: Added phone/SMS or email registration, guest UID linking, separate optional WhatsApp consent, phone-only reward eligibility and phone identity in admin. Kyrgyzstan SMS enabled with user approval. Phone UI and 14 domain/backend tests pass.
 
 2026-09-22: Investigated reported real phone-registration failure. Phone auth, KG region allowlist and billing remain enabled. No recent error/SMS telemetry was available. Existing browser tab was stale. Added local KG number normalization and persistent, actionable phone errors with CAPTCHA status. New validation and browser retry tests pass; exact customer failure remains unconfirmed pending their error text.
+
+2026-09-22: Guided registration with separate create/sign-in choices, phone/email method explanations, step labels, field examples, password visibility and requirements, optional-vs-required consent, persistent email errors and reset confirmation. Mobile UI suite covers email Enter submission, weak-password blocking, reset guidance, SMS retry and existing game/admin flows. No real SMS sent; previously reported carrier/SMS failure remains unconfirmed.
