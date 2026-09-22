@@ -1,3 +1,4 @@
+import {normalizePhone} from './phone-utils.mjs?v=2.3';
 import {app} from './firebase-config.js';
 import {getAuth,onAuthStateChanged,signInAnonymously,signInWithEmailAndPassword,EmailAuthProvider,PhoneAuthProvider,RecaptchaVerifier,signInWithCredential,linkWithCredential,sendEmailVerification,sendPasswordResetEmail,signOut,reload} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import {getFunctions,httpsCallable} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
@@ -22,7 +23,7 @@ export async function logout(){await signOut(auth);await signInAnonymously(auth)
 let phoneVerifier=null,phoneSession=null,phoneGeneration=0,lastSmsAt=0;
 export function cancelPhone(){phoneGeneration++;phoneSession=null;phoneVerifier?.clear();phoneVerifier=null;}
 export async function sendPhoneCode(raw,mode,contact){
- const phone=String(raw||'').replace(/[\s()-]/g,'');if(!/^\+996\d{9}$/.test(phone))throw Error('Enter a Kyrgyzstan mobile number with +996 and nine digits.');
+ const phone=normalizePhone(raw);
  if(Date.now()-lastSmsAt<60000)throw Error('Please wait one minute before requesting another code.');
  if(!['register','login'].includes(mode))throw Error('Choose registration or sign-in.');
  cancelPhone();const generation=phoneGeneration,uid=auth.currentUser?.uid;

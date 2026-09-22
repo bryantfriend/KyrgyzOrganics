@@ -16,3 +16,5 @@ Notes:
 2026-09-20: Added WhatsApp number confirmation and optional registration consent, editable user preferences, registered-user admin pagination, private saved text/picture templates, server consent checks and staff opt-out recording. Unit, UI and web-game skill checks pass.
 
 2026-09-20: Added phone/SMS or email registration, guest UID linking, separate optional WhatsApp consent, phone-only reward eligibility and phone identity in admin. Kyrgyzstan SMS enabled with user approval. Phone UI and 14 domain/backend tests pass.
+
+2026-09-22: Investigated reported real phone-registration failure. Phone auth, KG region allowlist and billing remain enabled. No recent error/SMS telemetry was available. Existing browser tab was stale. Added local KG number normalization and persistent, actionable phone errors with CAPTCHA status. New validation and browser retry tests pass; exact customer failure remains unconfirmed pending their error text.
