@@ -6,8 +6,12 @@ export function normalizePhone(raw){
  if(!/^\+996[1-9]\d{8}$/.test(phone))throw Error('Enter a Kyrgyzstan number, for example 0700 123 456 or +996 700 123 456.');
  return phone;
 }
+export function isSmsUnavailable(error){
+ return /^auth[/]error-code:\s*-?39$/i.test(error?.code||'')||/\berror[ -]code\s*:\s*-?39\b/i.test(error?.message||'');
+}
 export function phoneError(error){
  const code=error?.code||'';
+ if(isSmsUnavailable(error))return 'Firebase cannot send a verification SMS to this number right now (error 39). You can register with email to save your guest progress. If you already have a phone account, try again later; a new email account will not restore that account.';
  const messages={
   'auth/captcha-check-failed':'The security check expired or failed. Try again and complete the new security check.',
   'auth/invalid-app-credential':'Firebase could not verify the browser security check. Refresh the page and try again. If it repeats, use email sign-in and share this error code with us.',

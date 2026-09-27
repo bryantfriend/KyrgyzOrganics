@@ -1,4 +1,4 @@
-import {normalizePhone} from './phone-utils.mjs?v=2.3';
+import {normalizePhone} from './phone-utils.mjs?v=2.5';
 import {app} from './firebase-config.js';
 import {getAuth,onAuthStateChanged,signInAnonymously,signInWithEmailAndPassword,EmailAuthProvider,PhoneAuthProvider,RecaptchaVerifier,signInWithCredential,linkWithCredential,sendEmailVerification,sendPasswordResetEmail,signOut,reload} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import {getFunctions,httpsCallable} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
