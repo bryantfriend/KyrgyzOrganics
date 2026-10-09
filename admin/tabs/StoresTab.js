@@ -1,4 +1,7 @@
 import { BaseTab } from './BaseTab.js';
+import { mountSaaelEditor } from '../../storefront/brands/saael/admin-editor.js';
+import { validateSaaelContent } from '../../storefront/brands/saael/validation.js';
+import { saveSaaelSettings } from '../../storefront/brands/saael/settings-repository.js';
 import { auth, db, storage } from '../../firebase-config.js';
 import { invokeAuthenticatedCallable } from '../../authenticated-callable.js';
 import { COMPANY_ID } from '../../company-config.js';
@@ -2451,6 +2454,7 @@ export class StoresTab extends BaseTab {
   }
 
   applyStorefrontConfigToForm(config = {}) {
+    this.saaelEditor = this.form ? mountSaaelEditor(this.form, config) : null;
     const theme = config.theme || {};
     const features = config.features || {};
     const hero = config.content?.hero || {};
@@ -2916,6 +2920,7 @@ export class StoresTab extends BaseTab {
       },
       content: {
         ...fallback.content,
+        ...(companyId === 'saael-s' && this.saaelEditor ? { saael: this.saaelEditor.read() } : {}),
         logoUrl: String(this.logoUrl?.value || '').trim(),
         productHeading: String(this.productHeading?.value || fallback.content.productHeading || '').trim(),
         availableTodayTitle: String(this.availableTitle?.value || fallback.content.availableTodayTitle || '').trim(),
@@ -2971,6 +2976,10 @@ export class StoresTab extends BaseTab {
       return;
     }
 
+    if (companyId === 'saael-s' && this.saaelEditor) {
+      const errors = validateSaaelContent(this.saaelEditor.read());
+      if (errors.length) { this.showToast(errors.join(' '), 'error'); return; }
+    }
     const isEdit = !!(this.editId?.value);
 
     const storeData = {
@@ -3039,7 +3048,9 @@ export class StoresTab extends BaseTab {
 
       let storefrontSaved = true;
       try {
-        await setDoc(doc(db, 'storefront_configs', companyId), this.buildStorefrontConfig(companyId, storeData), { merge: true });
+        const publicConfig = this.buildStorefrontConfig(companyId, storeData);
+        if (companyId === 'saael-s') await saveSaaelSettings(publicConfig);
+        else await setDoc(doc(db, 'storefront_configs', companyId), publicConfig, { merge: true });
       } catch (storefrontErr) {
         storefrontSaved = false;
         console.warn('Store saved, but storefront config save failed:', storefrontErr);

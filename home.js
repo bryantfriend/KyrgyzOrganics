@@ -435,6 +435,12 @@ async function init() {
             return;
         }
 
+        if (activeStoreConfig.companyId === 'saael-s') {
+            renderSaaelDetails(activeStoreConfig);
+            trackStoreEvent('page_view', window.location.pathname);
+            return;
+        }
+
         setupLanguage();
         initMobileMenu();
         applyStoreLinks();
