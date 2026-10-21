@@ -1,5 +1,7 @@
 # Local verification — 21 October 2026
 
+The subsequent production release and live smoke checks are documented in [DEPLOYMENT.md](DEPLOYMENT.md). The report below describes the isolated pre-release tests.
+
 Implemented using the approved five-screen concept board. Verification used synthetic data and the local `demo-sales-assistant` Firebase project. No production records, rules, deployments, commits or pushes were changed by these tests.
 
 | Check | Result |

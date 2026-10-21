@@ -2,9 +2,11 @@
 
 Standalone staff application at **https://oako.kg/sales_assistant/**. Buildless HTML/CSS/native JavaScript modules, using the existing OAKO Firebase configuration and ICF engine. No AI inference, paid AI service, WhatsApp API, scraping, or additional backend is used by this application.
 
+**Released 21 October 2026.** [Open Sales Assistant](https://oako.kg/sales_assistant/) and sign in with an existing authorized OAKO CRM staff account. See [DEPLOYMENT.md](DEPLOYMENT.md) for release and verification details.
+
 ## Screen previews
 
-These captures use synthetic local test data. The application has not been deployed.
+These captures use synthetic local test data. The live application requires authorized staff sign-in.
 
 ![Enquiry dashboard](preview/01-dashboard.png)
 
