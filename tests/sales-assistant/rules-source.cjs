@@ -9,7 +9,9 @@ function composeRules(base) {
     const anchor = '    // CUSTOMERS / CRM';
     if (!base.includes(anchor)) throw new Error('CRM rules insertion point was not found.');
     const fragment = fs.readFileSync(path.join(root, 'sales_assistant/security/firestore.fragment.txt'), 'utf8');
-    return base.replace(anchor, fragment + '\n' + anchor);
+    // A function replacement preserves Firebase regex anchors and $(...) paths
+    // literally; a replacement string would interpret sequences such as $'.
+    return base.replace(anchor, function () { return fragment + '\n' + anchor; });
 }
 exports.composeRules = composeRules;
 exports.rulesSource = function () {

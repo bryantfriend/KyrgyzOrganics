@@ -1,4 +1,6 @@
 import test from 'node:test';
+import fs from 'node:fs';
+import { composeRules } from './rules-source.cjs';
 import assert from 'node:assert/strict';
 import { parseExtraction, newReview, validateSave, missingDetails, matchCustomers, matchProducts, extractionPrompt, followUpDraft, replyTranslationPrompt, isEnglishLanguage, isStaff, STAFF_ROLES } from '../../sales_assistant/domain.mjs';
 import { saveEnquiry } from '../../sales_assistant/icf/workflow.js';
@@ -95,4 +97,14 @@ test('reply translation uses the selected customer language and staff draft with
     assert.equal(isEnglishLanguage('English'), true);
     assert.equal(isEnglishLanguage('EN'), true);
     for (const language of ['', 'Unknown', 'Russian', 'English and Urdu']) assert.equal(isEnglishLanguage(language), false);
+});
+test('rules assembly preserves Firebase regex anchors and document paths literally', () => {
+    const base = 'rules_version = "2";\n    // CUSTOMERS / CRM\nBASE_RULES_TAIL';
+    const fragment = fs.readFileSync(new URL('../../sales_assistant/security/firestore.fragment.txt', import.meta.url), 'utf8');
+    const combined = composeRules(base);
+    assert.ok(combined.includes(fragment), 'The entire fragment must be preserved byte for byte');
+    assert.equal(combined.split('BASE_RULES_TAIL').length - 1, 1, 'Regex replacement must not duplicate the remaining rules');
+    assert.ok(combined.includes("matches('^[a-f0-9]{64}$')"));
+    assert.ok(combined.includes('$(database)'));
+    assert.equal(composeRules(combined), combined);
 });
