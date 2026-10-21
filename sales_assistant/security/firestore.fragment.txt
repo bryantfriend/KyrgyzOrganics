@@ -1,0 +1,102 @@
+    // SALES ASSISTANT — shared by the existing invoice CRM staff roles.
+    // No public access, no new roles, no changes to existing CRM permissions.
+    // Deploy this additive block alongside the authoritative production rules.
+    function validSalesReview(review) {
+      return review is map
+        && review.keys().hasAll(['buyer', 'products', 'confirmed', 'resolvedAmbiguities',
+          'ambiguities', 'status', 'customerId', 'customerConfirmed', 'createCustomer',
+          'newCustomerConfirmed', 'pinCode', 'category', 'followUpDate', 'followUpNote',
+          'deliveryCity', 'firstDeliveryDate', 'frequency', 'notes'])
+        && review.keys().hasOnly(['buyer', 'products', 'confirmed', 'resolvedAmbiguities',
+          'ambiguities', 'status', 'customerId', 'customerConfirmed', 'createCustomer',
+          'newCustomerConfirmed', 'pinCode', 'category', 'followUpDate', 'followUpNote',
+          'deliveryCity', 'firstDeliveryDate', 'frequency', 'notes',
+          'sourceLanguage', 'replyLanguage', 'messageEnglish'])
+        && review.buyer is map
+        && review.buyer.keys().hasAll(['companyName', 'name', 'phone', 'email', 'address'])
+        && review.buyer.keys().hasOnly(['companyName', 'name', 'phone', 'email', 'address'])
+        && review.buyer.companyName is string && review.buyer.companyName.size() <= 500
+        && review.buyer.name is string && review.buyer.name.size() <= 500
+        && review.buyer.phone is string && review.buyer.phone.size() <= 500
+        && review.buyer.email is string && review.buyer.email.size() <= 500
+        && review.buyer.address is string && review.buyer.address.size() <= 500
+        && review.products is list && review.products.size() <= 30
+        && review.confirmed is map && review.confirmed.size() <= 13
+        && review.resolvedAmbiguities is list && review.resolvedAmbiguities.size() <= 930
+        && review.ambiguities is list && review.ambiguities.size() <= 30
+        && review.status in ['New', 'Needs clarification', 'Qualified', 'Closed won', 'Closed lost']
+        && review.customerId is string && review.customerId.size() <= 1500
+        && review.customerConfirmed is bool
+        && ((review.customerId == '' && review.customerConfirmed == false)
+          || (review.customerId != '' && review.customerConfirmed == true
+            && existsAfter(/databases/$(database)/documents/customers/$(review.customerId))
+            && getAfter(/databases/$(database)/documents/customers/$(review.customerId)).data.get('archived', false) != true))
+        && review.createCustomer == false && review.newCustomerConfirmed == false
+        && review.pinCode == '' && review.category in ['A', 'B', 'C']
+        && review.followUpDate is string
+        && (review.followUpDate == '' || review.followUpDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))
+        && review.followUpNote is string && review.followUpNote.size() <= 2000
+        && review.deliveryCity is string && review.deliveryCity.size() <= 500
+        && review.firstDeliveryDate is string && review.firstDeliveryDate.size() <= 500
+        && review.frequency is string && review.frequency.size() <= 500
+        && review.notes is string && review.notes.size() <= 2000
+        && review.get('sourceLanguage', '') is string && review.get('sourceLanguage', '').size() <= 80
+        && review.get('replyLanguage', '') is string && review.get('replyLanguage', '').size() <= 80
+        && review.get('messageEnglish', '') is string && review.get('messageEnglish', '').size() <= 20000;
+    }
+
+    function validSalesEnquiry(data) {
+      return data.keys().hasAll(['schemaVersion', 'companyId', 'source', 'originalMessage',
+          'rawJson', 'extracted', 'review', 'revision', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && data.keys().hasOnly(['schemaVersion', 'companyId', 'source', 'originalMessage',
+          'rawJson', 'extracted', 'review', 'revision', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && data.schemaVersion == 1 && data.companyId == 'kyrgyz-organics'
+        && data.source == 'whatsapp-manual'
+        && data.originalMessage is string && data.originalMessage.size() > 0 && data.originalMessage.size() <= 20000
+        && data.rawJson is string && data.rawJson.size() > 0 && data.rawJson.size() <= 50000
+        && data.extracted is map && validSalesReview(data.review)
+        && data.revision is int && data.revision > 0
+        && data.createdAt is timestamp && data.createdBy is string
+        && data.updatedAt == request.time && data.updatedBy == request.auth.uid;
+    }
+
+    function hasSalesActivity(enquiryId, revision) {
+      let activity = getAfter(/databases/$(database)/documents/sales_enquiries/$(enquiryId)/activity/$(string(revision)));
+      return activity.data.actorId == request.auth.uid && activity.data.createdAt == request.time
+        && activity.data.revision == revision;
+    }
+
+    match /sales_enquiries/{enquiryId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && enquiryId.matches('^[a-f0-9]{64}$')
+        && validSalesEnquiry(request.resource.data)
+        && request.resource.data.revision == 1
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && hasSalesActivity(enquiryId, 1);
+      allow update: if isAdmin() && validSalesEnquiry(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['review', 'revision', 'updatedAt', 'updatedBy'])
+        && request.resource.data.revision == resource.data.revision + 1
+        && hasSalesActivity(enquiryId, request.resource.data.revision);
+      allow delete: if false;
+
+      match /activity/{eventId} {
+        allow read: if isAdmin();
+        allow create: if isAdmin()
+          && request.resource.data.keys().hasOnly(['actorId', 'createdAt', 'revision', 'action', 'status', 'customerId', 'customerCreated', 'followUpDate'])
+          && request.resource.data.actorId == request.auth.uid
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.revision is int
+          && eventId == string(request.resource.data.revision)
+          && request.resource.data.action in ['Enquiry created', 'Enquiry updated']
+          && request.resource.data.customerCreated is bool
+          && getAfter(/databases/$(database)/documents/sales_enquiries/$(enquiryId)).data.revision == request.resource.data.revision
+          && getAfter(/databases/$(database)/documents/sales_enquiries/$(enquiryId)).data.updatedBy == request.auth.uid
+          && getAfter(/databases/$(database)/documents/sales_enquiries/$(enquiryId)).data.updatedAt == request.time
+          && request.resource.data.status == getAfter(/databases/$(database)/documents/sales_enquiries/$(enquiryId)).data.review.status
+          && request.resource.data.customerId == getAfter(/databases/$(database)/documents/sales_enquiries/$(enquiryId)).data.review.customerId
+          && request.resource.data.followUpDate == getAfter(/databases/$(database)/documents/sales_enquiries/$(enquiryId)).data.review.followUpDate;
+        allow update, delete: if false;
+      }
+    }

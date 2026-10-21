@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="referrer" content="same-origin">
+    <title>Sales Assistant · OAKO</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/sales_assistant/styles.css">
+</head>
+<body>
+    <a class="skip-link" href="#content">Skip to workspace</a>
+    <section id="auth-screen" class="auth-screen" aria-labelledby="auth-title">
+        <div class="auth-brand"><span class="brand-mark">OA</span><span>OAKO<br><small>Sales Assistant</small></span></div>
+        <div class="auth-card">
+            <p class="eyebrow">B2B STAFF WORKSPACE</p>
+            <h1 id="auth-title">A clearer path from<br>message to enquiry.</h1>
+            <p>Review WhatsApp leads, connect your CRM records, and keep the next conversation moving.</p>
+            <form id="login-form">
+                <label>Email<input id="login-email" type="email" autocomplete="username" required></label>
+                <label>Password<input id="login-password" type="password" autocomplete="current-password" required></label>
+                <button id="login-button" type="submit" class="primary" disabled>Checking session…</button>
+            </form>
+            <p id="auth-status" role="status">Connecting to the OAKO staff workspace…</p>
+            <button id="auth-signout" class="text-button" hidden>Sign out of this account</button>
+            <a href="/">Back to OAKO</a>
+        </div>
+        <p class="auth-foot">Kyrgyz Organic · Existing staff accounts · Manual ChatGPT workflow</p>
+    </section>
+    <div id="workspace" class="workspace" hidden>
+        <aside class="sidebar">
+            <a class="app-brand" href="#dashboard"><span class="brand-mark">OA</span><span>Sales<br><b>Assistant</b></span></a>
+            <p class="nav-label">WORKSPACE</p>
+            <nav aria-label="Sales Assistant">
+                <a href="#dashboard" data-nav="dashboard"><span aria-hidden="true">▦</span>Dashboard</a>
+                <a href="#new" data-nav="new"><span aria-hidden="true">⊕</span>New enquiry</a>
+                <a href="#follow-ups" data-nav="follow-ups"><span aria-hidden="true">◷</span>Follow-ups</a>
+            </nav>
+            <div class="sidebar-foot"><b>Kyrgyz Organic</b><small>Shared CRM staff workspace</small><a href="/admin/admin.html">OAKO admin ↗</a><a href="/">Storefront ↗</a></div>
+        </aside>
+        <div class="main-column">
+            <header class="topbar"><span>OAKO <span class="separator">/</span> Sales Assistant</span><div><span id="identity-label"></span><button id="logout" class="text-button">Sign out</button></div></header>
+            <div id="notice" class="notice" role="status" hidden></div>
+            <main id="content" tabindex="-1"></main>
+            <footer class="app-footer">Staff review at every step <span>WhatsApp → ChatGPT → OAKO · No automatic messages</span></footer>
+        </div>
+    </div>
+    <script type="module">
+        import('/sales_assistant/app.js').catch(function () {
+            document.getElementById('auth-status').textContent = 'The workspace could not load. Check your connection and refresh this page.';
+        });
+    </script>
+</body>
+</html>

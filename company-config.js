@@ -15,6 +15,7 @@ const PATH_COMPANY_CONFIG = {
 };
 const RESERVED_PATH_SEGMENTS = new Set([
     'admin',
+    'sales_assistant',
     'about.html',
     'contact.html',
     'cart.html',
