@@ -142,8 +142,13 @@ export class OrdersTab extends BaseTab {
         this.renderCurrentOrders();
     }
 
+    onHide() {
+        this.stopLiveOrders();
+    }
+
     startLiveOrders() {
-        if (!this.list) return;
+        if (!this.isActive || !this.list) return;
+        const activityToken = this.getActivityToken();
         if (!window.adminApp?.hasActiveSession?.()) {
             this.pauseLiveUpdates('Reconnecting session...');
             return;
@@ -164,6 +169,7 @@ export class OrdersTab extends BaseTab {
         this.renderOrdersLoading('Opening the live order feed', 'Listening for new market orders in real time.');
 
         this.unsubscribeOrders = subscribeToOrders(getCurrentCompanyId(), (orders, meta = {}) => {
+            if (!this.isActivityCurrent(activityToken)) return;
             this.handleLiveOrders(orders, meta);
         });
 
@@ -230,12 +236,14 @@ export class OrdersTab extends BaseTab {
     }
 
     startLiveClock() {
+        if (!this.isActive) return;
         if (this.liveClock) window.clearInterval(this.liveClock);
         this.liveClock = window.setInterval(() => this.renderCurrentOrders(), 30000);
         this.startTimerClock();
     }
 
     startTimerClock() {
+        if (!this.isActive) return;
         if (this.timerClock) window.clearInterval(this.timerClock);
         this.timerClock = window.setInterval(() => this.updateVisibleTimers(), 1000);
     }
@@ -276,6 +284,7 @@ export class OrdersTab extends BaseTab {
     }
 
     renderCurrentOrders() {
+        if (!this.isActive) return;
         const statusFilter = this.filterSelect ? this.filterSelect.value : 'all';
         const scope = this.storeScope ? this.storeScope.value : 'selected';
         const now = Date.now();
@@ -349,7 +358,8 @@ export class OrdersTab extends BaseTab {
     }
 
     async loadOrders() {
-        if (!this.list) return;
+        if (!this.isActive || !this.list) return;
+        const activityToken = this.getActivityToken();
         this.renderOrdersLoading('Gathering current orders', 'Sorting the queue into each delivery stage.');
 
         const statusFilter = this.filterSelect ? this.filterSelect.value : 'all';
@@ -377,13 +387,16 @@ export class OrdersTab extends BaseTab {
 
             const q = query(collection(db, collectionName), ...constraints);
             const snap = await getDocs(q);
+            if (!this.isActivityCurrent(activityToken)) return;
             const docs = scope === 'all' ? snap.docs : this.filterCompanyDocs(snap.docs, 'orders');
             this.renderDashboard(docs);
             this.renderBoard(docs, { showCompany: scope === 'all' });
             await this.renderList(docs, { showCompany: scope === 'all' });
+            if (!this.isActivityCurrent(activityToken)) return;
             this.startTimerClock();
             this.updateVisibleTimers();
         } catch (e) {
+            if (!this.isActivityCurrent(activityToken)) return;
             console.error("Load Orders Error:", e);
             if (this.board) this.board.innerHTML = '';
             this.list.innerHTML = `<p style="color:red">Error: ${e.message}</p>`;
@@ -407,6 +420,7 @@ export class OrdersTab extends BaseTab {
                 }
                 const fallbackQuery = query(collection(db, fallbackCollection), ...fallbackConstraints);
                 const allSnap = await getDocs(fallbackQuery);
+                if (!this.isActivityCurrent(activityToken)) return;
                 const filtered = allSnap.docs
                     .filter(d => statusFilter === 'all' || d.data().status === statusFilter)
                     .sort((a, b) => (b.data().createdAt?.toMillis?.() || 0) - (a.data().createdAt?.toMillis?.() || 0));
@@ -414,6 +428,7 @@ export class OrdersTab extends BaseTab {
                 this.renderDashboard(docs);
                 this.renderBoard(docs, { showCompany: scope === 'all' });
                 await this.renderList(docs, { showCompany: scope === 'all' });
+                if (!this.isActivityCurrent(activityToken)) return;
                 this.startTimerClock();
                 this.updateVisibleTimers();
             }
@@ -694,6 +709,9 @@ export class OrdersTab extends BaseTab {
     }
 
     async renderList(docs, { showCompany = false } = {}) {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
+        const renderVersion = this.listRenderVersion = (this.listRenderVersion || 0) + 1;
         if (docs.length === 0) {
             this.list.innerHTML = '<p style="color:#666; padding:1rem;">No orders found.</p>';
             return;
@@ -707,6 +725,7 @@ export class OrdersTab extends BaseTab {
             const timeAgo = Math.floor((new Date() - date) / 60000); // mins
             const isExpired = order.paymentType === 'qr_receipt' ? false : (order.expiresAt?.toDate ? order.expiresAt.toDate() < new Date() : timeAgo > 15);
             const receiptUrl = await this.getReceiptUrl(order);
+            if (!this.isActivityCurrent(activityToken) || renderVersion !== this.listRenderVersion) return;
             const normalizedStatus = normalizeOrderStatus(order.status, order);
             const transition = getNextOrderTransition({ id, ...order });
             const trackingUrl = getTrackingUrl(id);

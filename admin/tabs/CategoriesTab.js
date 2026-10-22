@@ -1,8 +1,9 @@
+import { addDoc, updateDoc, deleteDoc } from '../catalogue-mutations.js';
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { getSelectedCompanyId, matchesSelectedCompany } from '../../store-context.js';
 import {
-    collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, getDoc, where
+    collection, doc, query, orderBy, onSnapshot, getDoc, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 export class CategoriesTab extends BaseTab {
@@ -39,7 +40,12 @@ export class CategoriesTab extends BaseTab {
         this.updatePreview(); // Initial state
     }
 
+    onShow() {
+        return this.loadCategories();
+    }
+
     onStoreChanged() {
+        if (!this.isActive || !this.isInitialized) return;
         this.loadCategories();
         this.resetForm();
     }
@@ -153,6 +159,8 @@ export class CategoriesTab extends BaseTab {
     }
 
     loadCategories() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         if (!this.list) return;
         const selectedCompanyId = getSelectedCompanyId();
         const q = query(collection(db, 'categories'), where('companyId', '==', selectedCompanyId));
@@ -160,6 +168,7 @@ export class CategoriesTab extends BaseTab {
         if (this.unsubscribeCategories) this.unsubscribeCategories();
 
         this.unsubscribeCategories = onSnapshot(q, snapshot => {
+            if (!this.isActivityCurrent(activityToken)) return;
             this.list.innerHTML = '';
             const sortedDocs = snapshot.docs.filter(docSnap => {
                 const category = { id: docSnap.id, ...docSnap.data() };

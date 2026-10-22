@@ -1,15 +1,16 @@
 import { auth, db } from './firebase-config.js';
 import { mountQrPayment } from './qr-payment.js?v=2.15.0';
-import { collection, doc, getDoc, getDocs, limit, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl, getDisplayPrice, getDisplayPriceType } from './product-utils.js';
 import { getProductExternalLinkCtaLabel, getProductExternalLinkNavigation, getProductExternalLinkProviderName, getProductExternalLinks } from './product-external-links.mjs?v=2.4';
 import { trackProductExternalLinkClickIntent } from './product-external-links.service.js';
 import { addCartItem, formatPrice, loadCart, saveCart, saveCartDay } from './shop-utils.js';
-import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
+import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation } from './company-config.js';
 import { getInventoryDocId } from './firestore-paths.js';
 import { loadStoreConfig } from './storefront/store-loader.js';
+import { catalogueRepository } from './storefront/catalogue-repository.js';
 import { applyStoreTheme } from './storefront/theme-engine.js';
 
 const root = document.getElementById('productPageRoot');
@@ -55,12 +56,8 @@ function getTodayKey() {
 }
 
 async function loadCategories() {
-    const snap = await getDocs(query(collection(db, 'categories'), where('active', '==', true)));
-    snap.forEach((docSnap) => {
-        const category = { id: docSnap.id, ...docSnap.data() };
-        if (!matchesCompanyId(category, `categories/${category.id}`)) return;
-        categoriesMap[docSnap.id] = category;
-    });
+    const categories = await catalogueRepository.listActive(getCurrentCompanyId(), 'categories');
+    categoriesMap = Object.fromEntries(categories.map(category => [category.id, category]));
 }
 
 async function loadInventory() {
@@ -88,30 +85,12 @@ async function loadProductFromUrl() {
     const slug = params.get('slug');
     const productId = params.get('id');
 
+    const companyId = getCurrentCompanyId();
     if (slug) {
-        const productQuery = query(
-            collection(db, 'products'),
-            where('slug', '==', slug),
-            where('active', '==', true),
-            limit(5)
-        );
-        const snap = await getDocs(productQuery);
-        const product = snap.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .find(p => matchesCompanyId(p, `products/${p.id}`));
+        const product = await catalogueRepository.findBySlug(companyId, 'products', slug);
         if (product) return product;
     }
-
-    if (productId) {
-        const productDoc = await getDoc(doc(db, 'products', productId));
-        if (productDoc.exists()) {
-            const productData = productDoc.data();
-            if (!matchesCompanyId(productData, `products/${productId}`)) return null;
-            return { id: productDoc.id, ...productData };
-        }
-    }
-
-    return null;
+    return productId ? catalogueRepository.findById(companyId, 'products', productId) : null;
 }
 
 function loadCurrentUserProfile() {

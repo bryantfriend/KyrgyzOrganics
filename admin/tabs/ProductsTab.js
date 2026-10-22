@@ -1,3 +1,4 @@
+import { addDoc, updateDoc, deleteDoc, invalidateEditedCatalogue } from '../catalogue-mutations.js';
 import { BaseTab } from './BaseTab.js';
 import { createQrPaymentEditor } from '../qr-payment-editor.js';
 import { db, functions, httpsCallable } from '../../firebase-config.js';
@@ -19,7 +20,7 @@ import {
 } from '../../product-external-links.service.js';
 import { getSelectedCompanyId, matchesSelectedCompany } from '../../store-context.js';
 import {
-    collection, addDoc, updateDoc, deleteDoc, doc, query, onSnapshot, getDoc, getDocs, serverTimestamp, where, orderBy
+    collection, doc, query, onSnapshot, getDoc, getDocs, serverTimestamp, where, orderBy
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 export class ProductsTab extends BaseTab {
@@ -117,10 +118,20 @@ export class ProductsTab extends BaseTab {
         this.loadCollections();
     }
 
+    onShow() {
+        this.loadCategories();
+        this.loadProducts();
+        this.loadCollections();
+    }
+
     onStoreChanged() {
+        if (!this.isActive || !this.isInitialized) return;
         this.resetForm();
         // Switch listeners to the newly-selected store.
         this.allProductsCache = [];
+        this.collectionsCache = [];
+        this.renderProductList();
+        this.renderCollections();
         this.collectionSelectedProductIds.clear();
         this.collectionDraftProductIds.clear();
         this.closeCollectionProductsModal();
@@ -267,6 +278,8 @@ export class ProductsTab extends BaseTab {
     }
 
     async loadCategories() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         // Populate Product Form Category Select & Filter
         const selectedCompanyId = getSelectedCompanyId();
         const q = query(collection(db, 'categories'), where('companyId', '==', selectedCompanyId));
@@ -274,6 +287,7 @@ export class ProductsTab extends BaseTab {
         if (this.unsubscribeCategories) this.unsubscribeCategories();
 
         this.unsubscribeCategories = onSnapshot(q, (snapshot) => {
+            if (!this.isActivityCurrent(activityToken)) return;
             const catSelect = document.getElementById('pCategory');
             const filterSelect = document.getElementById('filterCategory');
 
@@ -313,12 +327,15 @@ export class ProductsTab extends BaseTab {
     }
 
     loadProducts() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         const selectedCompanyId = getSelectedCompanyId();
         const q = query(collection(db, 'products'), where('companyId', '==', selectedCompanyId));
 
         if (this.unsubscribeProducts) this.unsubscribeProducts();
 
         this.unsubscribeProducts = onSnapshot(q, (snapshot) => {
+            if (!this.isActivityCurrent(activityToken)) return;
             this.allProductsCache = [];
             snapshot.forEach(docSnap => {
                 const product = { id: docSnap.id, ...docSnap.data() };
@@ -332,21 +349,26 @@ export class ProductsTab extends BaseTab {
     }
 
     loadCollections() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         const selectedCompanyId = getSelectedCompanyId();
         const q = query(collection(db, 'product_collections'), where('companyId', '==', selectedCompanyId), orderBy('order', 'asc'));
 
         if (this.unsubscribeCollections) this.unsubscribeCollections();
 
         this.unsubscribeCollections = onSnapshot(q, (snapshot) => {
+            if (!this.isActivityCurrent(activityToken)) return;
             this.collectionsCache = snapshot.docs
                 .map(d => ({ id: d.id, ...d.data() }))
                 .filter(c => matchesSelectedCompany(c, `product_collections/${c.id}`));
             this.renderCollections();
         }, async (error) => {
+            if (!this.isActivityCurrent(activityToken)) return;
             console.warn('Collections snapshot failed, retrying without order:', error);
             const fallback = query(collection(db, 'product_collections'), where('companyId', '==', selectedCompanyId));
             if (this.unsubscribeCollections) this.unsubscribeCollections();
             this.unsubscribeCollections = onSnapshot(fallback, (snapshot) => {
+                if (!this.isActivityCurrent(activityToken)) return;
                 this.collectionsCache = snapshot.docs
                     .map(d => ({ id: d.id, ...d.data() }))
                     .filter(c => matchesSelectedCompany(c, `product_collections/${c.id}`))
@@ -997,6 +1019,7 @@ export class ProductsTab extends BaseTab {
                 ? await updateProductExternalLinkIntent(payload)
                 : await addProductExternalLinkIntent(payload);
             this.productLinksProduct.externalLinks = result.data.externalLinks;
+            invalidateEditedCatalogue(product.companyId || getSelectedCompanyId());
             await logAudit(this.productLinksEditingId ? 'Product Link Updated' : 'Product Link Added', product.id);
             this.renderProductLinksModal();
             this.renderProductList();
@@ -1024,6 +1047,7 @@ export class ProductsTab extends BaseTab {
                 linkId: linkId
             });
             this.productLinksProduct.externalLinks = result.data.externalLinks;
+            invalidateEditedCatalogue(product.companyId || getSelectedCompanyId());
             await logAudit('Product Link Deleted', product.id);
             this.renderProductLinksModal();
             this.renderProductList();
@@ -1048,6 +1072,7 @@ export class ProductsTab extends BaseTab {
                 isEnabled: link.isEnabled !== true
             });
             this.productLinksProduct.externalLinks = result.data.externalLinks;
+            invalidateEditedCatalogue(product.companyId || getSelectedCompanyId());
             await logAudit('Product Link Toggled', product.id);
             this.renderProductLinksModal();
             this.renderProductList();
@@ -1077,6 +1102,7 @@ export class ProductsTab extends BaseTab {
                 linkIds: ordered.map((item) => item.id)
             });
             this.productLinksProduct.externalLinks = result.data.externalLinks;
+            invalidateEditedCatalogue(product.companyId || getSelectedCompanyId());
             await logAudit('Product Links Reordered', product.id);
             this.renderProductLinksModal();
             this.renderProductList();

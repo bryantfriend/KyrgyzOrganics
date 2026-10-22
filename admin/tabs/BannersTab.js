@@ -1,9 +1,10 @@
+import { addDoc, updateDoc, deleteDoc } from '../catalogue-mutations.js';
 import { BaseTab } from './BaseTab.js';
 import { db } from '../../firebase-config.js';
 import { uploadImage } from '../utils.js';
 import { getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
 import {
-    collection, addDoc, updateDoc, deleteDoc, doc, query, orderBy, onSnapshot, serverTimestamp, where
+    collection, doc, query, orderBy, onSnapshot, serverTimestamp, where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 export class BannersTab extends BaseTab {
@@ -33,23 +34,33 @@ export class BannersTab extends BaseTab {
         this.loadBanners();
     }
 
+    onShow() {
+        return this.loadBanners();
+    }
+
     onStoreChanged() {
+        if (!this.isActive || !this.isInitialized) return;
         this.loadBanners();
     }
 
     async loadBanners() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         const q = query(collection(db, 'banners'), where('companyId', '==', getCurrentCompanyId()));
 
         if (this.unsubscribeBanners) this.unsubscribeBanners();
 
         this.unsubscribeBanners = onSnapshot(q, async snapshot => {
+            if (!this.isActivityCurrent(activityToken)) return;
             const companyDocs = snapshot.docs.filter(docSnap => {
                 const banner = { id: docSnap.id, ...docSnap.data() };
                 return matchesCompanyId(banner, `banners/${banner.id}`);
             });
             const companySnapshot = { docs: companyDocs };
             await this.autoEnableScheduledBanners(companySnapshot);
+            if (!this.isActivityCurrent(activityToken)) return;
             await this.autoDisableExpiredBanners(companySnapshot);
+            if (!this.isActivityCurrent(activityToken)) return;
 
             this.list.innerHTML = '';
             this.bannerCount = companyDocs.length;

@@ -1,11 +1,15 @@
 import { db } from '../../firebase-config.js';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { uploadImage } from '../utils.js';
-import { COMPANY_ID, getCurrentCompanyId, matchesCompanyId } from '../../company-config.js';
+import { COMPANY_ID, getCurrentCompanyId } from '../../company-config.js';
 import { getCompanyScopedId } from '../../firestore-paths.js';
 
-export class CampaignsTab {
+import { BaseTab } from './BaseTab.js';
+import { campaignStats } from '../campaign-stats.js';
+
+export class CampaignsTab extends BaseTab {
   constructor() {
+    super('campaigns');
     this.section = document.getElementById('campaigns');
     this.form = document.getElementById('campaignForm');
     
@@ -17,7 +21,7 @@ export class CampaignsTab {
     };
 
     // 1. Basic Inputs
-    this.isActive = get('campActive');
+    this.campaignActiveInput = get('campActive');
     this.whatsappNumber = get('campWhatsapp');
     this.startDate = get('campStart');
     this.endDate = get('campEnd');
@@ -118,6 +122,7 @@ export class CampaignsTab {
     this.currentOptionalImageUrl = '';
     this.currentTimeline = [];
     this.currentSoldCount = 0;
+    this.conversionCountAvailable = false;
     this.currentConversionCount = 0;
     this.currentConversionOffset = 0;
     this.campaignUnsubscribe = null;
@@ -166,14 +171,6 @@ export class CampaignsTab {
 
   getCampaignPublicUrl() {
     return new URL(this.getCampaignPublicPath(), window.location.origin).toString();
-  }
-
-  onStoreChanged() {
-    // Only reload if the campaigns UI is currently visible.
-    const visible = this.section && this.section.style.display !== 'none';
-    if (visible) {
-      this.show();
-    }
   }
 
   createTimelineSlot(key, status, get) {
@@ -611,12 +608,14 @@ export class CampaignsTab {
     this.currentConversionOffset = Math.max(0, Number(conversionOffset) || 0);
     const visibleConversions = Math.max(0, this.currentConversionCount - this.currentConversionOffset);
 
-    if (this.statClicks) {
+    if (this.statClicks && this.conversionCountAvailable) {
       this.statClicks.textContent = String(visibleConversions);
     }
   }
 
   async resetConversions() {
+    const token = this.getActivityToken();
+    if (!await this.refreshStats({ force: true, legacy: this.conversionCountMode === 'legacy' }) || !this.isActivityCurrent(token)) return;
     const visibleConversions = Math.max(
       0,
       Number.parseInt(this.statClicks?.textContent || '0', 10) || 0,
@@ -881,24 +880,38 @@ export class CampaignsTab {
     }
   }
 
-  async show() {
-    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-    if (this.section) this.section.style.display = 'block';
-    
+  async init() { return this.refreshCampaign(); }
+  onShow() { return this.refreshCampaign(); }
+  onStoreChanged() { return this.refreshCampaign(); }
+  onHide() {
+    this.clearMockParticleAnimations();
+    this.mockEntranceAnimation?.cancel();
+  }
+
+  async refreshCampaign() {
+    if (!this.isActive) return;
+    const token = this.getActivityToken();
+    this.conversionCountAvailable = false;
+    this.currentConversionCount = 0;
+    this.currentConversionOffset = 0;
+    if (this.statClicks) this.statClicks.textContent = '…';
     await this.loadCampaign();
+    if (!this.isActivityCurrent(token)) return;
     this.updateFieldStates();
     this.initCampaignListener();
-    this.initStatsListener(); // Real-time stats
     this.initSharing();
+    await this.refreshStats();
   }
 
   initCampaignListener() {
+    if (!this.isActive) return;
+    const token = this.getActivityToken();
     if (this.campaignUnsubscribe) this.campaignUnsubscribe();
 
     try {
       const docRef = this.getCampaignDocRef();
       this.campaignUnsubscribe = onSnapshot(docRef, (snap) => {
-        if (!snap.exists() || this.isHydratingCampaign) return;
+        if (!this.isActivityCurrent(token) || !snap.exists() || this.isHydratingCampaign) return;
 
         const data = snap.data();
         const companyId = this.getCampaignCompanyId();
@@ -936,35 +949,70 @@ export class CampaignsTab {
     }
   }
 
-  initStatsListener() {
-    if (!this.statClicks) return;
-    
-    // Cleanup previous listener if any
-    if (this.statsUnsubscribe) this.statsUnsubscribe();
+  ensureStatsRefreshControl() {
+    if (!this.statClicks || this.statsRefreshButton) return;
+    this.statsRefreshButton = document.createElement('button');
+    this.statsRefreshButton.type = 'button';
+    this.statsRefreshButton.className = 'btn btn-secondary btn-sm';
+    this.statsRefreshButton.textContent = 'Refresh clicks';
+    this.statsRefreshButton.addEventListener('click', () => this.refreshStats({ force: true }));
+    this.statsStatus = document.createElement('small');
+    this.statsStatus.setAttribute('role', 'status');
+    this.statsLegacyButton = document.createElement('button');
+    this.statsLegacyButton.type = 'button';
+    this.statsLegacyButton.className = 'btn btn-secondary btn-sm';
+    this.statsLegacyButton.textContent = 'Load legacy click count';
+    this.statsLegacyButton.hidden = true;
+    this.statsLegacyButton.addEventListener('click', () => this.refreshStats({ legacy: true }));
+    this.statClicks.parentElement?.append(this.statsRefreshButton, this.statsLegacyButton, this.statsStatus);
+  }
 
+  async refreshStats({ force = false, legacy = false } = {}) {
+    if (!this.isActive || !this.statClicks) return false;
+    this.ensureStatsRefreshControl();
+    const token = this.getActivityToken();
+    const generation = this.statsGeneration = (this.statsGeneration || 0) + 1;
+    const isCurrent = () => this.isActivityCurrent(token) && this.statsGeneration === generation;
+    const companyId = this.getCampaignCompanyId();
+    this.statsRefreshButton.disabled = true;
+    this.statsLegacyButton.disabled = true;
+    this.statsLegacyButton.hidden = true;
+    this.statsStatus.textContent = ' Loading count…';
     try {
-      const q = query(
-        collection(db, "campaign_events"), 
-        where("campaignId", "==", "prime-mun")
-      );
-
-      this.statsUnsubscribe = onSnapshot(q, (snap) => {
-        const totalClicks = snap.docs.filter((docSnap) => {
-          const eventData = { id: docSnap.id, ...docSnap.data() };
-          if (!matchesCompanyId(eventData, `campaign_events/${eventData.id}`)) return false;
-          const actionType = eventData.actionType;
-          return actionType === 'cta_click' || actionType === 'click_whatsapp' || actionType === 'click_glovo';
-        }).length;
-        this.updateConversionStats(totalClicks, this.currentConversionOffset);
-      });
-    } catch(err) { console.error("Real-time Stats error:", err); }
+      const total = await (legacy ? campaignStats.getLegacyConversionCount(companyId, { force }) : campaignStats.getConversionCount(companyId, { force }));
+      if (!isCurrent()) return false;
+      this.conversionCountAvailable = true;
+      this.conversionCountMode = legacy ? 'legacy' : 'aggregate';
+      this.updateConversionStats(total, this.currentConversionOffset);
+      this.statsStatus.textContent = legacy
+        ? ' Legacy snapshot (cached up to 60 seconds). Add query indexes to avoid downloading history.'
+        : ' Snapshot count (cached up to 60 seconds).';
+      return true;
+    } catch (error) {
+      if (!isCurrent()) return false;
+      console.error('Campaign count unavailable:', error);
+      this.conversionCountAvailable = false;
+      this.statClicks.textContent = '—';
+      this.statsLegacyButton.hidden = !['failed-precondition', 'firestore/failed-precondition'].includes(error.code);
+      this.statsStatus.textContent = this.statsLegacyButton.hidden
+        ? ' Count unavailable. Please retry.'
+        : ' Query index required. You can explicitly load a legacy snapshot (downloads click history).';
+      return false;
+    } finally {
+      if (isCurrent()) {
+        this.statsRefreshButton.disabled = false;
+        this.statsLegacyButton.disabled = false;
+      }
+    }
   }
 
   async loadCampaign() {
+    const token = this.getActivityToken();
     try {
       this.isHydratingCampaign = true;
       const docRef = this.getCampaignDocRef();
       const snap = await getDoc(docRef);
+      if (!this.isActivityCurrent(token)) return;
       if (snap.exists()) {
         const data = snap.data();
         const companyId = this.getCampaignCompanyId();
@@ -975,7 +1023,7 @@ export class CampaignsTab {
         if (!data.companyId) console.warn('Campaign missing companyId:', docRef.id);
         const s = data.styles || {};
 
-        if (this.isActive) this.isActive.checked = data.isActive;
+        if (this.campaignActiveInput) this.campaignActiveInput.checked = data.isActive;
         if (this.whatsappNumber) this.whatsappNumber.value = data.whatsappNumber || '';
         if (this.limitEnabled) this.limitEnabled.checked = !!data.limitSalesEnabled;
         if (this.maxSales) this.maxSales.value = data.maxSales || 50;
@@ -1045,7 +1093,7 @@ export class CampaignsTab {
       }
     } catch (err) { console.error("Load error:", err); }
     finally {
-      this.isHydratingCampaign = false;
+      if (this.isActivityCurrent(token)) this.isHydratingCampaign = false;
     }
   }
 
@@ -1083,7 +1131,7 @@ export class CampaignsTab {
       const companyId = this.getCampaignCompanyId();
       const data = {
         companyId: companyId,
-        isActive: this.isActive ? this.isActive.checked : false,
+        isActive: this.campaignActiveInput ? this.campaignActiveInput.checked : false,
         headline: this.headline ? this.headline.value : '',
         headlineEN: this.headlineEN ? this.headlineEN.value : '',
         headlineKG: this.headlineKG ? this.headlineKG.value : '',

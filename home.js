@@ -1,5 +1,5 @@
 import { db, storage, functions, httpsCallable, auth } from './firebase-config.js';
-import { collection, getDocs, query, where, doc, getDoc, addDoc, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, doc, getDoc, addDoc, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { ref, uploadBytes } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { $, $$, t, loc, setupLanguage, initMobileMenu } from './common.js';
@@ -10,9 +10,10 @@ import {
     getProductExternalLinks,
 } from './product-external-links.mjs';
 import { trackProductExternalLinkClickIntent } from './product-external-links.service.js';
-import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js?v=2.12.2';
+import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation } from './company-config.js?v=2.12.2';
 import { getCheckoutSettingsDocId, getInventoryDocId } from './firestore-paths.js';
 import { loadStoreConfig } from './storefront/store-loader.js';
+import { catalogueRepository } from './storefront/catalogue-repository.js';
 import { applyStoreTheme } from './storefront/theme-engine.js';
 import { getFallbackStoreConfig } from './storefront/defaults/default-store-config.js';
 import { renderStoreSection } from './storefront/section-renderer.js';
@@ -478,11 +479,9 @@ async function loadData() {
     const carouselEnabled = heroConfig?.enabled !== false && (heroConfig?.variant || 'carousel') === 'carousel';
 
     // 1. Load Banners Separately & Immediately
-    if (carouselEnabled) getDocs(query(collection(db, "banners"), where("active", "==", true))).then(snap => {
+    if (carouselEnabled) catalogueRepository.listActive(activeCompanyId, 'banners').then(banners => {
         const now = new Date();
-        bannerData = snap.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .filter(b => matchesCompanyId(b, `banners/${b.id}`))
+        bannerData = banners
             .filter(b => {
                 if (!b.active) return false;
                 let start = b.startAt;
@@ -512,40 +511,21 @@ async function loadData() {
     try {
         // 2. Load Rest of Data
         const results = await Promise.allSettled([
-            productsEnabled ? getDocs(query(collection(db, "products"), where("active", "==", true))) : Promise.resolve({ docs: [] }),
-            productsEnabled ? getDocs(query(collection(db, "categories"), where("active", "==", true))) : Promise.resolve({ docs: [] }),
-            cartEnabled ? getDocs(query(collection(db, "payment_methods"), where("active", "==", true))) : Promise.resolve({ docs: [] }),
-            collectionsEnabled ? getDocs(query(collection(db, "product_collections"), where("active", "==", true))) : Promise.resolve({ docs: [] })
+            productsEnabled ? catalogueRepository.listActive(activeCompanyId, 'products') : Promise.resolve([]),
+            productsEnabled ? catalogueRepository.listActive(activeCompanyId, 'categories') : Promise.resolve([]),
+            cartEnabled ? catalogueRepository.listActive(activeCompanyId, 'payment_methods') : Promise.resolve([]),
+            collectionsEnabled ? catalogueRepository.listActive(activeCompanyId, 'product_collections') : Promise.resolve([])
         ]);
-
-        const pRes = results[0].status === 'fulfilled' ? results[0].value : { docs: [] };
-        const cRes = results[1].status === 'fulfilled' ? results[1].value : { docs: [] };
-        // Banners removed from here
-        const pmRes = results[2].status === 'fulfilled' ? results[2].value : { docs: [] };
-        const collectionRes = results[3].status === 'fulfilled' ? results[3].value : { docs: [] };
-        products = pRes.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(p => matchesCompanyId(p, `products/${p.id}`));
-
-        categories = [];
-        cRes.docs.forEach(doc => {
-            const data = { id: doc.id, ...doc.data() };
-            if (!matchesCompanyId(data, `categories/${data.id}`)) return;
-            categories.push(data);
-            categoriesMap[doc.id] = data;
+        const collectionNames = ['products', 'categories', 'payment_methods', 'product_collections'];
+        results.forEach((result, index) => {
+            if (result.status === 'rejected') console.warn(`Storefront ${collectionNames[index]} load failed:`, result.reason);
         });
-
+        products = results[0].status === 'fulfilled' ? results[0].value : [];
+        categories = results[1].status === 'fulfilled' ? results[1].value : [];
+        categoriesMap = Object.fromEntries(categories.map(category => [category.id, category]));
         categories.sort((a, b) => loc(a, 'name').localeCompare(loc(b, 'name')));
-
-        // Banner processing moved to top of function for lazy loading
-
-        // Payment Methods
-        paymentMethods = pmRes.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .filter(pm => matchesCompanyId(pm, `payment_methods/${pm.id}`));
-        productCollections = collectionRes.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .filter(col => matchesCompanyId(col, `product_collections/${col.id}`))
+        paymentMethods = results[2].status === 'fulfilled' ? results[2].value : [];
+        productCollections = (results[3].status === 'fulfilled' ? results[3].value : [])
             .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
 
         if (productsEnabled) try {
@@ -816,10 +796,7 @@ async function loadCampaignTimeline() {
 
         const activeCompanyId = getCurrentCompanyId();
         const isDefaultCompany = activeCompanyId === COMPANY_ID;
-        const campaignsSnap = await getDocs(collection(db, 'campaigns'));
-        const campaigns = campaignsSnap.docs
-            .map(campaignDoc => ({ id: campaignDoc.id, ...campaignDoc.data() }))
-            .filter(campaign => matchesCompanyId(campaign, `campaigns/${campaign.id}`));
+        const campaigns = await catalogueRepository.listCampaigns(activeCompanyId);
 
         const currentCampaign = campaigns.find(campaign => isCampaignLive(campaign)) || campaigns.find(campaign => campaign.id === 'prime-mun') || campaigns[0] || {};
         const hasCampaignJourneySetting = Object.prototype.hasOwnProperty.call(currentCampaign, 'showCampaignJourney');

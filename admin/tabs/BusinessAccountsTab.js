@@ -21,6 +21,8 @@ export class BusinessAccountsTab extends BaseTab {
     }
 
     loadApplications() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         if (this.unsubscribe) this.unsubscribe();
         if (this.list) {
             this.list.innerHTML = '<p style="color:#666; padding:1rem;">Loading business applications...</p>';
@@ -35,6 +37,7 @@ export class BusinessAccountsTab extends BaseTab {
         );
 
         this.unsubscribe = onSnapshot(q, function (snapshot) {
+            if (!this.isActivityCurrent(activityToken)) return;
             this.applications = snapshot.docs.map(function (docSnap) {
                 return Object.assign({ id: docSnap.id }, docSnap.data());
             }).filter(function (profile) {
@@ -43,6 +46,7 @@ export class BusinessAccountsTab extends BaseTab {
             });
             this.renderApplications();
         }.bind(this), function (error) {
+            if (!this.isActivityCurrent(activityToken)) return;
             console.error('Business applications failed to load:', error);
             if (this.list) {
                 this.list.innerHTML = '<p style="color:#b3261e; padding:1rem;">Business applications could not be loaded. Check your access and try again.</p>';
@@ -50,7 +54,12 @@ export class BusinessAccountsTab extends BaseTab {
         }.bind(this));
     }
 
+    onShow() {
+        return this.loadApplications();
+    }
+
     onStoreChanged() {
+        if (!this.isActive || !this.isInitialized) return;
         if (!this.isInitialized) return;
         this.loadApplications();
     }
