@@ -40,10 +40,15 @@ export class InventoryTab extends BaseTab {
         if (this.dateInput) this.dateInput.valueAsDate = new Date();
 
         this.bindEvents();
-        this.fetchTemplates();
+        return this.fetchTemplates();
+    }
+
+    onShow() {
+        return this.fetchTemplates();
     }
 
     onStoreChanged() {
+        if (!this.isActive || !this.isInitialized) return;
         this.inventoryCache = {};
         this.selectedProducts.clear();
         this.productsCache = [];
@@ -53,7 +58,7 @@ export class InventoryTab extends BaseTab {
         if (this.menuList) this.menuList.innerHTML = '';
 
         this.setStatus('Switched store. Load inventory to continue.');
-        this.fetchTemplates();
+        return this.fetchTemplates();
     }
 
     bindEvents() {
@@ -67,9 +72,12 @@ export class InventoryTab extends BaseTab {
     }
 
     async ensureDataLoaded() {
+        if (!this.isActive) return false;
+        const activityToken = this.getActivityToken();
         // Products
         if (this.productsCache.length === 0) {
             const snaps = await getDocs(collection(db, 'products'));
+            if (!this.isActivityCurrent(activityToken)) return false;
             this.productsCache = snaps.docs
                 .map(d => ({ id: d.id, ...d.data() }))
                 .filter(p => matchesCompanyId(p, `products/${p.id}`));
@@ -77,6 +85,7 @@ export class InventoryTab extends BaseTab {
         // Categories
         if (Object.keys(this.categoriesMap).length === 0) {
             const snaps = await getDocs(collection(db, 'categories'));
+            if (!this.isActivityCurrent(activityToken)) return false;
             snaps.docs.forEach(d => {
                 const category = { id: d.id, ...d.data() };
                 if (matchesCompanyId(category, `categories/${category.id}`)) {
@@ -84,9 +93,12 @@ export class InventoryTab extends BaseTab {
                 }
             });
         }
+        return true;
     }
 
     async loadInventory() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         const dateStr = this.dateInput.value;
         if (!dateStr) return alert("Select a date");
 
@@ -94,17 +106,19 @@ export class InventoryTab extends BaseTab {
         this.loadBtn.disabled = true;
 
         try {
-            await this.ensureDataLoaded();
+            if (!(await this.ensureDataLoaded()) || !this.isActivityCurrent(activityToken)) return;
 
             const companyId = getCurrentCompanyId();
             const invId = getInventoryDocId(companyId, dateStr);
             let snap = await getDoc(doc(db, 'inventory', invId));
+            if (!this.isActivityCurrent(activityToken)) return;
 
             // Back-compat: legacy single-tenant inventory used date-only IDs.
             if (!snap.exists() && companyId === COMPANY_ID) {
                 snap = await getDoc(doc(db, 'inventory', dateStr));
             }
 
+            if (!this.isActivityCurrent(activityToken)) return;
             this.selectedProducts.clear();
             this.inventoryCache = {};
 
@@ -300,9 +314,11 @@ export class InventoryTab extends BaseTab {
 
     /* --- Templates --- */
     async fetchTemplates() {
-        if (!this.templateSelect) return;
+        if (!this.isActive || !this.templateSelect) return;
+        const activityToken = this.getActivityToken();
         try {
             const snap = await getDocs(collection(db, 'inventory_templates'));
+            if (!this.isActivityCurrent(activityToken)) return;
             const sortedDocs = snap.docs
                 .filter(d => {
                     const template = { id: d.id, ...d.data() };
@@ -338,10 +354,13 @@ export class InventoryTab extends BaseTab {
     }
 
     async loadTemplate() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         const id = this.templateSelect.value;
         if (!id) return alert("Select a template");
 
         const snap = await getDoc(doc(db, 'inventory_templates', id));
+        if (!this.isActivityCurrent(activityToken)) return;
         if (snap.exists()) {
             const templateData = snap.data();
             if (templateData.companyId && templateData.companyId !== getCurrentCompanyId()) {
@@ -349,24 +368,28 @@ export class InventoryTab extends BaseTab {
                 return;
             }
             if (!templateData.companyId) console.warn('Inventory template missing companyId:', id);
-            await this.ensureDataLoaded(); // Ensure we have products to display
+            if (!(await this.ensureDataLoaded()) || !this.isActivityCurrent(activityToken)) return; // Ensure we have products to display
             this.applyData(templateData.items);
             this.setStatus(`Loaded template: ${templateData.name}`);
         }
     }
 
     async copyFromDate() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         const dateStr = this.copyDateInput.value;
         if (!dateStr) return alert("Select date");
 
         const companyId = getCurrentCompanyId();
         const invId = getInventoryDocId(companyId, dateStr);
         let snap = await getDoc(doc(db, 'inventory', invId));
+        if (!this.isActivityCurrent(activityToken)) return;
         if (!snap.exists() && companyId === COMPANY_ID) {
             snap = await getDoc(doc(db, 'inventory', dateStr));
         }
+        if (!this.isActivityCurrent(activityToken)) return;
         if (snap.exists()) {
-            await this.ensureDataLoaded();
+            if (!(await this.ensureDataLoaded()) || !this.isActivityCurrent(activityToken)) return;
             const raw = snap.data();
             if (raw.companyId && raw.companyId !== companyId) {
                 console.warn('Inventory companyId mismatch:', dateStr);

@@ -102,6 +102,7 @@ class AdminApp {
     this.logoutBtn = document.getElementById('logoutBtn');
     this.tabs = {};
     this.activeTabName = 'overview';
+    this.tabsEnabled = false;
 
     // Store Switch UI (superadmin only)
     this.storePill = document.getElementById('storePill');
@@ -137,6 +138,7 @@ class AdminApp {
     this.reconnectToastShown = false;
     this.loginAttemptInFlight = false;
     this.authBootstrapInFlight = false;
+    this.authEpoch = 0;
     this.loginAttemptTimer = null;
 
     this.init();
@@ -164,6 +166,8 @@ class AdminApp {
 
   setupAuth() {
     onAuthStateChanged(auth, async user => {
+      const authEpoch = ++this.authEpoch;
+      const isCurrentSession = () => authEpoch === this.authEpoch && auth.currentUser?.uid === user?.uid && !this.logoutRequested;
       if (user) {
         const explicitLoginAttempt = this.loginAttemptInFlight === true;
         if (!explicitLoginAttempt) {
@@ -200,6 +204,7 @@ class AdminApp {
           const routedCompanyId = pathCompanyId || queryCompanyId;
 
           const profile = await getUserProfile(user.uid);
+          if (!isCurrentSession()) return;
           const isLegacyAdmin = !profile;
           const role = profile?.role || 'admin';
           const companyId = profile?.companyId || COMPANY_ID;
@@ -259,12 +264,15 @@ class AdminApp {
             console.warn("Base company seed skipped:", err);
           });
 
+          if (!isCurrentSession()) return;
           await this.loadCompaniesForUi().catch(err => {
             console.warn("Company list load skipped:", err);
           });
 
+          if (!isCurrentSession()) return;
           this.applyRoleUi();
           await this.refreshHeaderContext();
+          if (!isCurrentSession()) return;
           this.authBootstrapInFlight = false;
           this.applySignedInShell();
           this.resumeLiveTabs();
@@ -272,6 +280,7 @@ class AdminApp {
           this.loginForm?.reset();
           this.setLoginUiState({ pending: false, status: '' });
         } catch (err) {
+          if (!isCurrentSession()) return;
           this.authBootstrapInFlight = false;
           console.error("Company context failed:", err);
           const message = err?.message ? String(err.message) : 'Login Failed';
@@ -297,6 +306,7 @@ class AdminApp {
 
     this.logoutBtn?.addEventListener('click', () => {
       this.logoutRequested = true;
+      this.pauseLiveTabs('Signing out...');
       signOut(auth);
     });
 
@@ -364,13 +374,11 @@ class AdminApp {
     }
 
     window.addEventListener('oako:store-changed', () => {
+      // Invalidation is read-free, including tabs that have never been opened.
+      Object.values(this.tabs).forEach((tab) => tab.markStoreChanged());
+      if (!this.tabsEnabled || !this.hasActiveSession()) return;
       this.refreshHeaderContext();
-      this.loadOverview();
-      Object.values(this.tabs).forEach((tab) => {
-        if (typeof tab?.onStoreChanged === 'function') {
-          tab.onStoreChanged();
-        }
-      });
+      this.openTab(this.activeTabName);
     });
   }
 
@@ -423,7 +431,19 @@ class AdminApp {
   handleSignedOutState() {
     this.pauseLiveTabs('Session reconnecting...');
 
-    if (this.loginAttemptInFlight || this.authBootstrapInFlight) {
+    if (this.authBootstrapInFlight) {
+      // A null auth event invalidates the bootstrap's epoch. Its pending read
+      // will exit without completing, so release its UI/flags here rather than
+      // leaving the form disabled waiting for a login timer already cleared.
+      this.authBootstrapInFlight = false;
+      this.loginAttemptInFlight = false;
+      this.clearLoginAttemptTimer();
+      this.clearAuthRecoveryTimer();
+      this.lastStableUser = null;
+      this.reconnectToastShown = false;
+    }
+
+    if (this.loginAttemptInFlight) {
       this.applySignedOutShell();
       this.setLoginUiState({ pending: true, status: 'Signing you in...' });
       return;
@@ -496,34 +516,21 @@ class AdminApp {
     }, recoveryGraceMs);
   }
 
-  stopTabListeners(tab) {
-    if (!tab) return;
-    Object.keys(tab).forEach((key) => {
-      if (!/unsubscribe/i.test(key) || typeof tab[key] !== 'function') return;
-      try {
-        tab[key]();
-      } catch (err) {
-        console.warn(`Failed to stop ${key}:`, err);
-      }
-      tab[key] = null;
-    });
-  }
-
   pauseLiveTabs(message = 'Session reconnecting...') {
+    this.tabsEnabled = false;
     Object.values(this.tabs).forEach((tab) => {
-      this.stopTabListeners(tab);
-      if (typeof tab?.pauseLiveUpdates === 'function') {
-        tab.pauseLiveUpdates(message);
-      }
+      tab.hide();
+      // Auth recovery may be followed by another user/store. Reload context on
+      // activation instead of resurrecting any previous account's listeners.
+      tab.markStoreChanged();
+      tab.pauseLiveUpdates?.(message);
     });
   }
 
   resumeLiveTabs() {
-    Object.values(this.tabs).forEach((tab) => {
-      if (typeof tab?.resumeLiveUpdates === 'function') {
-        tab.resumeLiveUpdates();
-      }
-    });
+    // onLogin/openTab chooses one workspace after role/store validation.
+    // Never resume every tab's live feed after authentication.
+    this.tabsEnabled = true;
   }
 
   setupHeaderActions() {
@@ -659,8 +666,12 @@ class AdminApp {
 
   async refreshHeaderContext() {
     const selected = getSelectedCompanyId();
+    const authEpoch = this.authEpoch;
+    const isCurrent = () => authEpoch === this.authEpoch && selected === getSelectedCompanyId() && this.hasActiveSession() && !this.logoutRequested;
     const store = await this.getStoreDetails(selected);
+    if (!isCurrent()) return;
     const config = await this.getStorefrontConfig(selected);
+    if (!isCurrent()) return;
     const displayName = store?.name || config?.name || this.getCompanyDisplayName(selected);
     const status = store?.launchStatus || config?.launchStatus || (store?.active === false ? 'inactive' : 'live');
     const logoUrl = store?.logoUrl || config?.logoUrl || config?.content?.logoUrl || '';
@@ -795,7 +806,7 @@ class AdminApp {
   }
 
   openTab(tabName, sourceButton = null) {
-    if (!tabName) return;
+    if (!tabName || !this.tabsEnabled || !this.hasActiveSession()) return;
 
     if (!this.isSuperAdmin && PLATFORM_TABS.has(tabName)) {
       this.openTab('overview');
@@ -816,8 +827,17 @@ class AdminApp {
     this.activeTabName = tabName;
     this.updateActivePageChrome(tabName);
 
+    Object.entries(this.tabs).forEach(([name, tab]) => {
+      if (name !== tabName && tab.isActive) tab.hide();
+    });
+
     if (this.tabs[tabName]) {
-      this.tabs[tabName].show();
+      this.tabs[tabName].show().catch((error) => {
+        console.error(`Failed to open ${tabName}:`, error);
+        if (this.activeTabName === tabName && this.tabsEnabled) {
+          this.showToast('This section could not load. Please try again.', 'error');
+        }
+      });
     } else {
       // Fallback for any tab not yet refactored or simple.
       document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
@@ -849,7 +869,8 @@ class AdminApp {
   }
 
   async loadOverview() {
-    return this.tabs['overview']?.refresh?.();
+    if (!this.tabsEnabled || !this.tabs['overview']?.isActive) return;
+    return this.tabs['overview'].refresh();
   }
 
   async onLogin() {

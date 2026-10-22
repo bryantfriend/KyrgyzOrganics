@@ -1,12 +1,13 @@
 import { auth, db } from './firebase-config.js';
-import { addDoc, collection, doc, getDoc, getDocs, limit, query, serverTimestamp, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { addDoc, collection, doc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { initMobileMenu, loc, setupLanguage, t } from './common.js';
 import { buildProductPageUrl, getDisplayPrice } from './product-utils.js';
 import { getProductExternalLinkCtaLabel, getProductExternalLinkNavigation, getProductExternalLinks } from './product-external-links.mjs?v=2.4';
-import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation, matchesCompanyId } from './company-config.js';
+import { COMPANY_ID, getCurrentCompanyId, initCompanyFromLocation } from './company-config.js';
 import { formatPrice } from './shop-utils.js';
 import { loadStoreConfig } from './storefront/store-loader.js';
+import { catalogueRepository } from './storefront/catalogue-repository.js';
 import { applyStoreTheme } from './storefront/theme-engine.js';
 import { trackProductExternalLinkClickIntent } from './product-external-links.service.js';
 
@@ -52,52 +53,21 @@ async function loadCollectionFromUrl() {
     const slug = params.get('slug');
     const collectionId = params.get('id');
 
+    const companyId = getCurrentCompanyId();
     if (slug) {
-        const collectionQuery = query(
-            collection(db, 'product_collections'),
-            where('slug', '==', slug),
-            where('active', '==', true),
-            limit(10)
-        );
-        const snapshot = await getDocs(collectionQuery);
-        const match = snapshot.docs
-            .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-            .find((item) => matchesCompanyId(item, `product_collections/${item.id}`));
+        const match = await catalogueRepository.findBySlug(companyId, 'product_collections', slug);
         if (match) return match;
     }
-
-    if (collectionId) {
-        const snapshot = await getDoc(doc(db, 'product_collections', collectionId));
-        if (snapshot.exists()) {
-            const data = { id: snapshot.id, ...snapshot.data() };
-            if (data.active !== false && matchesCompanyId(data, `product_collections/${data.id}`)) return data;
-        }
-    }
-
-    return null;
+    return collectionId ? catalogueRepository.findById(companyId, 'product_collections', collectionId) : null;
 }
 
 async function loadCollectionProducts(collectionData) {
-    const productIds = Array.isArray(collectionData.productIds) ? collectionData.productIds : [];
-    if (!productIds.length) return [];
-
-    const snapshot = await getDocs(query(collection(db, 'products'), where('active', '==', true)));
-    const productById = new Map();
-    snapshot.docs.forEach((docSnap) => {
-        const product = { id: docSnap.id, ...docSnap.data() };
-        if (matchesCompanyId(product, `products/${product.id}`)) productById.set(product.id, product);
-    });
-
-    return productIds.map((id) => productById.get(id)).filter(Boolean);
+    return catalogueRepository.collectionProducts(getCurrentCompanyId(), collectionData);
 }
 
 async function loadCategories() {
-    const snapshot = await getDocs(query(collection(db, 'categories'), where('active', '==', true)));
-    categoriesMap = {};
-    snapshot.docs.forEach((docSnap) => {
-        const category = { id: docSnap.id, ...docSnap.data() };
-        if (matchesCompanyId(category, `categories/${category.id}`)) categoriesMap[category.id] = category;
-    });
+    const categories = await catalogueRepository.listActive(getCurrentCompanyId(), 'categories');
+    categoriesMap = Object.fromEntries(categories.map(category => [category.id, category]));
 }
 
 function loadCurrentUserProfile() {

@@ -1,6 +1,5 @@
 import { BaseTab } from './BaseTab.js';
-import { db } from '../../firebase-config.js';
-import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { reportingRepository } from '../reporting-repository.js';
 import { getSelectedCompanyId } from '../../store-context.js';
 import {
     COLLECTION_ANALYTICS_SERIES,
@@ -99,45 +98,47 @@ export class AnalyticsTab extends BaseTab {
     async init() {
         this.ensureCollectionAnalyticsModal();
         this.ensureGranolaAnalyticsModal();
-        if (this.btnRefresh) this.btnRefresh.addEventListener('click', () => this.generateReport());
+        if (this.btnRefresh) this.btnRefresh.addEventListener('click', () => this.generateReport({ force: true }));
         if (this.rangeSelect) this.rangeSelect.addEventListener('change', () => this.generateReport());
         if (this.scopeSelect) this.scopeSelect.addEventListener('change', () => this.generateReport());
-        this.generateReport();
+        return this.generateReport();
     }
 
     onShow() {
-        this.generateReport();
+        return this.generateReport();
     }
 
-    getCutoff() {
+    getCutoff({ force = false } = {}) {
         const value = this.rangeSelect?.value || '30';
         if (value === 'all') return null;
+        if (!force && this.cutoffState?.value === value && Date.now() - this.cutoffState.at < 60_000) return this.cutoffState.cutoff;
         const days = Number(value || 30);
-        return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+        const at = Date.now();
+        const cutoff = new Date(at - days * 24 * 60 * 60 * 1000);
+        this.cutoffState = { value, at, cutoff };
+        return cutoff;
     }
 
-    async getDocsSafe(collectionName, companyId, scope) {
-        try {
-            if (scope === 'all') {
-                const snap = await getDocs(collection(db, collectionName));
-                return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            }
-
-            const snap = await getDocs(query(collection(db, collectionName), where('companyId', '==', companyId)));
-            return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        } catch (error) {
-            console.warn(`${collectionName} analytics load skipped:`, error);
-            return [];
-        }
+    onHide() {
+        this.reportGeneration = (this.reportGeneration || 0) + 1;
+        this.closeCollectionAnalytics();
+        this.closeGranolaAnalytics?.();
     }
 
-    async generateReport() {
-        if (!this.reportDiv) return;
+    async generateReport({ force = false } = {}) {
+        if (!this.reportDiv || !this.isActive) return;
+        const activity = this.getActivityToken();
+        const generation = this.reportGeneration = (this.reportGeneration || 0) + 1;
+        const isCurrent = () => this.isActivityCurrent(activity) && generation === this.reportGeneration;
 
         const selectedCompanyId = getSelectedCompanyId();
         const scope = this.scopeSelect?.value || 'selected';
-        const cutoff = this.getCutoff();
+        const cutoff = this.getCutoff({ force });
         const scopeLabel = scope === 'all' ? 'All Stores' : selectedCompanyId;
+        const options = { companyId: selectedCompanyId, scope, cutoff, force };
+        this.reportScope = { companyId: selectedCompanyId, scope };
+        this.collectionDetailsLoaded = false;
+        if (force) reportingRepository.invalidate(this.reportScope);
 
         this.reportDiv.innerHTML = `
             <div class="analytics-loading">
@@ -148,13 +149,14 @@ export class AnalyticsTab extends BaseTab {
 
         try {
             const [ordersRaw, productsRaw, eventsRaw, campaignEventsRaw, storesRaw, collectionsRaw] = await Promise.all([
-                this.getDocsSafe('orders', selectedCompanyId, scope),
-                this.getDocsSafe('products', selectedCompanyId, scope),
-                this.getDocsSafe('storefront_events', selectedCompanyId, scope),
-                this.getDocsSafe('campaign_events', selectedCompanyId, scope),
-                getDocs(collection(db, 'companies')).then((snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))).catch(() => []),
-                this.getDocsSafe('product_collections', selectedCompanyId, scope)
+                reportingRepository.getRows('orders', options),
+                reportingRepository.getRows('products', { ...options, cutoff: null }),
+                reportingRepository.getRows('storefront_events', options),
+                reportingRepository.getRows('campaign_events', options),
+                reportingRepository.getStores(options),
+                reportingRepository.getRows('product_collections', { ...options, cutoff: null })
             ]);
+            if (!isCurrent()) return;
 
             const orders = ordersRaw.filter((order) => {
                 const createdAt = toDate(order.createdAt || order.date);
@@ -200,6 +202,7 @@ export class AnalyticsTab extends BaseTab {
             this.bindGranolaAnalyticsOverview();
             this.bindCollectionAnalyticsOverview();
         } catch (e) {
+            if (!isCurrent()) return;
             console.error(e);
             this.reportDiv.innerHTML = `<div class="inline-alert error">Analytics error: ${escapeHtml(e.message)}</div>`;
         }
@@ -338,7 +341,7 @@ export class AnalyticsTab extends BaseTab {
                         <h4 id="granolaPurchaseAnalyticsHeading">Yandex and Glovo click performance</h4>
                         <p>Every delivery-app choice and every product button on the granola demo is counted here.</p>
                     </div>
-                    <span class="collection-analytics-live-badge">Tracking live</span>
+                    <span class="collection-analytics-live-badge">Snapshot report</span>
                 </div>
                 <div class="granola-analytics-preview">
                     <div class="granola-preview-stat featured">
@@ -635,7 +638,7 @@ export class AnalyticsTab extends BaseTab {
                         <h4 id="collectionAnalyticsHeading">See what turns browsing into Glovo sales</h4>
                         <p>Collection visits, product interest, and every Buy Now on Glovo click are attributed here.</p>
                     </div>
-                    <span class="collection-analytics-live-badge">Tracking live</span>
+                    <span class="collection-analytics-live-badge">Snapshot report</span>
                 </div>
                 <div class="collection-analytics-list">${body}</div>
             </section>
@@ -699,11 +702,38 @@ export class AnalyticsTab extends BaseTab {
         });
     }
 
-    openCollectionAnalytics(collectionId) {
+    async openCollectionAnalytics(collectionId) {
         const collectionData = this.collectionAnalyticsData.collections.find((item) => item.id === collectionId);
         const modal = document.getElementById('collectionAnalyticsModal');
         const body = document.getElementById('collectionAnalyticsBody');
         if (!collectionData || !modal || !body) return;
+        this.activeCollectionId = collectionId;
+        const activity = this.getActivityToken();
+        const generation = this.reportGeneration;
+        const requested = this.collectionDetailRequest = (this.collectionDetailRequest || 0) + 1;
+        const isCurrent = () => this.isActivityCurrent(activity) && generation === this.reportGeneration && requested === this.collectionDetailRequest;
+        if (!this.collectionDetailsLoaded) {
+            document.getElementById('collectionAnalyticsTitle').textContent = collectionData.name || collectionData.slug || 'Collection analytics';
+            body.innerHTML = '<div class="analytics-loading">Loading full collection history...</div>';
+            modal.classList.remove('hidden');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('modal-open');
+            try {
+                // The overview may be date-filtered. Detail charts intentionally retain
+                // all-time history (including their five-year view), loaded only on request.
+                const [storefront, campaign] = await Promise.all([
+                    reportingRepository.getRows('storefront_events', this.reportScope),
+                    reportingRepository.getRows('campaign_events', this.reportScope)
+                ]);
+                if (!isCurrent()) return;
+                this.collectionAnalyticsData.events = getCollectionEvents(storefront, campaign);
+                this.collectionDetailsLoaded = true;
+            } catch (error) {
+                if (isCurrent()) body.innerHTML = `<div class="inline-alert error">Collection detail could not load: ${escapeHtml(error.message)}. Close and reopen to retry.</div>`;
+                return;
+            }
+        }
+        if (!isCurrent()) return;
 
         this.activeCollectionId = collectionId;
         this.collectionGranularity = 'day';
@@ -766,6 +796,7 @@ export class AnalyticsTab extends BaseTab {
     }
 
     closeCollectionAnalytics() {
+        this.collectionDetailRequest = (this.collectionDetailRequest || 0) + 1;
         const modal = document.getElementById('collectionAnalyticsModal');
         if (!modal) return;
         modal.classList.add('hidden');

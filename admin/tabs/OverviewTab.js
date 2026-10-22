@@ -320,25 +320,27 @@ export class OverviewTab extends BaseTab {
     }
 
     async init() {
+        const activityToken = this.getActivityToken();
         this.cacheElements();
         this.bindEvents();
         this.renderLoadingState();
         await this.refresh();
-        this.startOrdersFeed();
+        if (this.isActivityCurrent(activityToken)) this.startOrdersFeed();
     }
 
     onShow() {
-        this.refresh();
         this.startOrdersFeed();
+        return this.refresh();
     }
 
     onStoreChanged() {
+        if (!this.isActive) return;
         this.closeQuickFixModal(false);
         this.activeOrders = [];
         this.stopOrdersFeed();
         this.renderOrdersFeed();
-        this.refresh();
         this.startOrdersFeed();
+        return this.refresh();
     }
 
     cacheElements() {
@@ -458,6 +460,8 @@ export class OverviewTab extends BaseTab {
     }
 
     async refresh() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         const companyId = getSelectedCompanyId();
         if (!companyId) return;
 
@@ -516,7 +520,7 @@ export class OverviewTab extends BaseTab {
                 })
             ]);
 
-            if (refreshToken !== this.refreshToken) return;
+            if (!this.isActivityCurrent(activityToken) || refreshToken !== this.refreshToken) return;
 
             this.currentStore = store || {};
             this.currentConfig = config || {};
@@ -536,7 +540,7 @@ export class OverviewTab extends BaseTab {
             this.setMetaText(this.updatedAtEl, `Updated ${formatRelativeTime(store?.updatedAt || config?.updatedAt || new Date())}`);
         } catch (error) {
             console.warn('Overview refresh failed:', error);
-            if (refreshToken !== this.refreshToken) return;
+            if (!this.isActivityCurrent(activityToken) || refreshToken !== this.refreshToken) return;
             this.showToast('Overview could not load. Please try refreshing again.', 'error');
             this.setMetaText(this.updatedAtEl, 'Refresh failed');
             if (this.activityEl) {
@@ -546,11 +550,13 @@ export class OverviewTab extends BaseTab {
     }
 
     startOrdersFeed() {
-        if (!window.adminApp?.hasActiveSession?.()) return;
+        if (!this.isActive || !window.adminApp?.hasActiveSession?.()) return;
+        const activityToken = this.getActivityToken();
         const companyId = getSelectedCompanyId();
         if (!companyId || this.ordersUnsubscribe) return;
 
         this.ordersUnsubscribe = subscribeToOrders(companyId, (orders, meta = {}) => {
+            if (!this.isActivityCurrent(activityToken)) return;
             if (meta.error) {
                 console.warn('Overview live orders listener warning:', meta.error);
             }

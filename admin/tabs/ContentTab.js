@@ -30,6 +30,14 @@ export class ContentTab extends BaseTab {
         setTimeout(() => this.initQuill(), 100);
     }
 
+    onStoreChanged() {
+        // Do not carry an unsaved page from the previous store into this one.
+        if (this.quill) this.quill.root.innerHTML = '';
+        if (this.contentPreview) this.contentPreview.innerHTML = '';
+        if (this.previewCard) this.previewCard.style.display = 'none';
+        return this.onShow();
+    }
+
     initQuill() {
         if (this.quill) return;
         if (document.getElementById('contentEditor') && window.Quill) {
@@ -58,6 +66,8 @@ export class ContentTab extends BaseTab {
     }
 
     async loadContent() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         const pageId = this.pageSelect.value;
         const lang = this.langSelect.value;
         if (!this.quill) return;
@@ -66,12 +76,14 @@ export class ContentTab extends BaseTab {
             const companyId = getCurrentCompanyId();
             const scopedId = getPageDocId(companyId, pageId);
             let docSnap = await getDoc(doc(db, 'pages', scopedId));
+            if (!this.isActivityCurrent(activityToken)) return;
 
             // Back-compat: legacy single-tenant pages used bare IDs (about/contact).
             if (!docSnap.exists() && companyId === COMPANY_ID) {
                 docSnap = await getDoc(doc(db, 'pages', pageId));
             }
 
+            if (!this.isActivityCurrent(activityToken)) return;
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 if (data.companyId && data.companyId !== companyId) {
@@ -116,6 +128,8 @@ export class ContentTab extends BaseTab {
     }
 
     async translateContent() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         const lang = this.langSelect.value;
         if (lang === 'en') return alert("Target must be non-English");
 
@@ -126,9 +140,11 @@ export class ContentTab extends BaseTab {
             const companyId = getCurrentCompanyId();
             const scopedId = getPageDocId(companyId, pageId);
             let docSnap = await getDoc(doc(db, 'pages', scopedId));
+            if (!this.isActivityCurrent(activityToken)) return;
             if (!docSnap.exists() && companyId === COMPANY_ID) {
                 docSnap = await getDoc(doc(db, 'pages', pageId));
             }
+            if (!this.isActivityCurrent(activityToken)) return;
             const data = docSnap.exists() ? docSnap.data() : {};
             if (data.companyId && data.companyId !== companyId) {
                 console.warn('Page companyId mismatch:', this.pageSelect.value);
@@ -144,6 +160,7 @@ export class ContentTab extends BaseTab {
             // MyMemory Free API
             const res = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(source)}&langpair=${pair}`);
             const json = await res.json();
+            if (!this.isActivityCurrent(activityToken)) return;
 
             if (json.responseStatus === 200) {
                 this.quill.root.innerHTML = json.responseData.translatedText;

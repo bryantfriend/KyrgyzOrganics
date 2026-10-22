@@ -28,17 +28,17 @@ export class SettingsTab extends BaseTab {
 
         if (this.form) this.form.addEventListener('submit', (e) => this.handleSubmit(e));
         if (this.saveCheckoutBtn) this.saveCheckoutBtn.addEventListener('click', () => this.saveCheckoutSettings());
-        this.loadMethods();
-        this.loadCheckoutSettings();
+        return Promise.all([this.loadMethods(), this.loadCheckoutSettings()]);
     }
 
     // Refresh on tab switch
     onShow() {
-        this.loadMethods();
-        this.loadCheckoutSettings();
+        return Promise.all([this.loadMethods(), this.loadCheckoutSettings()]);
     }
 
     async loadMethods() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         if (!this.list) return;
         this.list.innerHTML = '<p>Loading...</p>';
 
@@ -47,9 +47,11 @@ export class SettingsTab extends BaseTab {
             try {
                 snap = await getDocs(query(collection(db, 'payment_methods'), orderBy('name', 'asc')));
             } catch (e) {
+                if (!this.isActivityCurrent(activityToken)) return;
                 snap = await getDocs(collection(db, 'payment_methods'));
             }
 
+            if (!this.isActivityCurrent(activityToken)) return;
             this.list.innerHTML = '';
             snap.docs
                 .map(d => ({ id: d.id, ...d.data() }))
@@ -72,6 +74,7 @@ export class SettingsTab extends BaseTab {
                 this.list.appendChild(el);
             });
         } catch (e) {
+            if (!this.isActivityCurrent(activityToken)) return;
             console.error(e);
             this.list.innerHTML = '<p style="color:red">Error loading methods</p>';
         }
@@ -128,15 +131,19 @@ export class SettingsTab extends BaseTab {
     }
 
     async loadCheckoutSettings() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         try {
             const companyId = getCurrentCompanyId();
             const settingsId = getCheckoutSettingsDocId(companyId);
             let snap = await getDoc(doc(db, 'shop_settings', settingsId));
+            if (!this.isActivityCurrent(activityToken)) return;
 
             // Back-compat for legacy singleton checkout settings.
             if (!snap.exists() && companyId === COMPANY_ID) {
                 snap = await getDoc(doc(db, 'shop_settings', 'checkout'));
             }
+            if (!this.isActivityCurrent(activityToken)) return;
             const data = snap.exists() ? snap.data() : {};
             if (data.companyId && data.companyId !== companyId) {
                 console.warn('Checkout settings companyId mismatch');

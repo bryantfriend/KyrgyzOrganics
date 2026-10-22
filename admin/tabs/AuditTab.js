@@ -12,16 +12,17 @@ export class AuditTab extends BaseTab {
 
     async init() {
         if (this.btnRefresh) this.btnRefresh.addEventListener('click', () => this.loadLogs());
-        this.loadLogs();
+        return this.loadLogs();
     }
 
     // Refresh on tab switch
     onShow() {
-        this.loadLogs();
+        return this.loadLogs();
     }
 
     async loadLogs() {
-        if (!this.list) return;
+        if (!this.isActive || !this.list) return;
+        const activityToken = this.getActivityToken();
         this.list.innerHTML = '<p>Loading logs...</p>';
 
         try {
@@ -33,6 +34,7 @@ export class AuditTab extends BaseTab {
                 const snap = await getDocs(q);
                 docs = snap.docs;
             } catch (e) {
+                if (!this.isActivityCurrent(activityToken)) return;
                 if (!e.message.includes('index')) throw e;
                 const snap = await getDocs(collection(db, 'audit_logs'));
                 docs = snap.docs
@@ -43,6 +45,7 @@ export class AuditTab extends BaseTab {
                     })
                     .slice(0, 50);
             }
+            if (!this.isActivityCurrent(activityToken)) return;
             docs = docs.filter(d => {
                 const log = { id: d.id, ...d.data() };
                 return matchesCompanyId(log, `audit_logs/${log.id}`);
@@ -73,6 +76,7 @@ export class AuditTab extends BaseTab {
             });
 
         } catch (e) {
+            if (!this.isActivityCurrent(activityToken)) return;
             console.error(e);
             this.list.innerHTML = `<p style="color:red">Error loading logs: ${e.message}</p>`;
         }

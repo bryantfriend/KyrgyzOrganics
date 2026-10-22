@@ -127,6 +127,7 @@ export class WhatsAppOrdersTab extends BaseTab {
     }
 
     async init() {
+        const activityToken = this.getActivityToken();
         this.form?.addEventListener('submit', (event) => this.saveOrder(event));
         this.importMessageBtn?.addEventListener('click', () => this.importCustomerMessage());
         this.addItemBtn?.addEventListener('click', () => this.addLineItem());
@@ -146,22 +147,23 @@ export class WhatsAppOrdersTab extends BaseTab {
         this.ordersList?.addEventListener('click', (event) => this.handleOrderAction(event));
 
         await Promise.all([this.loadProducts(), this.loadDeliverySettings()]);
+        if (!this.isActivityCurrent(activityToken)) return;
         this.renderItems();
         this.startLiveOrders();
     }
 
     onShow() {
         if (!this.unsubscribeOrders) this.startLiveOrders();
+        return Promise.all([this.loadProducts(), this.loadDeliverySettings()]);
     }
 
     onStoreChanged() {
-        if (!this.isInitialized) return;
+        if (!this.isActive || !this.isInitialized) return;
         this.lineItems = [];
         this.activeOrders.clear();
         this.renderItems();
-        this.loadProducts();
-        this.loadDeliverySettings();
         this.startLiveOrders();
+        return Promise.all([this.loadProducts(), this.loadDeliverySettings()]);
     }
 
     pauseLiveUpdates(message = 'Session reconnecting...') {
@@ -175,20 +177,25 @@ export class WhatsAppOrdersTab extends BaseTab {
     }
 
     async loadProducts() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         const companyId = getCurrentCompanyId();
         try {
             let snapshot;
             try {
                 snapshot = await getDocs(query(collection(db, 'products'), where('companyId', '==', companyId)));
             } catch (_) {
+                if (!this.isActivityCurrent(activityToken)) return;
                 snapshot = await getDocs(collection(db, 'products'));
             }
+            if (!this.isActivityCurrent(activityToken)) return;
             this.products = snapshot.docs
                 .map((productDoc) => ({ id: productDoc.id, ...productDoc.data() }))
                 .filter((product) => matchesCompanyId(product, `products/${product.id}`))
                 .filter((product) => product.active !== false)
                 .sort((a, b) => getPreferredProductName(a).localeCompare(getPreferredProductName(b)));
         } catch (error) {
+            if (!this.isActivityCurrent(activityToken)) return;
             console.warn('Could not load products for WhatsApp orders:', error);
             this.products = [];
         }
@@ -242,10 +249,14 @@ export class WhatsAppOrdersTab extends BaseTab {
     }
 
     async loadDeliverySettings() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         try {
             const companyId = getCurrentCompanyId();
             let snapshot = await getDoc(doc(db, 'shop_settings', getCheckoutSettingsDocId(companyId)));
+            if (!this.isActivityCurrent(activityToken)) return;
             if (!snapshot.exists() && companyId === COMPANY_ID) snapshot = await getDoc(doc(db, 'shop_settings', 'checkout'));
+            if (!this.isActivityCurrent(activityToken)) return;
             if (snapshot.exists() && this.deliveryFee && !this.deliveryFee.value) {
                 this.deliveryFee.value = Number(snapshot.data().deliveryFee || 0);
                 this.renderTotals();
@@ -355,6 +366,8 @@ export class WhatsAppOrdersTab extends BaseTab {
     }
 
     startLiveOrders() {
+        if (!this.isActive) return;
+        const activityToken = this.getActivityToken();
         if (this.unsubscribeOrders) this.unsubscribeOrders();
         this.unsubscribeOrders = null;
         const companyId = getCurrentCompanyId();
@@ -363,6 +376,7 @@ export class WhatsAppOrdersTab extends BaseTab {
         this.unsubscribeOrders = onSnapshot(
             query(collection(db, 'orders'), where('companyId', '==', companyId), limit(100)),
             (snapshot) => {
+                if (!this.isActivityCurrent(activityToken)) return;
                 this.activeOrders.clear();
                 snapshot.docs.forEach((orderDoc) => {
                     const order = { id: orderDoc.id, ...orderDoc.data(), archived: false };
@@ -373,6 +387,7 @@ export class WhatsAppOrdersTab extends BaseTab {
                 this.renderHistory();
             },
             (error) => {
+                if (!this.isActivityCurrent(activityToken)) return;
                 console.warn('WhatsApp order listener failed:', error);
                 if (this.ordersList) this.ordersList.innerHTML = '<div class="wa-empty-state">Orders could not be loaded. Try Refresh.</div>';
             }

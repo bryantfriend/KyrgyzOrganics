@@ -1,4 +1,5 @@
 import { BaseTab } from './BaseTab.js';
+import { reportingRepository } from '../reporting-repository.js';
 import { mountSaaelEditor } from '../../storefront/brands/saael/admin-editor.js';
 import { validateSaaelContent } from '../../storefront/brands/saael/validation.js';
 import { saveSaaelSettings } from '../../storefront/brands/saael/settings-repository.js';
@@ -462,7 +463,7 @@ export class StoresTab extends BaseTab {
     this.selectedPerson = null;
 
     this.metricsCache = new Map(); // companyId -> metrics
-    this.metricsInFlight = new Set();
+    this.metricsInFlight = new Map();
     this.metricsQueue = [];
     this.metricsActive = 0;
     this.metricsConcurrency = 4;
@@ -481,31 +482,12 @@ export class StoresTab extends BaseTab {
     this.loadUsersForSelectedCompany();
     this.loadStoreActivityTimeline();
 
-    window.addEventListener('oako:store-changed', () => {
-      this.hydrateUserCompanyInput();
-      this.loadUsersForSelectedCompany();
-      this.renderStoreHealthAlerts();
-      this.loadMediaLibrary();
-      this.loadStoreActivityTimeline();
-      this.render();
-    });
-
     window.oakoOpenMediaPicker = (options = {}) => this.openMediaPicker(options);
   }
 
   onShow() {
-    this.hydrateUserCompanyInput();
-    this.refreshPreview();
-    this.renderLaunchChecklist();
-    this.renderHomepageBuilderPreview();
-    this.renderStoreHealthAlerts();
-    this.loadMediaLibrary();
-    this.loadStoreActivityTimeline();
-    this.render();
-  }
-
-  onStoreChanged() {
-    // Called by AdminApp on global store change.
+    if (!this.isActive) return;
+    this.subscribeStores();
     this.hydrateUserCompanyInput();
     this.loadUsersForSelectedCompany();
     this.refreshPreview();
@@ -517,6 +499,19 @@ export class StoresTab extends BaseTab {
     this.render();
   }
 
+  onStoreChanged() {
+    this.onShow();
+  }
+
+  onHide() {
+    this.closeMetricsPanel();
+    // Queued work has not started and should not consume reads for a hidden tab.
+    for (const item of this.metricsQueue.splice(0)) {
+      if (this.metricsInFlight.get(item.companyId) === item) this.metricsInFlight.delete(item.companyId);
+      item.resolve(null);
+    }
+  }
+
   bindEvents() {
     if (this.searchInput) {
       this.searchInput.addEventListener('input', () => this.render());
@@ -525,7 +520,7 @@ export class StoresTab extends BaseTab {
     if (this.refreshMetricsBtn) {
       this.refreshMetricsBtn.addEventListener('click', () => {
         this.metricsCache.clear();
-        this.metricsQueue = [];
+        reportingRepository.invalidate();
         this.renderStoreHealthAlerts({ force: true });
         this.render();
       });
@@ -1106,6 +1101,8 @@ export class StoresTab extends BaseTab {
   }
 
   subscribeStores() {
+    if (!this.isActive || this.unsubscribeStores) return;
+    const activity = this.getActivityToken();
     try {
       const q = query(collection(db, 'companies'), orderBy('name', 'asc'));
 
@@ -1114,10 +1111,12 @@ export class StoresTab extends BaseTab {
       }
 
       this.unsubscribeStores = onSnapshot(q, (snap) => {
+        if (!this.isActivityCurrent(activity)) return;
         this.stores = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         this.renderStoreHealthAlerts();
         this.render();
       }, (err) => {
+        if (!this.isActivityCurrent(activity)) return;
         console.error('Stores snapshot error:', err);
         if (this.table) {
           this.table.innerHTML = `<tbody><tr><td style="padding:10px; color:red;">Error loading stores: ${err.message}</td></tr></tbody>`;
@@ -1145,7 +1144,8 @@ export class StoresTab extends BaseTab {
   }
 
   async renderStoreHealthAlerts({ force = false } = {}) {
-    if (!this.healthAlerts) return;
+    if (!this.healthAlerts || !this.isActive) return;
+    const activity = this.getActivityToken();
 
     const companyId = getSelectedCompanyId();
     const store = this.getSelectedStore();
@@ -1158,7 +1158,8 @@ export class StoresTab extends BaseTab {
       return;
     }
 
-    const cached = this.metricsCache.get(companyId);
+    const cached = this.getCachedMetrics(companyId);
+    let metrics = cached;
     if (!cached || force) {
       this.healthAlerts.innerHTML = `
         <div class="store-health-alert info">
@@ -1166,10 +1167,10 @@ export class StoresTab extends BaseTab {
           <span>Loading products, orders, inventory, and launch signals.</span>
         </div>
       `;
-      await this.getMetricsForCompany(companyId, { force });
+      metrics = await this.getMetricsForCompany(companyId, { force });
     }
-
-    const metrics = this.metricsCache.get(companyId) || {};
+    if (!this.isActivityCurrent(activity) || companyId !== getSelectedCompanyId()) return;
+    metrics = metrics || { error: true };
     const alerts = this.buildStoreHealthAlerts(companyId, store, metrics);
     this.healthAlerts.innerHTML = alerts.map((alert) => `
       <div class="store-health-alert ${alert.level}">
@@ -1301,7 +1302,8 @@ export class StoresTab extends BaseTab {
   }
 
   async loadMediaLibrary() {
-    if (!this.mediaLibrary) return;
+    if (!this.mediaLibrary || !this.isActive) return;
+    const activity = this.getActivityToken();
 
     const companyId = getSelectedCompanyId();
     if (this.mediaScope) this.mediaScope.textContent = companyId || 'Selected store';
@@ -1321,9 +1323,11 @@ export class StoresTab extends BaseTab {
           orderBy('createdAt', 'desc')
         ));
       } catch (indexedErr) {
+        if (!this.isActivityCurrent(activity)) return;
         snap = await getDocs(query(collection(db, 'store_media'), where('companyId', '==', companyId)));
       }
 
+      if (!this.isActivityCurrent(activity)) return;
       const assets = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => {
@@ -1348,6 +1352,7 @@ export class StoresTab extends BaseTab {
         </div>
       `;
     } catch (err) {
+      if (!this.isActivityCurrent(activity)) return;
       console.warn('Media library load failed:', err);
       this.mediaLibrary.innerHTML = `
         <div class="inline-alert error">
@@ -1538,7 +1543,8 @@ export class StoresTab extends BaseTab {
   }
 
   async loadStoreActivityTimeline() {
-    if (!this.activityTimeline) return;
+    if (!this.activityTimeline || !this.isActive) return;
+    const activity = this.getActivityToken();
     const companyId = getSelectedCompanyId();
     this.activityTimeline.innerHTML = '<div class="skeleton-row"></div><div class="skeleton-row"></div>';
 
@@ -1552,9 +1558,11 @@ export class StoresTab extends BaseTab {
           limit(12)
         ));
       } catch (err) {
+        if (!this.isActivityCurrent(activity)) return;
         snap = await getDocs(query(collection(db, 'audit_logs'), where('companyId', '==', companyId)));
       }
 
+      if (!this.isActivityCurrent(activity)) return;
       const logs = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .sort((a, b) => (toDate(b.timestamp)?.getTime() || 0) - (toDate(a.timestamp)?.getTime() || 0))
@@ -1580,12 +1588,13 @@ export class StoresTab extends BaseTab {
         `;
       }).join('');
     } catch (err) {
+      if (!this.isActivityCurrent(activity)) return;
       this.activityTimeline.innerHTML = `<div class="inline-alert error">Could not load activity: ${escapeHtml(err.message)}</div>`;
     }
   }
 
   render() {
-    if (!this.table) return;
+    if (!this.table || !this.isActive) return;
 
     const selected = getSelectedCompanyId();
     const stores = this.getFilteredStores();
@@ -1606,7 +1615,7 @@ export class StoresTab extends BaseTab {
 
     const rows = stores.map((store) => {
       const id = store.companyId || store.id;
-      const metrics = this.metricsCache.get(id);
+      const metrics = this.getCachedMetrics(id);
 
       // Kick off async metrics load (lazy, cached)
       if (!metrics) this.ensureMetricsLoaded(id);
@@ -1652,7 +1661,7 @@ export class StoresTab extends BaseTab {
           </td>
           <td style="padding:10px; border-bottom:1px solid #eee;">
             <div style="display:flex; flex-direction:column; gap:0.15rem;">
-              <span><strong>${ordersCount}</strong> orders</span>
+              <span><strong>${ordersCount}</strong> active orders (latest 100)</span>
               <span><strong>${revenue}</strong> revenue</span>
               <span><strong>${productsCount}</strong> products</span>
               <span><strong>${pageViews}</strong> visits</span>
@@ -1676,25 +1685,35 @@ export class StoresTab extends BaseTab {
     this.table.innerHTML = header + `<tbody>${rows || `<tr><td style="padding:10px; color:#666;" colspan="7">No stores found.</td></tr>`}</tbody>`;
   }
 
-  async ensureMetricsLoaded(companyId) {
-    if (!companyId) return;
-    if (this.metricsCache.has(companyId)) return;
-    if (this.metricsInFlight.has(companyId)) return;
-
-    this.metricsInFlight.add(companyId);
-    this.metricsQueue.push(companyId);
-    this.processMetricsQueue();
+  getCachedMetrics(companyId) {
+    const userId = auth.currentUser?.uid || null;
+    if (this.metricsUserId !== userId || this.metricsCacheVersion !== reportingRepository.version) {
+      this.metricsCache.clear();
+      this.metricsUserId = userId;
+      this.metricsCacheVersion = reportingRepository.version;
+    }
+    const metrics = this.metricsCache.get(companyId);
+    if (metrics && Date.now() - metrics.updatedAt < 60_000) return metrics;
+    this.metricsCache.delete(companyId);
+    return null;
   }
 
-  async getMetricsForCompany(companyId, { force = false } = {}) {
-    if (!companyId) return null;
-    if (!force && this.metricsCache.has(companyId)) {
-      return this.metricsCache.get(companyId);
-    }
+  ensureMetricsLoaded(companyId) {
+    return this.getMetricsForCompany(companyId);
+  }
 
-    await this.loadMetricsForCompany(companyId);
-    this.render();
-    return this.metricsCache.get(companyId);
+  getMetricsForCompany(companyId, { force = false } = {}) {
+    if (!companyId || !this.isActive) return Promise.resolve(null);
+    const existing = this.metricsInFlight.get(companyId);
+    if (existing && existing.activity === this.getActivityToken() && existing.version === reportingRepository.version) return existing.promise;
+    const cached = this.getCachedMetrics(companyId);
+    if (!force && cached) return Promise.resolve(cached);
+    const item = { companyId, force, activity: this.getActivityToken(), version: reportingRepository.version };
+    item.promise = new Promise((resolve) => { item.resolve = resolve; });
+    this.metricsInFlight.set(companyId, item);
+    this.metricsQueue.push(item);
+    this.processMetricsQueue();
+    return item.promise;
   }
 
   getOrCreateMetricsModal() {
@@ -1724,6 +1743,7 @@ export class StoresTab extends BaseTab {
       if (!actionButton) return;
       const action = actionButton.dataset.action;
       const companyId = actionButton.dataset.id;
+      if (action === 'event-details' && companyId) this.loadDetailedEventBreakdown(companyId);
       if ((action === 'products' || action === 'categories') && companyId) {
         setSelectedCompany(companyId);
         this.closeMetricsPanel();
@@ -1736,10 +1756,15 @@ export class StoresTab extends BaseTab {
   }
 
   closeMetricsPanel() {
+    this.metricsPanelCompanyId = null;
+    this.metricsPanelVersion = (this.metricsPanelVersion || 0) + 1;
     document.getElementById('storeMetricsModal')?.classList.add('hidden');
   }
 
   async openMetricsPanel(companyId) {
+    const activity = this.getActivityToken();
+    const version = this.metricsPanelVersion = (this.metricsPanelVersion || 0) + 1;
+    this.metricsPanelCompanyId = companyId;
     const modal = this.getOrCreateMetricsModal();
     const title = modal.querySelector('#storeMetricsTitle');
     const body = modal.querySelector('#storeMetricsBody');
@@ -1757,7 +1782,8 @@ export class StoresTab extends BaseTab {
 
     modal.classList.remove('hidden');
 
-    const metrics = await this.getMetricsForCompany(companyId, { force: true });
+    const metrics = await this.getMetricsForCompany(companyId);
+    if (!this.isActivityCurrent(activity) || version !== this.metricsPanelVersion) return;
     if (body) body.innerHTML = this.renderMetricsPanel(companyId, store, metrics);
   }
 
@@ -1775,9 +1801,8 @@ export class StoresTab extends BaseTab {
       .map(([status, count]) => `<div class="store-metric-row"><span>${escapeHtml(status || 'unknown')}</span><strong>${count}</strong></div>`)
       .join('') || '<div class="store-metric-row muted"><span>No order statuses yet</span><strong>0</strong></div>';
 
-    const eventRows = Object.entries(metrics.eventsByType || {})
+    const eventRows = Object.entries(metrics.eventsByType || { page_view: metrics.pageViews, 'Other events (summary)': metrics.analyticsEvents - metrics.pageViews })
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
       .map(([type, count]) => `<div class="store-metric-row"><span>${escapeHtml(type || 'event')}</span><strong>${count}</strong></div>`)
       .join('') || '<div class="store-metric-row muted"><span>No storefront events yet</span><strong>0</strong></div>';
 
@@ -1788,12 +1813,12 @@ export class StoresTab extends BaseTab {
     return `
       <div class="store-metrics-summary">
         <div>
-          <span class="metric-label">Orders</span>
+          <span class="metric-label">Active orders (latest 100)</span>
           <strong>${metrics.ordersCount}</strong>
           <small>${metrics.recentOrders3d} in last 3 days</small>
         </div>
         <div>
-          <span class="metric-label">Revenue</span>
+          <span class="metric-label">Revenue (shown active orders)</span>
           <strong>${formatMoney(metrics.revenue)}</strong>
           <small>Avg order ${formatMoney(metrics.averageOrderValue)}</small>
         </div>
@@ -1826,6 +1851,7 @@ export class StoresTab extends BaseTab {
         <section class="store-metrics-card">
           <h4>Storefront Events</h4>
           ${eventRows}
+          ${!metrics.eventsByType ? `<p>Summary only. Custom and legacy event types are included in Other events.</p><button type="button" class="btn-secondary" data-action="event-details" data-id="${escapeHtml(companyId)}">Load detailed event breakdown</button>` : ''}
         </section>
 
         <section class="store-metrics-card">
@@ -1843,51 +1869,80 @@ export class StoresTab extends BaseTab {
     `;
   }
 
+  async loadDetailedEventBreakdown(companyId) {
+    const activity = this.getActivityToken();
+    const version = this.metricsPanelVersion;
+    const button = document.querySelector('#storeMetricsBody [data-action="event-details"]');
+    if (button) { button.disabled = true; button.textContent = 'Loading full event history...'; }
+    try {
+      const events = await reportingRepository.getRows('storefront_events', { companyId, scope: 'selected' });
+      if (!this.isActivityCurrent(activity) || version !== this.metricsPanelVersion || companyId !== this.metricsPanelCompanyId) return;
+      const metrics = await this.getMetricsForCompany(companyId);
+      if (!metrics || metrics.error || !this.isActivityCurrent(activity) || version !== this.metricsPanelVersion) return;
+      const eventsByType = Object.fromEntries(events.reduce((counts, event) => {
+        const type = String(event.actionType || event.type || 'event');
+        counts.set(type, (counts.get(type) || 0) + 1);
+        return counts;
+      }, new Map()));
+      // Derive all event figures from the same detail snapshot when it is requested.
+      const detail = { ...metrics, eventsByType, analyticsEvents: events.length, pageViews: events.filter((event) => (event.actionType || event.type) === 'page_view').length };
+      const store = this.stores.find((item) => (item.companyId || item.id) === companyId) || { companyId };
+      const body = document.getElementById('storeMetricsBody');
+      if (body) body.innerHTML = this.renderMetricsPanel(companyId, store, detail);
+    } catch (error) {
+      if (this.isActivityCurrent(activity) && version === this.metricsPanelVersion && button) {
+        button.disabled = false;
+        button.textContent = 'Retry detailed event breakdown';
+        button.insertAdjacentHTML('beforebegin', `<div class="inline-alert error">Event detail unavailable: ${escapeHtml(error.message)}</div>`);
+      }
+    }
+  }
+
   processMetricsQueue() {
-    while (this.metricsActive < this.metricsConcurrency && this.metricsQueue.length > 0) {
-      const companyId = this.metricsQueue.shift();
+    while (this.isActive && this.metricsActive < this.metricsConcurrency && this.metricsQueue.length > 0) {
+      const item = this.metricsQueue.shift();
+      if (!this.isActivityCurrent(item.activity)) {
+        if (this.metricsInFlight.get(item.companyId) === item) this.metricsInFlight.delete(item.companyId);
+        item.resolve(null);
+        continue;
+      }
       this.metricsActive += 1;
-      this.loadMetricsForCompany(companyId)
-        .catch(() => {})
+      this.loadMetricsForCompany(item.companyId, { force: item.force })
+        .catch((error) => {
+          console.warn('Metrics load failed for', item.companyId, error);
+          return { error: true, ordersCount: 'ERR', revenue: 'ERR', productsCount: 'ERR', pageViews: 'ERR', updatedAt: Date.now() };
+        })
+        .then((metrics) => {
+          if (this.isActivityCurrent(item.activity) && item.version === reportingRepository.version) {
+            this.metricsCache.delete(item.companyId);
+            this.metricsCache.set(item.companyId, metrics);
+            while (this.metricsCache.size > 40) this.metricsCache.delete(this.metricsCache.keys().next().value);
+          }
+          item.resolve(metrics);
+        })
         .finally(() => {
           this.metricsActive = Math.max(0, this.metricsActive - 1);
-          this.metricsInFlight.delete(companyId);
-          if (companyId === getSelectedCompanyId()) this.renderStoreHealthAlerts();
-          this.render();
+          if (this.metricsInFlight.get(item.companyId) === item) this.metricsInFlight.delete(item.companyId);
+          if (this.isActivityCurrent(item.activity)) {
+            if (item.companyId === getSelectedCompanyId()) this.renderStoreHealthAlerts();
+            this.render();
+          }
           this.processMetricsQueue();
         });
     }
   }
 
-  async loadMetricsForCompany(companyId) {
-    try {
-      const ordersBase = query(
-        collection(db, 'orders'),
-        where('companyId', '==', companyId),
-        where('status', 'in', ACTIVE_ORDER_STATUSES),
-        orderBy('createdAt', 'desc'),
-        limit(100)
-      );
-      const productsBase = query(collection(db, 'products'), where('companyId', '==', companyId));
-      const eventsBase = query(collection(db, 'storefront_events'), where('companyId', '==', companyId));
-
+  async loadMetricsForCompany(companyId, { force = false } = {}) {
       const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-
-      const [ordersSnap, productsSnap, eventsSnap, lowInv] = await Promise.all([
-        getDocs(ordersBase),
-        getDocs(productsBase),
-        getDocs(eventsBase).catch(() => ({ docs: [] })),
-        this.computeLowInventory(companyId).catch(() => null)
+      const [orders, productCounts, eventSummary, lowInv] = await Promise.all([
+        reportingRepository.getActiveOrders(companyId, ACTIVE_ORDER_STATUSES, { force }),
+        reportingRepository.getProductCounts(companyId, { force }),
+        reportingRepository.getEventSummary(companyId, { force }),
+        this.computeLowInventory(companyId)
       ]);
-
-      const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const products = productsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      const events = eventsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
       const ordersCount = orders.length;
-      const productsCount = products.length;
-      const activeProducts = products.filter((product) => product.active !== false).length;
-      const inactiveProducts = Math.max(0, productsCount - activeProducts);
+      const { productsCount, activeProducts, inactiveProducts } = productCounts;
+      const { pageViews, analyticsEvents, eventsByType } = eventSummary;
       const revenue = orders.reduce((sum, order) => {
         const value = Number(order.total ?? order.price ?? 0);
         return sum + (Number.isFinite(value) ? value : 0);
@@ -1908,12 +1963,6 @@ export class StoresTab extends BaseTab {
         acc[status] = (acc[status] || 0) + 1;
         return acc;
       }, {});
-      const eventsByType = events.reduce((acc, event) => {
-        const type = String(event.actionType || event.type || 'event');
-        acc[type] = (acc[type] || 0) + 1;
-        return acc;
-      }, {});
-      const pageViews = events.filter((event) => (event.actionType || event.type) === 'page_view').length;
       const productDemand = new Map();
 
       orders.forEach((order) => {
@@ -1930,7 +1979,7 @@ export class StoresTab extends BaseTab {
         .sort((a, b) => b.qty - a.qty)
         .slice(0, 5);
 
-      this.metricsCache.set(companyId, {
+      return {
         ordersCount,
         revenue,
         averageOrderValue,
@@ -1938,7 +1987,7 @@ export class StoresTab extends BaseTab {
         activeProducts,
         inactiveProducts,
         pageViews,
-        analyticsEvents: events.length,
+        analyticsEvents,
         recentOrders3d: recentCount,
         noOrders3d,
         lowInventoryCount: lowInv,
@@ -1947,20 +1996,7 @@ export class StoresTab extends BaseTab {
         eventsByType,
         topProducts,
         updatedAt: Date.now()
-      });
-    } catch (e) {
-      console.warn('Metrics load failed for', companyId, e);
-      this.metricsCache.set(companyId, {
-        ordersCount: 'ERR',
-        revenue: 'ERR',
-        productsCount: 'ERR',
-        pageViews: 'ERR',
-        error: true,
-        noOrders3d: null,
-        lowInventoryCount: null,
-        updatedAt: Date.now()
-      });
-    }
+      };
   }
 
   async computeLowInventory(companyId) {
@@ -3101,7 +3137,8 @@ export class StoresTab extends BaseTab {
   }
 
   async loadUsersForSelectedCompany() {
-    if (!this.usersList) return;
+    if (!this.usersList || !this.isActive) return;
+    const activity = this.getActivityToken();
 
     const companyId = getSelectedCompanyId();
     this.usersList.innerHTML = '<div class="people-loading">Loading people...</div>';
@@ -3113,31 +3150,38 @@ export class StoresTab extends BaseTab {
         const q = query(collection(db, 'users'), where('companyId', '==', companyId), orderBy('email', 'asc'));
         userSnap = await getDocs(q);
       } catch (e) {
+        if (!this.isActivityCurrent(activity)) return;
         if (!String(e?.message || '').includes('index')) throw e;
         const q2 = query(collection(db, 'users'), where('companyId', '==', companyId));
         userSnap = await getDocs(q2);
       }
 
-      this.people = userSnap.docs
+      if (!this.isActivityCurrent(activity)) return;
+      const people = userSnap.docs
         .map((d) => ({ type: 'user', id: d.id, ...d.data() }))
         .filter((user) => isStaffProfile(user))
         .sort((a, b) => String(a.email || a.displayName || '').localeCompare(String(b.email || b.displayName || '')));
 
-      this.invites = await this.loadUserInvites(companyId);
+      const invites = await this.loadUserInvites(companyId, activity);
+      if (!this.isActivityCurrent(activity)) return;
+      this.people = people;
+      this.invites = invites;
       this.renderPeopleWorkspace();
     } catch (err) {
+      if (!this.isActivityCurrent(activity)) return;
       console.error(err);
       this.usersList.innerHTML = `<div class="inline-alert error">Error loading people: ${escapeHtml(err.message)}</div>`;
     }
   }
 
-  async loadUserInvites(companyId) {
+  async loadUserInvites(companyId, activity = this.getActivityToken()) {
     try {
       let snap;
       try {
         const q = query(collection(db, 'user_invites'), where('companyId', '==', companyId), orderBy('createdAt', 'desc'));
         snap = await getDocs(q);
       } catch (e) {
+        if (!this.isActivityCurrent(activity)) return [];
         if (!String(e?.message || '').includes('index')) throw e;
         const fallback = query(collection(db, 'user_invites'), where('companyId', '==', companyId));
         snap = await getDocs(fallback);
@@ -3152,7 +3196,7 @@ export class StoresTab extends BaseTab {
         });
     } catch (err) {
       console.warn('Invites could not load:', err);
-      if (this.invitesList) {
+      if (this.isActivityCurrent(activity) && this.invitesList) {
         this.invitesList.innerHTML = `<div class="inline-alert error">Invites could not load: ${escapeHtml(err.message)}</div>`;
       }
       return [];
