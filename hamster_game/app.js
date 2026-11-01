@@ -1,5 +1,5 @@
-import {normalizePhone,phoneError,isSmsUnavailable} from './phone-utils.mjs?v=2.6';
-import * as cloud from './cloud.js?v=2.6';
+import {normalizePhone,phoneError,isSmsUnavailable} from './phone-utils.mjs?v=2.7';
+import * as cloud from './cloud.js?v=2.7';
 
 const asset = './assets/';
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');

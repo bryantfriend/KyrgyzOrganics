@@ -1,7 +1,7 @@
 import {normalizePhone} from './phone-utils.mjs?v=2.5';
 import {app} from './firebase-config.js';
-import {getAuth,onAuthStateChanged,signInAnonymously,signInWithEmailAndPassword,EmailAuthProvider,PhoneAuthProvider,RecaptchaVerifier,signInWithCredential,linkWithCredential,sendEmailVerification,sendPasswordResetEmail,signOut,reload} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import {getFunctions,httpsCallable} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-functions.js';
+import {getAuth,onAuthStateChanged,signInAnonymously,signInWithEmailAndPassword,EmailAuthProvider,PhoneAuthProvider,RecaptchaVerifier,signInWithCredential,linkWithCredential,sendEmailVerification,sendPasswordResetEmail,signOut,reload} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
+import {getFunctions,httpsCallable} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js';
 const auth=getAuth(app),call= httpsCallable(getFunctions(app),'hamsterGame',{timeout:20000});
 const id=()=>Array.from(crypto.getRandomValues(new Uint32Array(4)),n=>n.toString(16).padStart(8,'0')).join('');
 export const account=()=>auth.currentUser;
