@@ -1544,23 +1544,27 @@ export class StoresTab extends BaseTab {
 
   async loadStoreActivityTimeline() {
     if (!this.activityTimeline || !this.isActive) return;
+    const key = JSON.stringify([this.getActivityToken(), getSelectedCompanyId()]);
+    if (this.activityRequest?.key === key) return this.activityRequest.promise;
+    const request = { key, promise: this.fetchStoreActivityTimeline() };
+    this.activityRequest = request;
+    try { return await request.promise; }
+    finally { if (this.activityRequest === request) this.activityRequest = null; }
+  }
+
+  async fetchStoreActivityTimeline() {
+    if (!this.activityTimeline || !this.isActive) return;
     const activity = this.getActivityToken();
     const companyId = getSelectedCompanyId();
     this.activityTimeline.innerHTML = '<div class="skeleton-row"></div><div class="skeleton-row"></div>';
 
     try {
-      let snap;
-      try {
-        snap = await getDocs(query(
-          collection(db, 'audit_logs'),
-          where('companyId', '==', companyId),
-          orderBy('timestamp', 'desc'),
-          limit(12)
-        ));
-      } catch (err) {
-        if (!this.isActivityCurrent(activity)) return;
-        snap = await getDocs(query(collection(db, 'audit_logs'), where('companyId', '==', companyId)));
-      }
+      const snap = await getDocs(query(
+        collection(db, 'audit_logs'),
+        where('companyId', '==', companyId),
+        orderBy('timestamp', 'desc'),
+        limit(12)
+      ));
 
       if (!this.isActivityCurrent(activity)) return;
       const logs = snap.docs
@@ -1589,7 +1593,7 @@ export class StoresTab extends BaseTab {
       }).join('');
     } catch (err) {
       if (!this.isActivityCurrent(activity)) return;
-      this.activityTimeline.innerHTML = `<div class="inline-alert error">Could not load activity: ${escapeHtml(err.message)}</div>`;
+      this.activityTimeline.innerHTML = `<div class="inline-alert error">Could not load the latest activity. Click Refresh to retry.</div>`;
     }
   }
 

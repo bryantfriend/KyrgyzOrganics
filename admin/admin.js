@@ -14,10 +14,10 @@ import { SettingsTab } from './tabs/SettingsTab.js';
 import { OrdersTab } from './tabs/OrdersTab.js?v=3.30';
 import { WhatsAppOrdersTab } from './tabs/WhatsAppOrdersTab.js?v=2';
 import { BusinessAccountsTab } from './tabs/BusinessAccountsTab.js?v=3.18';
-import { AuditTab } from './tabs/AuditTab.js';
+import { AuditTab } from './tabs/AuditTab.js?v=3.32-audit-counts';
 import { AnalyticsTab } from './tabs/AnalyticsTab.js?v=3.31-costguard';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
-import { StoresTab } from './tabs/StoresTab.js?v=3.16';
+import { StoresTab } from './tabs/StoresTab.js?v=3.32-audit-counts';
 import { GamesTab } from './tabs/HamsterGameTab.js?v=2.2';
 import { getStorePublicUrl } from './storefront-link.js?v=1.0';
 

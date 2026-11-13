@@ -22,6 +22,16 @@ export class AuditTab extends BaseTab {
 
     async loadLogs() {
         if (!this.isActive || !this.list) return;
+        const key = JSON.stringify([this.getActivityToken(), getCurrentCompanyId()]);
+        if (this.logsRequest?.key === key) return this.logsRequest.promise;
+        const request = { key, promise: this.fetchLogs() };
+        this.logsRequest = request;
+        try { return await request.promise; }
+        finally { if (this.logsRequest === request) this.logsRequest = null; }
+    }
+
+    async fetchLogs() {
+        if (!this.isActive || !this.list) return;
         const activityToken = this.getActivityToken();
         this.list.innerHTML = '<p>Loading logs...</p>';
 
@@ -29,22 +39,8 @@ export class AuditTab extends BaseTab {
             // Fetch last 50 logs
             const q = query(collection(db, 'audit_logs'), where('companyId', '==', getCurrentCompanyId()), orderBy('timestamp', 'desc'), limit(50));
 
-            let docs = [];
-            try {
-                const snap = await getDocs(q);
-                docs = snap.docs;
-            } catch (e) {
-                if (!this.isActivityCurrent(activityToken)) return;
-                if (!e.message.includes('index')) throw e;
-                const snap = await getDocs(collection(db, 'audit_logs'));
-                docs = snap.docs
-                    .sort((a, b) => (b.data().timestamp?.toMillis?.() || 0) - (a.data().timestamp?.toMillis?.() || 0))
-                    .filter(d => {
-                        const log = { id: d.id, ...d.data() };
-                        return matchesCompanyId(log, `audit_logs/${log.id}`);
-                    })
-                    .slice(0, 50);
-            }
+            const snap = await getDocs(q);
+            let docs = snap.docs;
             if (!this.isActivityCurrent(activityToken)) return;
             docs = docs.filter(d => {
                 const log = { id: d.id, ...d.data() };
@@ -78,7 +74,7 @@ export class AuditTab extends BaseTab {
         } catch (e) {
             if (!this.isActivityCurrent(activityToken)) return;
             console.error(e);
-            this.list.innerHTML = `<p style="color:red">Error loading logs: ${e.message}</p>`;
+            this.list.innerHTML = `<p style="color:red">Could not load the latest logs. Click Refresh to retry.</p>`;
         }
     }
 }
