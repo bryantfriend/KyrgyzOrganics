@@ -15,7 +15,7 @@ import { OrdersTab } from './tabs/OrdersTab.js?v=3.30';
 import { WhatsAppOrdersTab } from './tabs/WhatsAppOrdersTab.js?v=2';
 import { BusinessAccountsTab } from './tabs/BusinessAccountsTab.js?v=3.18';
 import { AuditTab } from './tabs/AuditTab.js';
-import { AnalyticsTab } from './tabs/AnalyticsTab.js?v=3.28';
+import { AnalyticsTab } from './tabs/AnalyticsTab.js?v=3.31-costguard';
 import { CampaignsTab } from './tabs/CampaignsTab.js?v=2.1';
 import { StoresTab } from './tabs/StoresTab.js?v=3.16';
 import { GamesTab } from './tabs/HamsterGameTab.js?v=2.2';

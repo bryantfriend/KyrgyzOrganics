@@ -99,13 +99,31 @@ export class AnalyticsTab extends BaseTab {
         this.ensureCollectionAnalyticsModal();
         this.ensureGranolaAnalyticsModal();
         if (this.btnRefresh) this.btnRefresh.addEventListener('click', () => this.generateReport({ force: true }));
-        if (this.rangeSelect) this.rangeSelect.addEventListener('change', () => this.generateReport());
-        if (this.scopeSelect) this.scopeSelect.addEventListener('change', () => this.generateReport());
-        return this.generateReport();
+        if (this.rangeSelect) this.rangeSelect.addEventListener('change', () => this.prepareReport());
+        if (this.scopeSelect) this.scopeSelect.addEventListener('change', () => this.prepareReport());
+        return this.prepareReport();
     }
 
     onShow() {
-        return this.generateReport();
+        return this.prepareReport();
+    }
+
+    // Compatibility reporting can download lifetime history, even for a short
+    // date range. Never start that work merely by navigating or editing filters.
+    prepareReport() {
+        this.onHide();
+        this.reportScope = null;
+        this.collectionDetailsLoaded = false;
+        this.collectionAnalyticsData = { collections: [], products: [], events: [] };
+        this.granolaAnalyticsEvents = [];
+        if (this.btnRefresh) this.btnRefresh.textContent = 'Load / Refresh Report';
+        if (this.reportDiv) this.reportDiv.innerHTML = `
+            <div class="analytics-loading" role="status">
+                <strong>Report not loaded.</strong>
+                <span>Choose your store and date range, then select Load / Refresh Report.
+                Legacy-compatible reports may read full history. No report data is fetched until you request it.</span>
+            </div>
+        `;
     }
 
     getCutoff({ force = false } = {}) {
@@ -125,7 +143,24 @@ export class AnalyticsTab extends BaseTab {
         this.closeGranolaAnalytics?.();
     }
 
-    async generateReport({ force = false } = {}) {
+    generateReport({ force = false } = {}) {
+        if (!this.reportDiv || !this.isActive) return Promise.resolve();
+        const key = JSON.stringify([this.getActivityToken(), this.reportGeneration,
+            getSelectedCompanyId(), this.scopeSelect?.value || 'selected', this.rangeSelect?.value || '30']);
+        if (this.pendingReport?.key === key) return this.pendingReport.promise;
+        const operation = { key, promise: null };
+        const work = this.buildReport({ force });
+        // buildReport increments the generation before starting the reads.
+        operation.key = JSON.stringify([this.getActivityToken(), this.reportGeneration,
+            getSelectedCompanyId(), this.scopeSelect?.value || 'selected', this.rangeSelect?.value || '30']);
+        operation.promise = work.finally(() => {
+            if (this.pendingReport === operation) this.pendingReport = null;
+        });
+        this.pendingReport = operation;
+        return operation.promise;
+    }
+
+    async buildReport({ force = false } = {}) {
         if (!this.reportDiv || !this.isActive) return;
         const activity = this.getActivityToken();
         const generation = this.reportGeneration = (this.reportGeneration || 0) + 1;

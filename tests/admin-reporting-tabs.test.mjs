@@ -179,3 +179,108 @@ test('catalogue invalidation prevents an old Store query from repopulating the l
 test('Stores does not install a duplicate global store-change listener', () => {
   assert.doesNotMatch(storesSource, /addEventListener\(['"]oako:store-changed/);
 });
+
+function manualAnalyticsFixture({ pending = null } = {}) {
+  let store = 'a';
+  const calls = [];
+  const listeners = new Map();
+  const element = (name, value) => ({ value, textContent: '', addEventListener(event, handler) { listeners.set(`${name}:${event}`, handler); } });
+  const repository = {
+    getRows(name, options) { calls.push({ name, ...options }); return pending ? pending.promise : Promise.resolve([]); },
+    getStores(options) { calls.push({ name: 'companies', ...options }); return Promise.resolve([]); },
+    invalidate() {}
+  };
+  const Class = loadClass(analyticsSource, 'AnalyticsTab', { reportingRepository: repository, getSelectedCompanyId: () => store });
+  const tab = Object.create(Class.prototype);
+  Object.assign(tab, {
+    isActive: true, activity: 1, reportDiv: { innerHTML: 'old report' },
+    rangeSelect: element('range', '30'), scopeSelect: element('scope', 'selected'), btnRefresh: element('refresh'),
+    collectionAnalyticsData: { collections: [{ id: 'old' }], products: [], events: [] },
+    getActivityToken() { return this.activity; }, isActivityCurrent(token) { return this.isActive && this.activity === token; },
+    ensureCollectionAnalyticsModal() {}, ensureGranolaAnalyticsModal() {},
+    closeCollectionAnalytics() { this.collectionClosed = true; }, closeGranolaAnalytics() { this.granolaClosed = true; },
+    renderReport({ selectedCompanyId }) { return `report ${selectedCompanyId}`; },
+    bindGranolaAnalyticsOverview() {}, bindCollectionAnalyticsOverview() {}
+  });
+  return { tab, calls, listeners, setStore(value) { store = value; tab.activity++; } };
+}
+
+test('Analytics navigation and filter edits perform zero database reads until explicit load', async () => {
+  const f = manualAnalyticsFixture();
+  await f.tab.init();
+  await f.tab.onShow();
+  f.listeners.get('range:change')();
+  f.listeners.get('scope:change')();
+  f.setStore('b');
+  await f.tab.onShow();
+  assert.equal(f.calls.length, 0);
+  assert.match(f.tab.reportDiv.innerHTML, /Report not loaded/);
+  assert.match(f.tab.reportDiv.innerHTML, /Load \/ Refresh Report/);
+  assert.equal(f.tab.reportScope, null);
+  assert.deepEqual(f.tab.collectionAnalyticsData, { collections: [], products: [], events: [] });
+  assert(f.tab.collectionClosed && f.tab.granolaClosed);
+  await f.listeners.get('refresh:click')();
+  assert.equal(f.calls.length, 6);
+  assert(f.calls.every(call => call.companyId === 'b'));
+  assert.equal(f.tab.reportDiv.innerHTML, 'report b');
+});
+
+test('Analytics repeated explicit clicks share work, including forced refresh', async () => {
+  const wait = deferred();
+  const f = manualAnalyticsFixture({ pending: wait });
+  await f.tab.init();
+  const first = f.listeners.get('refresh:click')();
+  const second = f.listeners.get('refresh:click')();
+  assert.strictEqual(first, second);
+  assert.equal(f.calls.length, 6);
+  wait.resolve([]);
+  await first;
+  assert.equal(f.tab.reportDiv.innerHTML, 'report a');
+  await f.listeners.get('refresh:click')();
+  assert.equal(f.calls.length, 12, 'a later refresh remains available');
+});
+
+test('Analytics pending report cannot restore stale data after filters change without another load', async () => {
+  const wait = deferred();
+  const f = manualAnalyticsFixture({ pending: wait });
+  await f.tab.init();
+  const request = f.listeners.get('refresh:click')();
+  f.tab.rangeSelect.value = '7';
+  f.listeners.get('range:change')();
+  assert.equal(f.calls.length, 6, 'filter changes never fetch');
+  wait.resolve([]);
+  await request;
+  assert.match(f.tab.reportDiv.innerHTML, /Report not loaded/);
+  assert.equal(f.tab.reportScope, null);
+  assert.deepEqual(f.tab.granolaAnalyticsEvents, []);
+});
+
+test('Analytics hide/reopen does not reload history or expose a previous store report', async () => {
+  const f = manualAnalyticsFixture();
+  await f.tab.init();
+  await f.listeners.get('refresh:click')();
+  f.tab.isActive = false;
+  f.tab.activity++;
+  f.tab.onHide();
+  await f.tab.generateReport({ force: true });
+  f.setStore('b');
+  f.tab.isActive = true;
+  await f.tab.onShow();
+  assert.equal(f.calls.length, 6);
+  assert.match(f.tab.reportDiv.innerHTML, /Report not loaded/);
+  assert.doesNotMatch(f.tab.reportDiv.innerHTML, /report a/);
+});
+
+test('Analytics failed explicit load clears pending work and permits retry', async () => {
+  const wait = deferred();
+  const f = manualAnalyticsFixture({ pending: wait });
+  await f.tab.init();
+  const first = f.listeners.get('refresh:click')();
+  wait.reject(new Error('offline'));
+  await first;
+  assert.equal(f.tab.pendingReport, null);
+  assert.match(f.tab.reportDiv.innerHTML, /Analytics error: offline/);
+  await f.listeners.get('refresh:click')();
+  assert.equal(f.calls.length, 12, 'retry starts a new request set, not the old promise');
+  assert.equal(f.tab.pendingReport, null);
+});
