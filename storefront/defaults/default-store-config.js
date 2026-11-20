@@ -105,12 +105,12 @@ export const DEFAULT_STORE_CONFIGS = {
             { type: "quickActions", variant: "cards", enabled: true },
             { type: "campaign", variant: "timeline", enabled: true },
             { type: "products", variant: "grid", enabled: true },
-            { type: "cta", variant: "investment", enabled: true }
+            { type: "cta", variant: "investment", enabled: false }
         ],
         features: {
             campaign: true,
             subscriptions: false,
-            investmentSection: true,
+            investmentSection: false,
             deliveryBanner: true,
             quickActions: true,
             cart: true,
@@ -146,13 +146,7 @@ export const DEFAULT_STORE_CONFIGS = {
                 { icon: "🌱", title: "Local Producers" },
                 { icon: "♻️", title: "Eco Certified" },
                 { icon: "🍂", title: "Seasonal" }
-            ],
-            cta: {
-                title: "Invest in Biscotti Miste",
-                text: "Join our community of investors and support local organic production.",
-                buttonText: "Learn More",
-                href: "biscotti.html"
-            }
+            ]
         }
     },
     dailybread: {
